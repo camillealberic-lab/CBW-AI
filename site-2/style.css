@@ -497,3 +497,7 @@ table.comp{width:100%;border-collapse:collapse;min-width:620px;font-size:16px}
   .curseur{animation:none}
   .ill-app{animation:none}
 }
+
+/* Hero pleine page, statique : aucune animation d'entrée ni de défilement (retour 9 oct.) */
+.hero .cadre{min-height:calc(100svh - var(--entete) - 2px)}
+.hero .entree,.titre-hero .ligne > span{animation:none;opacity:1;transform:none}
