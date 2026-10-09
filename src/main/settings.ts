@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { isMaskedValue } from '../shared/redact';
 import { dataDir, log } from './paths';
-import { hasSecret, initSecrets, isSecretKey, maskedSecret, secretsEncrypted, setSecret, SECRET_KEYS } from './secrets';
+import { hasSecret, initSecrets, isSecretKey, maskedSecret, purgeSecretItems, secretsEncrypted, setSecret, SECRET_KEYS } from './secrets';
 
 /**
  * Réglages de l'app, stockés à plat ("a.b.c") dans ~/.dicta-ai/config.json.
@@ -107,6 +107,42 @@ class SettingsStore extends EventEmitter {
     if (this.data['general.shortcut'] === 'Fn×2') this.set('general.shortcut', 'LCtrl×2');
     this.set('settings.version', 3);
     log('settings: migration v3 (raccourci Control gauche ×2)');
+  }
+
+  /**
+   * v5 : fournisseurs Mistral et Cloudflare retirés de l'app. On les ôte de providers.order, on efface
+   * leurs réglages (providers.mistral.* / providers.cloudflare.*, forme plate ou imbriquée) et leurs
+   * clés chiffrées dans secrets.json.
+   */
+  migrateV5(): void {
+    if (Number(this.data['settings.version'] ?? 1) >= 5) return;
+    const removed = ['mistral', 'cloudflare'];
+    const isRemoved = (k: string) => removed.some((id) => k.startsWith(`providers.${id}.`));
+    this.load();
+    let changed = false;
+    const order = this.data['providers.order'];
+    if (Array.isArray(order) && order.some((x) => removed.includes(x))) {
+      this.data['providers.order'] = order.filter((x) => !removed.includes(x));
+      changed = true;
+    }
+    for (const k of Object.keys(this.data)) if (isRemoved(k)) (delete this.data[k], (changed = true));
+    const nested = this.data['providers'] as any;
+    if (nested && typeof nested === 'object') {
+      for (const id of removed) if (id in nested) (delete nested[id], (changed = true));
+      if (Array.isArray(nested.order) && nested.order.some((x: unknown) => removed.includes(x as string))) {
+        nested.order = nested.order.filter((x: unknown) => !removed.includes(x as string));
+        changed = true;
+      }
+    }
+    if (changed) this.write();
+    let purged = 0;
+    try {
+      purged = purgeSecretItems(isRemoved);
+    } catch (e) {
+      log('settings: purge des clés retirées impossible', e instanceof Error ? e.message : e);
+    }
+    this.set('settings.version', 5);
+    log(`settings: migration v5 (Mistral et Cloudflare retirés${purged ? `, ${purged} clé(s) effacée(s)` : ''})`);
   }
 
   get<K extends keyof Settings>(k: K): Settings[K] {

@@ -26,7 +26,7 @@ Conséquence clé : ce qui limite, c'est le **TPM (tokens par minute)**, pas le 
 À retenir :
 - **Seul Groq atteint l'objectif de < 600 ms.** Sa latence est d'environ 0,2 à 0,3 s côté serveur, plus environ 0,3 s de réseau.
 - **Ce jour-là, l'offre gratuite Gemini répondait en 7 à 12 s**, environ 10 fois plus lentement que ce que note `config.ts` (« ≈ 1 s »). C'est peut-être une saturation passagère (les modèles Gemma renvoyaient 503 au même moment), mais avec `hedgeMs: 700` Gemini ne gagnera presque jamais la course.
-- Catalogue Groq de ta clé (`GET /openai/v1/models`) : `qwen/qwen3.8-27b`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `openai/gpt-oss-safeguard-20b`, `allam-2-7b`. Le reste, ce sont des modèles audio ou des garde-fous. Il n'y a plus aucun Llama ni Mistral.
+- Catalogue Groq de ta clé (`GET /openai/v1/models`) : `qwen/qwen3.8-27b`, `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `openai/gpt-oss-safeguard-20b`, `allam-2-7b`. Le reste, ce sont des modèles audio ou des garde-fous. Il n'y a plus aucun Llama.
 - Modèles Gemini visibles par ta clé : `gemini-3.5/3.6/3.7/3.8-flash`, `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite(-preview)`, `gemini-flash(-lite)-latest`, `gemma-4-26b-a4b-it`, `gemma-4-31b-it`, et aussi `gemini-2.5-flash(-lite)` (ton compte y a encore droit).
 
 ---
@@ -39,10 +39,8 @@ Légende : **Durable** = gratuit sans limite de durée. **Crédit unique** = cad
 |---|---|---|---|---|---|---|---|
 | **Groq** | ✅ Durable, sans carte | `openai/gpt-oss-120b`, `qwen/qwen3.8-27b`, `openai/gpt-oss-20b` | **par modèle** : 30 RPM, **1 000 RPD, 8 000 TPM**, 200 000 TPD ([doc](https://console.groq.com/docs/rate-limits)). Les tokens en cache ne comptent pas. | **0,56 à 0,64 s mesurés** | ✅ `https://api.groq.com/openai/v1` | Pas de rétention par défaut ; logs ≤ 30 j en cas d'abus ; ZDR activable ([doc](https://console.groq.com/docs/your-data)) | Données stockées aux US |
 | **Google Gemini API** | ✅ Durable, sans carte (ne pas activer la facturation) | `gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` | RPM/TPM/RPD **non publiés** : visibles seulement dans AI Studio → Rate limit, **par projet** ; remise à zéro à minuit heure du Pacifique ([doc](https://ai.google.dev/gemini-api/docs/rate-limits), màj 2/9/2026). Des comparatifs tiers citent environ 15 RPM / 1 000 RPD pour les Flash-Lite, chiffre non confirmé. | ❌ **7 à 12 s mesurés** | ✅ (`/v1beta/openai/`) ou natif | **Offre gratuite = données utilisées pour améliorer les produits**, relecture humaine possible ([tarifs](https://ai.google.dev/gemini-api/docs/pricing), màj 7/10/2026) | OK (ta clé fonctionne depuis la France) |
-| **Mistral La Plateforme** (Free / « Experiment ») | ✅ Durable, sans carte, **téléphone vérifié** | `mistral-small-latest` (Small 4, v26.03), Ministral 3 en 3B/8B/14B (v25.12). Ids à confirmer via `GET /v1/models`. | Selon le centre d'aide et des agrégateurs : **1 req/s, 500k TPM, 1 Md tokens/mois** ; les chiffres exacts figurent dans Admin → API → Limits ([doc](https://docs.mistral.ai/admin/billing-usage/usage-limits)) | Non testé (pas de clé) ; Mistral Small est réputé rapide | ✅ `https://api.mistral.ai/v1` | **Les requêtes du plan gratuit peuvent servir à l'entraînement** ([aide](https://help.mistral.ai/en/articles/455206-how-can-i-try-the-api-for-free-with-the-experiment-plan)) | ✅ **Entreprise française, hébergement UE** |
-| **Cloudflare Workers AI** | ✅ Durable, sans carte | `@cf/google/gemma-4-26b-a4b-it`, `@cf/mistralai/mistral-small-3.1-24b-instruct`, `@cf/meta/llama-3.1-8b-instruct-fp8-fast` | **10 000 neurones/jour**, remis à zéro à 00:00 UTC ([tarifs](https://developers.cloudflare.com/workers-ai/platform/pricing/), màj 1/10/2026). Pour 2,2k tokens en entrée et 50 en sortie : gemma-4-26b ≈ 21 neurones, soit **environ 460 req/jour** ; mistral-small-3.1 ≈ 73 neurones, soit environ 135 req/jour ; llama-3.1-8b-fast ≈ 11 neurones, soit environ 900 req/jour (qualité FR moindre). | Non testé | ✅ `…/accounts/{id}/ai/v1/chat/completions` | Pas d'entraînement sur les données clients | Réseau mondial |
 | **OpenRouter `:free`** | ✅ Durable, sans carte | `google/gemma-4-31b-it:free`, `google/gemma-4-26b-a4b-it:free`, `nvidia/nemotron-3-super-120b-a12b:free` | 20 RPM ; **50 req/jour**, ou **1 000 req/jour une fois 10 crédits achetés au total** (un seul achat de 10 $, qu'on n'a pas besoin de dépenser) ([doc](https://openrouter.ai/docs/api-reference/limits)). Pool partagé : 429 fréquents. | ❌ 429 lors du test | ✅ | Dépend du fournisseur ; l'option « ne pas router vers les fournisseurs qui entraînent » peut supprimer les modèles gratuits ([doc](https://openrouter.ai/docs/features/privacy-and-logging)) | — |
-| **NVIDIA build.nvidia.com (NIM)** | ⚠️ Gratuit « prototypage », sans carte ; usage en production exclu par les CGU | Mistral Small, Llama, Gemma, Nemotron… | Environ **40 RPM**, pas de plafond quotidien rapporté. Pas de chiffres officiels : forum NVIDIA ([fil](https://forums.developer.nvidia.com/t/api-rate-limit-increase-is-not-granted-by-requesting-it-here/368420)). | Variable (file d'attente partagée) | ✅ `https://integrate.api.nvidia.com/v1` | Non précisé | US |
+| **NVIDIA build.nvidia.com (NIM)** | ⚠️ Gratuit « prototypage », sans carte ; usage en production exclu par les CGU | Llama, Gemma, Nemotron… | Environ **40 RPM**, pas de plafond quotidien rapporté. Pas de chiffres officiels : forum NVIDIA ([fil](https://forums.developer.nvidia.com/t/api-rate-limit-increase-is-not-granted-by-requesting-it-here/368420)). | Variable (file d'attente partagée) | ✅ `https://integrate.api.nvidia.com/v1` | Non précisé | US |
 | **Cerebras** | ❌ **Crédit unique** : 5 $ valables 30 jours, **carte obligatoire** depuis mi-2026 ([tarifs](https://www.cerebras.ai/pricing)) | `gpt-oss-120b`, `qwen-3.8-27b` | 5 RPM, 30k TPM non mis en cache, 1M TPD ([doc](https://inference-docs.cerebras.ai/support/rate-limits)) | Très rapide | ✅ | — | — |
 | **SambaNova Cloud** | ⚠️ Gratuit sans carte mais très limité | DeepSeek V3.x, MiniMax, Gemma 4 31B (aperçu) | Sources tierces : **20 RPM, 20 RPD**, 200k TPD par modèle (page officielle introuvable, 404) | — | ✅ | — | — |
 | **Cohere** (clé d'essai) | ⚠️ Durable mais **1 000 appels/mois**, usage non commercial | Command R7B / Command A, Aya (bon en FR) | 20 RPM chat, **1 000 appels/mois** ([doc](https://docs.cohere.com/docs/rate-limits)), soit environ 33/jour : insuffisant | — | Partiel (endpoint de compatibilité) | — | — |
@@ -54,10 +52,8 @@ Légende : **Durable** = gratuit sans limite de durée. **Crédit unique** = cad
 
 ### Qui donne le plus de requêtes par jour, pour nous ?
 1. **Groq** : 3 modèles × 1 000 RPD = **3 000 req/jour**, mais 8k TPM par modèle, soit environ 3 dictées par minute et par modèle, **environ 9 par minute en alternant les 3 modèles**.
-2. **Mistral** : le plafond de 1 req/s suffit largement (1 Md tokens/mois, soit environ 15 000 req/jour).
-3. **Cloudflare** : environ 460 req/jour avec gemma-4-26b.
-4. **Gemini** : RPD à lire dans AI Studio. Pour les modèles visibles par ta clé, ce sont en principe les **Flash-Lite** (`gemini-3.5-flash-lite` / `3.1-flash-lite`) qui ont le RPD le plus élevé ; les `3.6/3.7/3.8-flash` sont plus limités et plus lents. **Va vérifier dans AI Studio → Rate limit**, puis règle `providers.gemini.dailyLimit` en conséquence.
-5. **OpenRouter** : 50/jour, ou 1 000/jour après un achat unique de 10 $ (ce n'est plus 0 €, mais c'est fait une fois pour toutes).
+2. **Gemini** : RPD à lire dans AI Studio. Pour les modèles visibles par ta clé, ce sont en principe les **Flash-Lite** (`gemini-3.5-flash-lite` / `3.1-flash-lite`) qui ont le RPD le plus élevé ; les `3.6/3.7/3.8-flash` sont plus limités et plus lents. **Va vérifier dans AI Studio → Rate limit**, puis règle `providers.gemini.dailyLimit` en conséquence.
+3. **OpenRouter** : 50/jour, ou 1 000/jour après un achat unique de 10 $ (ce n'est plus 0 €, mais c'est fait une fois pour toutes).
 
 ---
 
@@ -68,11 +64,9 @@ Légende : **Durable** = gratuit sans limite de durée. **Crédit unique** = cad
 |---|---|---|
 | **1. Principal** | **Groq `openai/gpt-oss-120b`** avec `reasoning_effort: "low"` | Le plus rapide mesuré (0,56 s) ; respecte la règle « nombres en lettres » et la typographie FR. Environ 60 tokens de raisonnement : à prévoir dans `max_tokens` (≥ 400). |
 | 2. Rotation Groq | **`qwen/qwen3.8-27b`** (`reasoning_effort: "none"`), puis **`openai/gpt-oss-20b`** (`low`) | Chaque modèle a **son propre quota** (1 000 RPD / 8k TPM). Sur 429, ou quand `x-ratelimit-remaining-tokens` < 2 500, passer au modèle Groq suivant **avant** de changer de fournisseur. Ça triple le débit par minute. |
-| 3. Secours cloud UE | **Mistral `mistral-small-latest`** (clé à créer) | Très bon en français, hébergé dans l'UE, gros quota. Inconvénient : entraînement sur les données en offre gratuite. |
-| 4. Secours | **Cloudflare `@cf/google/gemma-4-26b-a4b-it`** (clé à créer) | Durable, pas d'entraînement sur les données, environ 460 req/jour. |
-| 5. Secours lent | Gemini `gemini-3.5-flash-lite` (thinking minimal) | 7 à 12 s le 8/10 : à garder seulement comme filet, pas en course « hedgée ». |
-| 6. Local | Ollama, version allégée (voir §4) | Hors ligne, confidentiel. |
-| 7. Dernier recours | OpenRouter `google/gemma-4-31b-it:free` | 50/jour, 429 fréquents. |
+| 3. Secours lent | Gemini `gemini-3.5-flash-lite` (thinking minimal) | 7 à 12 s le 8/10 : à garder seulement comme filet, pas en course « hedgée ». |
+| 4. Local | Ollama, version allégée (voir §4) | Hors ligne, confidentiel. |
+| 5. Dernier recours | OpenRouter `google/gemma-4-31b-it:free` | 50/jour, 429 fréquents. |
 
 À déconseiller : `allam-2-7b` (sortie cassée, contexte de 4k), Cerebras (carte et crédit de 30 jours), Hugging Face, GitHub Models (fermé), Together, Fireworks, Cohere (trop peu de requêtes).
 
@@ -82,22 +76,9 @@ Légende : **Durable** = gratuit sans limite de durée. **Crédit unique** = cad
 - Lire `x-ratelimit-remaining-tokens` / `x-ratelimit-reset-tokens` pour choisir le modèle Groq suivant.
 
 ### Clés à créer (pas à pas)
-1. **Mistral** (5 min, téléphone requis)
-   1. https://console.mistral.ai/ : crée un compte.
-   2. Choisis le plan gratuit (Experiment / Free) et vérifie ton numéro de téléphone. N'ajoute pas de carte.
-   3. API Keys → « Create new key » : https://console.mistral.ai/api-keys
-   4. Vérifie tes limites dans Admin → API → Limits, puis lance `curl https://api.mistral.ai/v1/models -H "Authorization: Bearer $MISTRAL_API_KEY"` pour confirmer les ids (`mistral-small-latest`, `ministral-8b-…`).
-   5. Optionnel : dans les réglages de confidentialité, regarde si l'opt-out d'entraînement est possible sur le plan gratuit.
-2. **Cloudflare Workers AI** (5 min, sans carte)
-   1. https://dash.cloudflare.com/sign-up : crée un compte gratuit.
-   2. Récupère l'**Account ID** (dashboard, colonne de droite).
-   3. Crée un token : https://dash.cloudflare.com/profile/api-tokens → « Create Token » → modèle « Workers AI ».
-   4. Endpoint : `https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/ai/v1/chat/completions`, avec le modèle `@cf/google/gemma-4-26b-a4b-it`.
-3. **Groq** (déjà en place) : active **Zero Data Retention** dans https://console.groq.com/settings/data-controls.
-4. **Gemini** (déjà en place) : lis ton RPD réel dans https://aistudio.google.com/rate-limit et n'active pas la facturation.
-5. Optionnel : NVIDIA https://build.nvidia.com (compte développeur gratuit, environ 40 RPM) comme secours supplémentaire.
-
-Ces fournisseurs (Mistral, Cloudflare) **n'existent pas encore dans `src/llm/`** : le code ne connaît que `gemini | groq | openrouter | ollama`. Tous deux sont OpenAI-compatibles, donc un adaptateur générique suffira.
+1. **Groq** (déjà en place) : active **Zero Data Retention** dans https://console.groq.com/settings/data-controls.
+2. **Gemini** (déjà en place) : lis ton RPD réel dans https://aistudio.google.com/rate-limit et n'active pas la facturation.
+3. Optionnel : NVIDIA https://build.nvidia.com (compte développeur gratuit, environ 40 RPM) comme secours supplémentaire.
 
 ---
 
@@ -145,8 +126,6 @@ Note : llama.cpp charge le GGUF par `mmap`. Les grosses tables d'embeddings par 
 - Groq, limites : https://console.groq.com/docs/rate-limits · données : https://console.groq.com/docs/your-data
 - Gemini, limites : https://ai.google.dev/gemini-api/docs/rate-limits (màj 2/9/2026) · tarifs : https://ai.google.dev/gemini-api/docs/pricing (màj 7/10/2026)
 - Cerebras : https://inference-docs.cerebras.ai/support/rate-limits · https://www.cerebras.ai/pricing
-- Mistral : https://docs.mistral.ai/admin/billing-usage/usage-limits · https://help.mistral.ai/en/articles/455206-how-can-i-try-the-api-for-free-with-the-experiment-plan · https://docs.mistral.ai/getting-started/models
-- Cloudflare : https://developers.cloudflare.com/workers-ai/platform/pricing/ (màj 1/10/2026)
 - OpenRouter : https://openrouter.ai/docs/api-reference/limits · https://openrouter.ai/blog/tutorials/free-llm-apis-compared/ (màj 24/9/2026)
 - GitHub Models (fermeture) : https://docs.github.com/en/github-models/use-github-models/prototyping-with-ai-models
 - Hugging Face : https://huggingface.co/docs/inference-providers/pricing

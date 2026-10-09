@@ -14,7 +14,7 @@ import type { ProviderId } from '../shared/types.ts';
 export const NOTES_PROMPT_VERSION = 'notes-v2.0';
 
 /** Grands contextes et bonne qualité d'abord ; Ollama en dernier (contexte local limité). */
-export const NOTES_ORDER: ProviderId[] = ['gemini', 'groq', 'mistral', 'zai', 'cloudflare', 'openrouter', 'ollama'];
+export const NOTES_ORDER: ProviderId[] = ['gemini', 'groq', 'zai', 'openrouter', 'ollama'];
 
 const CHUNK_WORDS = 3500; // ~20–25 min de parole par partie : tient dans les quotas gratuits et garde l'exhaustivité
 

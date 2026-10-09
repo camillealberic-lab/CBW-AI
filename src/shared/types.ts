@@ -22,7 +22,7 @@ export interface DictaStatus {
   elapsedMs?: number;    // prise de notes : durée enregistrée (pauses exclues)
 }
 
-export type ProviderId = 'gemini' | 'groq' | 'zai' | 'mistral' | 'cloudflare' | 'openrouter' | 'ollama';
+export type ProviderId = 'gemini' | 'groq' | 'zai' | 'openrouter' | 'ollama';
 
 export interface CleanResult {
   text: string;

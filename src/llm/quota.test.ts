@@ -191,6 +191,27 @@ const wipeUsage = () => rmSync(join(home, 'usage.json'), { force: true });
   check(!again.includes('zai') && !again.includes('groq'), `6c. pas de nouvelle sonde des fournisseurs vus < 5 min (sondés : ${again.join(',') || 'aucun'})`);
 }
 
+// 7. Modèle local (qwen3.5:4b) : ULTIME recours seulement — jamais appelé si un cloud répond, ni en spéculatif.
+{
+  process.env.OLLAMA_HOST = 'http://ollama.test';
+  const ollama: Handler = (model) =>
+    model ? { status: 200, body: { model, message: { content: CLEAN }, done: true, done_reason: 'stop' } } : { status: 200, body: { models: [{ name: 'qwen3.5:4b' }] } };
+  wipeUsage();
+  reset('groq,gemini,ollama');
+  handlers = { groq: (m) => ok(m), gemini: okGemini, 'ollama.test': ollama };
+  const r1 = await cleanTranscriptDetailed(RAW);
+  check(r1.provider === 'groq' && count('ollama.test') === 0, `7a. cloud disponible → local jamais contacté (${count('ollama.test')} appel)`);
+  wipeUsage();
+  reset('groq,gemini,ollama');
+  handlers = { groq: () => tooMany({ 'retry-after': '600' }), gemini: () => tooMany({ 'retry-after': '600' }, 'quota exceeded'), 'ollama.test': ollama };
+  const r3 = await cleanTranscriptDetailed(RAW, { speculative: true } as any);
+  check(r3.provider !== 'ollama' && count('ollama.test') === 0, `7b. nettoyage spéculatif : jamais de local (${r3.provider})`);
+  reset('groq,gemini,ollama');
+  const r2 = await cleanTranscriptDetailed(RAW);
+  check(r2.provider === 'ollama' && r2.model === 'qwen3.5:4b', `7c. tous les quotas cloud épuisés → qwen3.5:4b en ultime recours (${r2.provider} ${r2.model})`);
+  process.env.OLLAMA_HOST = 'http://127.0.0.1:9';
+}
+
 const usage = JSON.parse(readFileSync(join(home, 'usage.json'), 'utf8'));
 check(usage.models && typeof usage.models === 'object', 'usage.json contient les quotas par modèle');
 writeFileSync(join(home, 'done'), '');

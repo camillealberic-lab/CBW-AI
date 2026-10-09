@@ -125,7 +125,7 @@ Notification macOS « Note prête » → clic : ouvre la fenêtre sur `#notes:<i
 `wipeAllData(opts?: { documents?: boolean; models?: boolean }): Promise<{ removed: string[] }>` — efface clés API (+ élément « CBW AI Safe Storage » du trousseau), réglages, historique, compteurs, notes internes, audio, journaux, profil Chromium ; `documents: true` supprime aussi `~/Documents/CBW AI` (notes exportées), `models: true` les modèles téléchargés (≈ 600 Mo). Seul `true` strict active une option (défaut : conservés). L'app se relance ≈ 300 ms après la réponse et repart sur l'onboarding : afficher « Suppression… » puis ne plus rien appeler.
 UI (docs/SECURITY.md › 8) : Réglages › Confidentialité, bouton rouge « Supprimer toutes mes données… » → dialogue listant ce qui sera effacé, deux cases décochées (Documents, modèles), bouton « Tout supprimer » actif après saisie de « SUPPRIMER ».
 
-Tous les canaux `app:*` vérifient l'émetteur (cadre principal d'une page de l'app dans la fenêtre principale) ; `testProvider(id)` n'accepte que `gemini | groq | zai | mistral | cloudflare | openrouter | ollama` (sinon `{ ok: false, message: 'Fournisseur inconnu' }`).
+Tous les canaux `app:*` vérifient l'émetteur (cadre principal d'une page de l'app dans la fenêtre principale) ; `testProvider(id)` n'accepte que `gemini | groq | zai | openrouter | ollama` (sinon `{ ok: false, message: 'Fournisseur inconnu' }`).
 
 ## Mises à jour (src/main/updater.ts)
 

@@ -188,8 +188,6 @@ Règles : ne modifie rien d'autre sur le Mac, n'installe aucun autre logiciel sa
         <div class="tbl"><table>
           <thead><tr><th scope="col">Moteur</th><th scope="col">Bon à savoir</th></tr></thead>
           <tbody>
-            <tr><th scope="row">Mistral</th><td>Entreprise française, serveurs en Europe. Plan gratuit « Experiment ».</td></tr>
-            <tr><th scope="row">Cloudflare</th><td>Token « Workers AI » + Account ID. Environ 450 dictées par jour.</td></tr>
             <tr><th scope="row">Gemini</th><td>Compte Google. N'active pas la facturation.</td></tr>
             <tr><th scope="row">Ollama</th><td>100 % local, rien ne sort. Demande ≈ 10 Go de mémoire libre : déconseillé sur 8 ou 16 Go.</td></tr>
           </tbody>
@@ -221,7 +219,7 @@ Règles : ne modifie rien d'autre sur le Mac, n'installe aucun autre logiciel sa
         <ul>
           <li><strong>Ta voix ne quitte jamais ton Mac.</strong> Aucun audio n'est envoyé ni conservé.</li>
           <li>Seul le <strong>texte transcrit</strong> part vers le moteur IA choisi, pour être nettoyé. Avec Ollama, rien ne sort.</li>
-          <li>Mistral héberge ses serveurs en Europe ; Groq, Cloudflare et Gemini sont des services américains ou mondiaux.</li>
+          <li>Groq, Gemini et OpenRouter sont des services américains ou mondiaux ; Z.ai utilise des serveurs hors de l'Union européenne.</li>
           <li>Clés et réglages : dans <code>~/.dicta-ai</code>, sur ton Mac. Historique : les 20 dernières dictées, effaçables.</li>
           <li>CBW Studio ne reçoit rien : ni ta voix, ni tes textes, ni tes clés.</li>
         </ul>
@@ -238,7 +236,7 @@ Règles : ne modifie rien d'autre sur le Mac, n'installe aucun autre logiciel sa
         <p>Le plus simple : réinstalle avec <a href="#installation">la ligne Terminal</a>, elle évite ce blocage. Sinon, dans Terminal :</p>
         <pre><code>xattr -dr com.apple.quarantine "/Applications/CBW AI.app"</code></pre>
         <h3>Texte collé mais pas nettoyé</h3>
-        <p>Le quota gratuit du jour est atteint chez tous tes moteurs : CBW AI colle la transcription brute pour que tu ne perdes rien. Ajoute une clé de secours (Mistral, Cloudflare). Les quotas reviennent chaque jour.</p>
+        <p>Le quota gratuit du jour est atteint chez tous tes moteurs : CBW AI colle la transcription brute pour que tu ne perdes rien. Ajoute une clé de secours (Gemini, Z.ai). Les quotas reviennent chaque jour.</p>
       </section>
 
       <section id="desinstaller">

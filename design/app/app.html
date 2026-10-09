@@ -546,7 +546,6 @@ html.preloading #onboarding *, html.preloading #hub * { animation-play-state: pa
 #obMore > summary { width: 100%; padding: 12px 0; }
 #obMore > summary .cnt { margin-left: auto; font: 500 11px var(--mono); color: var(--texte-3); }
 #obMore .keyrow:first-child { border-top: 1px solid var(--fil); }
-.acct { width: 100%; font: 12px var(--mono) !important; }
 #obKeys { border-top: 1px solid var(--fil); }
 .keyline { display: flex; gap: 8px; }
 .keywrap { position: relative; flex: 1; min-width: 0; }
@@ -2028,7 +2027,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   let cfg = {};
   const DEFAULTS = {
     'general.shortcut': 'LCtrl×2', 'general.insertMode': 'paste', 'general.language': 'fr', 'general.launchAtLogin': true,
-    'providers.order': ['groq', 'zai', 'mistral', 'cloudflare', 'gemini', 'ollama', 'openrouter'], 'providers.localFirst': false,
+    'providers.order': ['groq', 'gemini', 'zai', 'ollama', 'openrouter'], 'providers.localFirst': false,
     'providers.ollama.model': 'gemma4:e4b', 'whisper.model': 'large-v3-turbo',
     'cleaning.level': 'standard', 'cleaning.keepRawOnFailure': true, 'cleaning.vocabulary': [],
     'appearance.theme': 'light'
@@ -2469,18 +2468,15 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   const PROVIDERS = {
     gemini: { name: 'Gemini', sub: 'Google AI Studio · Flash-Lite', url: 'https://aistudio.google.com/apikey', cloud: true },
     groq: { name: 'Groq', sub: 'Très rapide · clé gratuite en 1 minute', url: 'https://console.groq.com/keys', cloud: true, prefix: 'gsk_' },
-    mistral: { name: 'Mistral', sub: 'Gratuit · hébergé en UE', url: 'https://console.mistral.ai/api-keys', cloud: true },
-    cloudflare: { name: 'Cloudflare', sub: 'Workers AI · ~450 / jour', url: 'https://dash.cloudflare.com/profile/api-tokens', cloud: true },
     zai: { name: 'Z.ai', sub: 'Gratuit · serveurs hors UE', url: 'https://z.ai/manage-apikey/apikey-list', cloud: true },
     openrouter: { name: 'OpenRouter', sub: 'Modèles gratuits', url: 'https://openrouter.ai/keys', cloud: true },
-    ollama: { name: 'Modèle local', sub: 'Ollama · sur ton Mac, hors ligne', url: 'https://ollama.com/download', cloud: false }
+    ollama: { name: 'Modèle local', sub: 'Ollama · qwen3.5:4b · ultime recours si les quotas sont épuisés', url: 'https://ollama.com/download', cloud: false }
   };
-  const CLOUD = ['groq', 'zai', 'mistral', 'cloudflare', 'gemini', 'openrouter'];
+  const CLOUD = ['groq', 'gemini', 'zai', 'openrouter'];
   const RECO = 'groq';
   const testOk = {};
   // Configuré = un test a réussi (ou le modèle local est présent) — une clé saisie ne suffit pas
   function engineConfigured() { return !!olState.modelPresent || CLOUD.some((id) => testOk[id]); }
-  const ACCT = '<input type="text" class="acct" autocomplete="off" spellcheck="false" placeholder="Identifiant de compte Cloudflare" data-setting="providers.cloudflare.accountId" aria-label="Identifiant de compte Cloudflare">';
 
   function keyRowHtml(id, compact, reco) {
     const p = PROVIDERS[id];
@@ -2491,7 +2487,6 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       '<div class="keyline' + (compact ? '' : ' prov-b') + '"><div class="keywrap"><input type="password" autocomplete="off" spellcheck="false" placeholder="Colle ta clé ' + p.name + (p.prefix ? ' (' + p.prefix + '…)' : '') + '" data-key="' + id + '" aria-label="Clé API ' + p.name + '">' +
       '<button class="icon-btn" data-reveal aria-label="Afficher ou masquer la clé"><svg width="14" height="14"><use href="#i-eye"/></svg></button></div>' +
       '<button class="btn" data-test="' + id + '">Tester</button></div>' +
-      (id === 'cloudflare' ? '<div' + (compact ? '' : ' class="prov-b"') + '>' + ACCT + '</div>' : '') +
       '<div class="tmsg" aria-live="polite"></div></div>';
   }
   const others = CLOUD.filter((x) => x !== RECO);
@@ -3532,8 +3527,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     try { const t = localStorage.getItem('cbw.theme'); if (t === 'dark' || t === 'light' || t === 'system') savedTheme = t; } catch (e) { /* */ }
     const dcfg = {
       'onboarding.done': false, 'general.shortcut': 'LCtrl×2', 'general.insertMode': 'paste', 'general.language': 'fr', 'general.launchAtLogin': true,
-      'providers.order': ['groq', 'zai', 'mistral', 'cloudflare', 'gemini', 'ollama', 'openrouter'], 'providers.localFirst': false,
-      'providers.gemini.apiKey': '', 'providers.groq.apiKey': '', 'providers.zai.apiKey': '', 'providers.mistral.apiKey': '', 'providers.cloudflare.apiKey': '', 'providers.cloudflare.accountId': '', 'providers.openrouter.apiKey': '', 'providers.ollama.model': 'gemma4:e4b',
+      'providers.order': ['groq', 'gemini', 'zai', 'ollama', 'openrouter'], 'providers.localFirst': false,
+      'providers.gemini.apiKey': '', 'providers.groq.apiKey': '', 'providers.zai.apiKey': '', 'providers.openrouter.apiKey': '', 'providers.ollama.model': 'gemma4:e4b',
       'whisper.model': 'large-v3-turbo', 'cleaning.level': 'standard', 'cleaning.keepRawOnFailure': true, 'cleaning.vocabulary': ['Claude', 'Cursor', 'Supabase', 'CBW AI'],
       'appearance.theme': savedTheme
     };
@@ -3561,7 +3556,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       const dict = words ? Math.max(1, Math.round(words / (26 + rnd() * 14))) : 0;
       daily.push({ date: d.toISOString().slice(0, 10), words, dictations: dict, avgMs: dict ? Math.round(1500 - (29 - i) * 18 + rnd() * 260) : 0 });
     }
-    const byProvider = { groq: 184, gemini: 96, ollama: 41, mistral: 23, passthrough: 9 };
+    const byProvider = { groq: 184, gemini: 96, ollama: 41, zai: 23, passthrough: 9 };
     const stats = { words: 12480, dictations: 342, wpm: 148, streakDays: 6, timeSavedMin: 214, daily, byProvider };
     const EX = [
       { raw: 'euh je veux trois boutons, enfin non quatre', text: 'Je veux quatre boutons.' },
@@ -3590,7 +3585,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       await wait(200);
       const order = (dcfg['providers.localFirst'] ? ['ollama'] : []).concat(dcfg['providers.order']);
       const prov = order.find((id) => id === 'ollama' ? ol.modelPresent : !!dcfg['providers.' + id + '.apiKey']) || 'gemini';
-      const d = { raw: ex.raw, text: ex.text, provider: prov, model: prov === 'ollama' ? ol.model : prov === 'groq' ? 'llama-3.1-8b-instant' : prov === 'zai' ? 'glm-4.7-flash' : prov === 'mistral' ? 'mistral-small-latest' : prov === 'cloudflare' ? '@cf/meta/llama-3.1-8b-instruct' : prov === 'openrouter' ? 'meta-llama/llama-3.3-8b:free' : 'gemini-2.5-flash-lite', at: new Date().toISOString(), ms: 1180 };
+      const d = { raw: ex.raw, text: ex.text, provider: prov, model: prov === 'ollama' ? ol.model : prov === 'groq' ? 'llama-3.1-8b-instant' : prov === 'zai' ? 'glm-4.7-flash' : prov === 'openrouter' ? 'meta-llama/llama-3.3-8b:free' : 'gemini-2.5-flash-lite', at: new Date().toISOString(), ms: 1180 };
       recentD.unshift(d); recentD.length = Math.min(recentD.length, 20);
       const n = ex.text.split(/\s+/).length;
       stats.words += n; stats.dictations += 1; daily[daily.length - 1].words += n; daily[daily.length - 1].dictations += 1;
@@ -3657,8 +3652,6 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       providerStatuses: async () => [
         { id: 'gemini', ui: dcfg['providers.gemini.apiKey'] ? 'available' : 'missing_key', detail: dcfg['providers.gemini.apiKey'] ? '312 / 1 000 aujourd\'hui' : undefined },
         { id: 'groq', ui: dcfg['providers.groq.apiKey'] ? 'available' : 'missing_key', detail: dcfg['providers.groq.apiKey'] ? '88 / 14 400 aujourd\'hui' : undefined },
-        { id: 'mistral', ui: dcfg['providers.mistral.apiKey'] ? 'available' : 'missing_key', detail: dcfg['providers.mistral.apiKey'] ? 'mistral-small-latest' : undefined },
-        { id: 'cloudflare', ui: dcfg['providers.cloudflare.apiKey'] && dcfg['providers.cloudflare.accountId'] ? 'available' : 'missing_key', detail: dcfg['providers.cloudflare.apiKey'] ? '37 / 450 aujourd\'hui' : undefined },
         { id: 'zai', ui: dcfg['providers.zai.apiKey'] ? 'available' : 'missing_key', detail: dcfg['providers.zai.apiKey'] ? 'GLM-4.7-Flash' : undefined },
         { id: 'openrouter', ui: dcfg['providers.openrouter.apiKey'] ? 'quota' : 'missing_key', detail: dcfg['providers.openrouter.apiKey'] ? '50 / 50 aujourd\'hui' : undefined },
         { id: 'ollama', ui: ol.modelPresent ? 'available' : 'offline', detail: ol.modelPresent ? ol.model : 'Modèle absent' }

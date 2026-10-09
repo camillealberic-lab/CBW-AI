@@ -8,6 +8,6 @@ Dictée (Control gauche ×2, prompt v1.5), notes v2 + qui a dit quoi (diarisatio
 - Clic sur une bulle depuis une autre app (focus).
 
 ## En attente
-- Choix du site (site-2 recommandé + hero pastille de site-1 + bulles de site-3) → version finale, page aide, prompt d'installation (docs/aide/PROMPT_INSTALLATION.md).
+- Site : site-2 seul (site-1 et site-3 supprimés le 9 oct.) → version finale, page aide, prompt d'installation (docs/aide/PROMPT_INSTALLATION.md).
 - Publication GitHub Releases + Vercel : uniquement avec accord (lien OWNER/REPO à remplacer).
 - Connu : quelques mots perdus quand un segment est recoupé au changement de locuteur (passer les timestamps de mots de whisper).

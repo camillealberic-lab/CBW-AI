@@ -112,7 +112,7 @@ node --experimental-strip-types src/llm/cli.ts "euh alors on se voit trois heure
 3. Copie la clé (`sk-or-v1-…`) et colle-la dans Réglages → OpenRouter, ou dans `providers.openrouter.apiKey`, ou dans `OPENROUTER_API_KEY`.
 4. Va dans **https://openrouter.ai/settings/privacy** et vérifie que les modèles gratuits sont autorisés. Plusieurs fournisseurs gratuits **peuvent entraîner leurs modèles sur tes requêtes** (voir ci-dessous).
 
-**Modèle utilisé** : `openrouter/free`, un routeur qui choisit automatiquement un modèle gratuit disponible. Tu peux en imposer un avec `"providers": { "openrouter": { "model": "…:free" } }`. La liste des modèles gratuits change souvent : https://openrouter.ai/models?q=free. En octobre 2026, elle ne contient pas de Llama, Qwen, Gemma ni Mistral gratuits.
+**Modèle utilisé** : `openrouter/free`, un routeur qui choisit automatiquement un modèle gratuit disponible. Tu peux en imposer un avec `"providers": { "openrouter": { "model": "…:free" } }`. La liste des modèles gratuits change souvent : https://openrouter.ai/models?q=free. En octobre 2026, elle ne contient pas de Llama, Qwen ni Gemma gratuits.
 
 **Limites gratuites** (modèles `:free`) :
 

@@ -7,14 +7,14 @@ Périmètre : clés API, données de la personne, durcissement Electron, IPC, se
 
 | Donnée | Destination | Quand |
 |---|---|---|
-| **Texte** transcrit (dictée, note complète) + vocabulaire perso | **Le seul** fournisseur LLM qui répond (ordre des Réglages : Groq, Mistral, Cloudflare, Gemini, Z.ai, OpenRouter) en HTTPS | À chaque nettoyage / organisation / compilation |
+| **Texte** transcrit (dictée, note complète) + vocabulaire perso | **Le seul** fournisseur LLM qui répond (ordre des Réglages : Groq, Gemini, Z.ai, OpenRouter) en HTTPS | À chaque nettoyage / organisation / compilation |
 | Rien (requête vide de contenu) | Hugging Face (`huggingface.co`) | Téléchargement des modèles Whisper / voix (SHA-256 vérifié) |
 | Version de l'app, adresse IP | GitHub Releases | Vérification des mises à jour |
 
 - **L'audio ne sort jamais du Mac** : Whisper (transcription) et la séparation des voix tournent en local.
 - **Aucune télémétrie**, aucun rapport de plantage envoyé, aucun service d'analyse (vérifié : pas de `crashReporter`, Sentry, analytics).
 - Avec « Modèle local » (Ollama) en tête de liste, le texte ne sort pas non plus.
-- Attention, côté fournisseurs : les offres gratuites de Gemini, Mistral (« Experiment »), OpenRouter et Z.ai (serveurs hors UE, juridiction chinoise) peuvent réutiliser les requêtes. À dire clairement dans l'onboarding.
+- Attention, côté fournisseurs : les offres gratuites de Gemini, OpenRouter et Z.ai (serveurs hors UE, juridiction chinoise) peuvent réutiliser les requêtes. À dire clairement dans l'onboarding.
 - Les renderers (fenêtres) ne peuvent charger **aucun** contenu distant : CSP `default-src 'none'` dans chaque page + blocage des requêtes http(s)/ws dans la session (`security.ts`). Les appels LLM partent du process main.
 
 ## 2. Où sont les données
@@ -43,7 +43,7 @@ Périmètre : clés API, données de la personne, durcissement Electron, IPC, se
 - **Au repos** : chiffrées par Electron `safeStorage` (`src/main/secrets.ts`). Migration transparente au premier lancement : les clés en clair de `config.json` (forme plate ou imbriquée) sont chiffrées puis effacées du fichier. Si le trousseau est indisponible, l'app garde l'ancien stockage (0600) et le journalise.
 - **Priorité** : variables d'env (`GROQ_API_KEY`…) > trousseau. Le router LLM (bundle séparé) lit les clés via `setSecretAccessor()` ; les valeurs `apiKey` venant de l'UI ou de `config.json` sont alors ignorées.
 - **Vers l'UI** : jamais en clair. `settings.all()` renvoie `"gsk_…a3f2"` + `providers.<id>.hasKey`. Une valeur masquée renvoyée par l'UI est ignorée ; coller une nouvelle clé la remplace (sélection automatique au focus dans `app.html`). « Tester » s'exécute dans le process main.
-- **En transit** : HTTPS uniquement, clé dans un en-tête (`Authorization: Bearer`, Gemini : `x-goog-api-key`, jamais dans l'URL). L'identifiant de compte Cloudflare (non secret) est dans l'URL.
+- **En transit** : HTTPS uniquement, clé dans un en-tête (`Authorization: Bearer`, Gemini : `x-goog-api-key`, jamais dans l'URL).
 - **Journaux / erreurs** : `redact()` (`src/shared/redact.ts`) masque les formats connus (`gsk_`, `AIza`, `AQ.`, `sk-or-v1-`, `sk-`, `xai-`, Z.ai `hex32.alnum16`, `Bearer …`, `?key=`) **et** les valeurs exactes des clés configurées, dans `log()`, les `ProviderError`, `usage.json` et les messages de test.
 - **CLI / bench** (`src/llm/cli.ts`, `bench/`) : pas de trousseau hors Electron → passer les clés par variables d'env (`GROQ_API_KEY=… node --experimental-strip-types src/llm/cli.ts "…"`).
 - Scan du 09/10 (refait après les correctifs : 266 fichiers de `git add -n .`, motifs + 4 préfixes connus, 0 constat ; clé privée de signature absente de l'arborescence et du build) : aucune clé dans `dicta.log`, `ollama.log`, `usage.json`, `history.json`, le dépôt (`git add -n .`), l'`app.asar` packagé ni les sites. Seules occurrences : `~/.dicta-ai/config.json` (4 clés : Groq, Gemini, OpenRouter, Z.ai), migrées au prochain lancement. Le journal contenait 305 transcriptions + 30 résultats de dictée en clair : purgés (longueurs seulement).

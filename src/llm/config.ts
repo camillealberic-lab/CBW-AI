@@ -15,20 +15,18 @@ import type { ProviderId } from '../shared/types.ts';
 
 export type CleanLevel = 'light' | 'standard';
 
-export const ALL_PROVIDERS: readonly ProviderId[] = ['gemini', 'groq', 'zai', 'mistral', 'cloudflare', 'openrouter', 'ollama'];
+export const ALL_PROVIDERS: readonly ProviderId[] = ['gemini', 'groq', 'zai', 'openrouter', 'ollama'];
 // Ordre « vitesse sans saturer la RAM » : Groq ≈ 0,4–0,7 s, Gemini ≈ 1 s, puis le local (gemma4 ≈ 10 Go
 // de mémoire unifiée : trop lourd à garder chargé sur un Mac 16 Go), OpenRouter en dernier recours.
-export const DEFAULT_ORDER: ProviderId[] = ['groq', 'mistral', 'cloudflare', 'gemini', 'zai', 'ollama', 'openrouter'] // Z.ai gratuit : souvent surchargé (3–40 s), en secours;
+export const DEFAULT_ORDER: ProviderId[] = ['groq', 'gemini', 'zai', 'ollama', 'openrouter'] // Z.ai gratuit : souvent surchargé (3–40 s), en secours;
 
 /** Modèles par défaut (ids vérifiés dans les docs officielles, oct. 2026). */
 export const DEFAULT_MODELS: Record<ProviderId, string> = {
   gemini: 'gemini-3.5-flash-lite',
   groq: 'qwen/qwen3.8-27b', // llama-3.1-8b-instant retiré du catalogue Groq (404)
   zai: 'glm-4.5-flash', // gratuit ; glm-4.7-flash en bascule (surchargé le 08/10)
-  mistral: 'mistral-small-latest',
-  cloudflare: '@cf/google/gemma-4-26b-a4b-it',
   openrouter: 'google/gemma-4-31b-it:free', // openrouter/free renvoyait des réponses vides
-  ollama: 'gemma4:e4b',
+  ollama: 'qwen3.5:4b', // 4 Go : ultime recours quand tous les quotas cloud sont épuisés (gemma4:e4b, 9,5 Go, gelait un Mac 16 Go)
 };
 
 export interface LLMConfig {
@@ -37,8 +35,7 @@ export interface LLMConfig {
   /** Si vrai, Ollama passe en tête (confidentialité / hors-ligne). */
   localFirst: boolean;
   models: Record<ProviderId, string>;
-  keys: { gemini?: string; groq?: string; zai?: string; mistral?: string; cloudflare?: string; openrouter?: string };
-  cloudflare: { accountId?: string };
+  keys: { gemini?: string; groq?: string; zai?: string; openrouter?: string };
   ollama: { url: string; keepAlive: string };
   gemini: {
     /** Force un niveau de réflexion ('minimal' | 'low' | ...). Défaut : auto selon le modèle. */
@@ -198,8 +195,6 @@ export function loadConfig(): LLMConfig {
       gemini: model('gemini', 'DICTA_GEMINI_MODEL'),
       groq: model('groq', 'DICTA_GROQ_MODEL'),
       zai: model('zai', 'DICTA_ZAI_MODEL'),
-      mistral: model('mistral', 'DICTA_MISTRAL_MODEL'),
-      cloudflare: model('cloudflare', 'DICTA_CLOUDFLARE_MODEL'),
       openrouter: model('openrouter', 'DICTA_OPENROUTER_MODEL'),
       ollama: model('ollama', 'DICTA_OLLAMA_MODEL'),
     },
@@ -207,22 +202,19 @@ export function loadConfig(): LLMConfig {
       gemini: str(env.GEMINI_API_KEY) ?? str(env.GOOGLE_API_KEY) ?? secret('providers.gemini.apiKey'),
       groq: str(env.GROQ_API_KEY) ?? secret('providers.groq.apiKey'),
       zai: str(env.ZAI_API_KEY) ?? secret('providers.zai.apiKey'),
-      mistral: str(env.MISTRAL_API_KEY) ?? secret('providers.mistral.apiKey'),
-      cloudflare: str(env.CLOUDFLARE_API_TOKEN) ?? secret('providers.cloudflare.apiKey'),
       openrouter: str(env.OPENROUTER_API_KEY) ?? secret('providers.openrouter.apiKey'),
     },
     ollama: {
       url: (str(env.OLLAMA_HOST) ?? str(g('providers.ollama.url')) ?? 'http://localhost:11434')
         .replace(/\/+$/, '')
         .replace(/^(?!https?:\/\/)/, 'http://'),
-      keepAlive: str(g('providers.ollama.keepAlive')) ?? '5m', // libère ~10 Go après 5 min (« -1m » = permanent : a saturé la RAM d'un Mac 16 Go)
+      keepAlive: str(g('providers.ollama.keepAlive')) ?? '2m', // ultime recours : libère la mémoire 2 min après la dernière dictée (« -1m » = permanent : a saturé la RAM d'un Mac 16 Go)
     },
-    cloudflare: { accountId: str(env.CLOUDFLARE_ACCOUNT_ID) ?? str(g('providers.cloudflare.accountId')) },
     gemini: { thinkingLevel: str(env.DICTA_GEMINI_THINKING) ?? str(g('providers.gemini.thinkingLevel')) },
     openrouter: { dataCollection: g('providers.openrouter.dataCollection') === 'deny' ? 'deny' : 'allow' },
     timeouts: {
       cloudMs: num(env.DICTA_CLOUD_TIMEOUT_MS) ?? num(g('providers.timeouts.cloudMs')) ?? 8000,
-      localMs: num(env.DICTA_LOCAL_TIMEOUT_MS) ?? num(g("providers.timeouts.localMs")) ?? 45000, // chargement à froid de gemma4 ≈ 20–30 s
+      localMs: num(env.DICTA_LOCAL_TIMEOUT_MS) ?? num(g("providers.timeouts.localMs")) ?? 25000, // chargement à froid de qwen3.5:4b ≈ 8–12 s
     },
     hedgeMs: num(env.DICTA_HEDGE_MS) ?? num(g('providers.hedgeMs')) ?? 700,
     dailyLimits,

@@ -64,7 +64,7 @@ export async function clean(raw: string, opts: CleanOptions & { timeoutMs?: numb
   const passthrough = (): CleanResult => ({ text: raw, provider: 'passthrough', model: '', latencyMs: Date.now() - t0 });
   if (!fn) return passthrough();
   const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), opts.timeoutMs ?? 10000);
+  const timer = setTimeout(() => ac.abort(), opts.timeoutMs ?? 30000); // laisse le temps au modèle local de charger (ultime recours)
   try {
     const r = await fn(raw, { ...opts, signal: ac.signal });
     return r && typeof r.text === 'string' && r.text.trim() ? r : passthrough();

@@ -46,6 +46,7 @@ async function main(): Promise<void> {
   settings.migrate();
   settings.migrateV3();
   settings.migrateV4();
+  settings.migrateV5();
   await app.whenReady();
   app.setName('CBW AI');
   secureStartup(); // clés API → trousseau, session durcie, permissions des données

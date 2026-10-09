@@ -92,7 +92,7 @@ function pushLlmOverrides(): void {
 }
 
 /** Fournisseurs connus (src/llm/config.ts › ALL_PROVIDERS) : `testProvider` refuse tout autre identifiant. */
-const PROVIDER_IDS: readonly ProviderId[] = ['gemini', 'groq', 'zai', 'mistral', 'cloudflare', 'openrouter', 'ollama'];
+const PROVIDER_IDS: readonly ProviderId[] = ['gemini', 'groq', 'zai', 'openrouter', 'ollama'];
 const isProviderId = (x: unknown): x is ProviderId => typeof x === 'string' && (PROVIDER_IDS as readonly string[]).includes(x);
 
 /** Fenêtre principale attendue comme émetteur de tous les canaux `app:*`. */

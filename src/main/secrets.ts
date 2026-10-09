@@ -16,7 +16,7 @@ import { dataDir } from './paths';
  *   (comportement historique, 0600), signalé dans le journal — l'app reste utilisable.
  */
 
-export const SECRET_PROVIDERS = ['gemini', 'groq', 'zai', 'mistral', 'cloudflare', 'openrouter'] as const;
+export const SECRET_PROVIDERS = ['gemini', 'groq', 'zai', 'openrouter'] as const;
 export const SECRET_KEYS: readonly string[] = SECRET_PROVIDERS.map((p) => `providers.${p}.apiKey`);
 export const isSecretKey = (k: string): boolean => SECRET_KEYS.includes(k);
 
@@ -142,6 +142,20 @@ export function setSecret(k: string, value: string): boolean {
   }
   writeFile(f);
   return true;
+}
+
+/**
+ * Retire de secrets.json les éléments dont la clé vérifie `match` (fournisseurs retirés de l'app).
+ * Simple édition du fichier : ne déchiffre rien, utilisable avant app.whenReady(). Renvoie le nombre retiré.
+ */
+export function purgeSecretItems(match: (k: string) => boolean): number {
+  if (!fs.existsSync(file())) return 0;
+  const f = readFile();
+  const gone = Object.keys(f.items).filter(match);
+  if (!gone.length) return 0;
+  for (const k of gone) delete f.items[k];
+  writeFile(f);
+  return gone.length;
 }
 
 /** « Supprimer toutes mes données » : efface le fichier chiffré et le cache. */

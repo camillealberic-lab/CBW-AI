@@ -16,8 +16,6 @@ import { distDir, log } from './paths';
 const EXTERNAL_HOSTS = [
   'aistudio.google.com',
   'console.groq.com',
-  'console.mistral.ai',
-  'dash.cloudflare.com',
   'z.ai',
   'openrouter.ai',
   'ollama.com',

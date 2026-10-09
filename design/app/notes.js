@@ -503,7 +503,7 @@
     var y = d.getFullYear() !== new Date().getFullYear() ? ' ' + d.getFullYear() : '';
     return d.getDate() + ' ' + MOIS[d.getMonth()] + y + ' · ' + d.getHours() + ' h ' + pad(d.getMinutes());
   }
-  var PROV = { passthrough: 'Aucun (brut)', ollama: 'Ollama (local)', groq: 'Groq', zai: 'Z.ai', mistral: 'Mistral', cloudflare: 'Cloudflare', gemini: 'Gemini', openrouter: 'OpenRouter' };
+  var PROV = { passthrough: 'Aucun (brut)', ollama: 'Ollama (local)', groq: 'Groq', zai: 'Z.ai', gemini: 'Gemini', openrouter: 'OpenRouter' };
   function prov(p) { return PROV[p] || (p ? String(p) : '—'); }
   function fold(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
   var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;

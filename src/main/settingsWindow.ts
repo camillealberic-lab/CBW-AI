@@ -9,7 +9,7 @@ import { settings, validateSetting } from './settings';
 import { downloadWhisper, whisperModel } from './whisper';
 import { CATALOG } from './whisperModels';
 
-const PROVIDER_IDS = ['gemini', 'groq', 'zai', 'mistral', 'cloudflare', 'openrouter', 'ollama'];
+const PROVIDER_IDS = ['gemini', 'groq', 'zai', 'openrouter', 'ollama'];
 
 let win: BrowserWindow | null = null;
 let last: [string, string, unknown] | null = null;

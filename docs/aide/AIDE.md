@@ -118,8 +118,6 @@ Tu peux ajouter d'autres clés. Si un moteur est indisponible ou a atteint sa li
 
 | Moteur | Où créer la clé | Bon à savoir |
 |---|---|---|
-| **Mistral** | [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys) | Entreprise française, serveurs **en Europe**. Choisis le plan gratuit (« Experiment ») ; ton numéro de téléphone est demandé. Sur ce plan gratuit, Mistral peut utiliser tes textes pour améliorer ses modèles. |
-| **Cloudflare** | [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) | Clique sur **Create Token** et choisis le modèle **Workers AI**. CBW AI te demande aussi ton **Account ID** (affiché sur l'accueil de ton tableau de bord Cloudflare). Environ 450 dictées par jour. |
 | **Gemini** (Google) | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) | Connexion avec ton compte Google, puis **Create API key**. N'active pas la facturation (« Set up billing »). Parfois lent. |
 | **Z.ai** | [z.ai/manage-apikey/apikey-list](https://z.ai/manage-apikey/apikey-list) | Modèle gratuit GLM Flash. **Serveurs hors de l'Union européenne.** |
 | **OpenRouter** | [openrouter.ai/keys](https://openrouter.ai/keys) | Environ 50 dictées gratuites par jour seulement : à garder en tout dernier secours. |
@@ -228,7 +226,7 @@ Ouvre CBW AI (icône du Dock ou de la barre de menus › Ouvrir CBW AI), puis **
 - **Ta voix ne quitte jamais ton Mac.** La transcription est faite sur ton Mac, par le modèle Whisper. Aucun enregistrement audio n'est envoyé ni conservé.
 - **Seul le texte transcrit** est envoyé au moteur IA que tu as choisi, pour être nettoyé. Il revient aussitôt et est collé.
 - Avec **Ollama**, même le texte reste sur ton Mac : rien ne sort.
-- **Mistral** héberge ses serveurs en **Europe**. **Z.ai** utilise des serveurs **hors de l'Union européenne**. Groq, Cloudflare, Gemini et OpenRouter sont des services américains ou mondiaux.
+- **Z.ai** utilise des serveurs **hors de l'Union européenne**. Groq, Gemini et OpenRouter sont des services américains ou mondiaux.
 - Tes clés et tes réglages sont enregistrés uniquement sur ton Mac, dans le dossier caché `~/.dicta-ai`.
 - Tes **notes** sont de simples fichiers enregistrés sur ton Mac, dans `~/Documents/CBW AI/Notes`. Ils ne sont envoyés nulle part par CBW AI.
 - L'historique (20 dernières dictées) est stocké sur ton Mac seulement, et tu peux l'effacer à tout moment dans Réglages › Confidentialité.
@@ -283,7 +281,7 @@ xattr -dr com.apple.quarantine "/Applications/CBW AI.app"
 Chaque moteur gratuit a une limite par minute et par jour. Quand elle est atteinte, CBW AI passe au moteur suivant. Si aucun moteur n'est disponible, il colle la **transcription brute** pour que tu ne perdes rien.
 
 - Regarde **Réglages › Moteur IA › Quotas du jour** pour voir où tu en es.
-- Ajoute une deuxième clé gratuite (Mistral ou Cloudflare par exemple) en secours.
+- Ajoute une deuxième clé gratuite (Gemini ou Z.ai par exemple) en secours.
 - Les quotas se remettent à zéro chaque jour. Tu n'as rien à payer et rien à faire.
 - Si le badge d'un moteur est rouge, clique sur **Tester** : la clé a peut-être été supprimée ou mal collée.
 
@@ -308,7 +306,7 @@ Chaque moteur gratuit a une limite par minute et par jour. Quand elle est attein
 6. Tes **notes** ne sont pas supprimées automatiquement : elles t'appartiennent. Si tu n'en veux plus, mets aussi le dossier **Documents › CBW AI** à la Corbeille.
 7. Si tu avais installé Ollama et ne t'en sers plus, glisse aussi **Ollama** à la Corbeille.
 
-Pense enfin à supprimer tes clés sur les sites des fournisseurs (Groq, Mistral…) si tu n'en as plus besoin.
+Pense enfin à supprimer tes clés sur les sites des fournisseurs (Groq, Gemini…) si tu n'en as plus besoin.
 
 ### Autres questions
 

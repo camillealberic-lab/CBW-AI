@@ -13,8 +13,6 @@ import { createGroqProvider } from './providers/groq.ts';
 import { createOllamaProvider, warmupOllama } from './providers/ollama.ts';
 import { createOpenRouterProvider } from './providers/openrouter.ts';
 import { createZaiProvider } from './providers/zai.ts';
-import { createMistralProvider } from './providers/mistral.ts';
-import { createCloudflareProvider } from './providers/cloudflare.ts';
 import * as quota from './quota.ts';
 import { redact } from '../shared/redact.ts';
 import type { QuotaInfo } from './quota.ts';
@@ -25,8 +23,6 @@ const FACTORIES: Record<ProviderId, (cfg: LLMConfig) => DictaProvider> = {
   gemini: createGeminiProvider,
   groq: createGroqProvider,
   zai: createZaiProvider,
-  mistral: createMistralProvider,
-  cloudflare: createCloudflareProvider,
   openrouter: createOpenRouterProvider,
   ollama: createOllamaProvider,
 };
@@ -113,14 +109,22 @@ export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOpti
   // valide gagnante, les autres requêtes sont annulées. Latence ≈ min(fournisseurs).
   // Les fournisseurs dont TOUS les modèles sont connus comme épuisés (en-têtes x-ratelimit-*,
   // 429 précédents) sont sautés sans requête ; s'il ne reste rien, dernier recours sur eux.
-  const queue: { id: ProviderId; forced: boolean }[] = order.map((id) => ({ id, forced: false }));
+  // Modèle local (Ollama) : jamais dans la course normale (il chargerait ~4 Go en mémoire) ; seulement
+  // « Local d'abord », ou en ULTIME recours quand plus aucun fournisseur cloud n'a répondu (pas pour un
+  // nettoyage spéculatif). Absent de la machine → simplement sauté.
+  const localEmergency = !cfg.localFirst && order.includes('ollama');
+  const queue: { id: ProviderId; forced: boolean }[] = order
+    .filter((id) => !(localEmergency && id === 'ollama'))
+    .map((id) => ({ id, forced: false }));
+  let localTried = !localEmergency || speculative;
+  const providerFor = (id: ProviderId) => getProvider(id, id === 'ollama' && localEmergency ? { ...cfg, localFirst: true } : cfg);
   const deferred: Deferred[] = [];
   let lastResort = false;
   const running = new Map<ProviderId, AbortController>();
   const abortAll = () => { for (const c of running.values()) c.abort(); running.clear(); };
 
   const attempt = async (id: ProviderId, ctrl: AbortController): Promise<DetailedCleanResult> => {
-    const p = getProvider(id, cfg);
+    const p = providerFor(id);
     const t1 = now();
     try {
       if (id !== 'ollama') quota.recordRequest(id);
@@ -174,10 +178,15 @@ export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOpti
           .sort((a, b) => a.until - b.until);
         for (const d of again) if (!running.has(d.id)) queue.push({ id: d.id, forced: true });
       }
+      if (!queue.length && lastResort && !localTried && running.size === 0) {
+        localTried = true;
+        queue.push({ id: 'ollama', forced: true });
+        attempts.push({ provider: 'ollama', outcome: 'skipped', message: 'ultime recours : tous les quotas cloud épuisés → modèle local' });
+      }
       const next = queue.shift();
       if (!next) return undefined;
       const { id, forced } = next;
-      const p = getProvider(id, cfg);
+      const p = providerFor(id);
       if (!forced) {
         const blocked = quota.blockedReason(id);
         if (blocked) {
@@ -337,7 +346,7 @@ export function usableCloudProviders(cfg: LLMConfig = loadConfig()): ProviderId[
   return cfg.providers.filter((id) => {
     if (id === 'ollama') return false;
     const p = getProvider(id, cfg);
-    if (!(cfg.keys as Record<string, string | undefined>)[id] || (id === 'cloudflare' && !cfg.cloudflare.accountId)) return false;
+    if (!(cfg.keys as Record<string, string | undefined>)[id]) return false;
     return !quota.blockedReason(id) && !quota.modelsBlockedReason(id, p.candidates ?? [p.model]);
   });
 }

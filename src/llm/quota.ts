@@ -21,8 +21,6 @@ export const KNOWN_DAILY_LIMITS: Record<ProviderId, number> = {
   gemini: 250,
   groq: 14400,
   zai: 1000, // non officiel
-  mistral: 5000, // ~1 req/s, plafond local prudent
-  cloudflare: 450, // 10 000 neurons/jour ≈ 460 dictées
   openrouter: 50,
   ollama: Infinity,
 };
@@ -32,8 +30,6 @@ const RESET_TZ: Record<ProviderId, string> = {
   gemini: 'America/Los_Angeles',
   groq: 'UTC',
   zai: 'Asia/Shanghai',
-  mistral: 'UTC',
-  cloudflare: 'UTC',
   openrouter: 'UTC',
   ollama: 'UTC',
 };
@@ -270,7 +266,7 @@ const int = (v: string | null): number | undefined => {
  * Lit les en-têtes de limite de débit, toutes conventions confondues :
  * - Groq / OpenAI : x-ratelimit-{limit,remaining,reset}-{requests,tokens} (requests = quota JOURNALIER chez Groq) ;
  * - OpenRouter : x-ratelimit-{limit,remaining,reset} (reset en epoch ms) ;
- * - Mistral : x-ratelimit-remaining-tokens-minute / -month, x-ratelimit-remaining-req-minute… ;
+ * - variantes par minute / jour / mois : x-ratelimit-remaining-tokens-minute / -month, x-ratelimit-remaining-req-minute… ;
  * - retry-after (s ou date).
  */
 export function parseRateHeaders(h: Headers, now = Date.now()): Partial<ModelLimit> & { retryAfterMs?: number } {

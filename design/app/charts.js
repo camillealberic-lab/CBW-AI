@@ -3,7 +3,7 @@
    API : window.CBWCharts.renderHome(container, stats)
    stats = { words, dictations, wpm, streakDays, timeSavedMin,
              daily:[{date:'YYYY-MM-DD', words, dictations, avgMs, wpm?}],
-             byProvider:{ groq, gemini, mistral, cloudflare, zai, ollama, openrouter, passthrough, … } }
+             byProvider:{ groq, gemini, zai, ollama, openrouter, passthrough, … } }
    Les couleurs sont lues sur la page (getComputedStyle, jetons de design/cbw/tokens.css),
    donc clair et sombre fonctionnent ; on redessine quand le thème change. */
 (function () {
@@ -213,11 +213,9 @@
   var PROVIDERS = [
     { keys: ['groq'], label: 'Groq', color: 'texte' },
     { keys: ['gemini', 'google'], label: 'Gemini', color: 'bleu' },
-    { keys: ['mistral'], label: 'Mistral', color: 'orange' },
-    { keys: ['cloudflare', 'workersai', 'workers-ai'], label: 'Cloudflare', color: 'vert' },
-    { keys: ['zai', 'z.ai', 'z-ai', 'glm'], label: 'Z.ai', color: 'gris1' },
+    { keys: ['zai', 'z.ai', 'z-ai', 'glm'], label: 'Z.ai', color: 'orange' },
     { keys: ['ollama', 'local'], label: 'Local', color: 'gris2' },
-    { keys: ['openrouter'], label: 'OpenRouter', color: 'texteSec' },
+    { keys: ['openrouter'], label: 'OpenRouter', color: 'vert' },
     { keys: ['passthrough', 'raw', 'none', 'brut'], label: 'Texte brut', color: 'gris3' }
   ];
   function providerRows(by) {
