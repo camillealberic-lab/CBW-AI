@@ -323,6 +323,7 @@ export function openAppWindow(section?: string): void {
     backgroundColor: '#FFFFFF', // thème clair (blanc) par défaut : pas de flash noir à l'ouverture
     title: 'CBW AI',
     titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 12, y: 19 }, // feux centrés sur l'axe de la barre d'outils (y = 26, design/app/app.html › en-tête)
     show: false,
     webPreferences: {
       preload: path.join(distDir(), 'main', 'preload-app.js'),
