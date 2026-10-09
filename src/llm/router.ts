@@ -45,6 +45,23 @@ export interface Attempt {
 
 export type DetailedCleanResult = CleanResult & { attempts: Attempt[]; promptVersion?: string };
 
+/** Options du router en plus de CleanOptions (passent telles quelles par src/main/cleaner.ts). */
+export interface RouterCleanOptions extends CleanOptions {
+  /**
+   * Nettoyage spéculatif (pendant une pause de la dictée) : pas de course parallèle ni de
+   * dernier recours sur les fournisseurs en pause — on garde le quota pour l'appel final.
+   */
+  speculative?: boolean;
+}
+
+type RouterLogger = (msg: string, data?: unknown) => void;
+const defaultLogger: RouterLogger = (msg, data) => console.warn(`[dicta-ai] ${msg}`, data === undefined ? '' : JSON.stringify(data));
+let logger: RouterLogger = defaultLogger;
+/** Branche le journal de l'app (dicta.log) sur le router. */
+export function setRouterLogger(fn: RouterLogger | null): void {
+  logger = typeof fn === 'function' ? fn : defaultLogger;
+}
+
 const now = () => performance.now();
 
 /**
@@ -54,13 +71,18 @@ const now = () => performance.now();
  * - sinon essaie les fournisseurs ; si tous échouent → fallbackClean(raw) en passthrough.
  * Si opts.signal est annulé par l'appelant, la promesse est rejetée (AbortError).
  */
-export async function cleanTranscript(raw: string, opts: CleanOptions = {}): Promise<CleanResult> {
+export async function cleanTranscript(raw: string, opts: RouterCleanOptions = {}): Promise<CleanResult> {
   const { attempts: _a, ...res } = await cleanTranscriptDetailed(raw, opts);
   return res;
 }
 
+/** Fournisseurs mis de côté (quota connu comme épuisé / pause) : candidats au dernier recours. */
+interface Deferred { id: ProviderId; until: number; guess: boolean }
+/** Au dernier recours, on retente un fournisseur en pause si sa pause est estimée ou finit bientôt. */
+const LAST_RESORT_WINDOW_MS = 120_000;
+
 /** Comme cleanTranscript, avec le détail des tentatives (CLI, logs, bench). */
-export async function cleanTranscriptDetailed(raw: string, opts: CleanOptions = {}): Promise<DetailedCleanResult> {
+export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOptions = {}): Promise<DetailedCleanResult> {
   const t0 = now();
   const attempts: Attempt[] = [];
   const done = (text: string, provider: CleanResult['provider'], model: string): DetailedCleanResult => ({
@@ -83,11 +105,17 @@ export async function cleanTranscriptDetailed(raw: string, opts: CleanOptions = 
     vocabulary: opts.vocabulary ?? cfg.cleanup.vocabulary,
   });
   const maxTokens = GENERATION.maxTokens(input);
+  const estTokens = quota.estimateTokens({ system, user, maxTokens });
+  const speculative = !!opts.speculative;
 
   // Course « hedgée » : on lance le 1er fournisseur ; s'il n'a pas répondu après
   // hedgeMs, ou dès qu'il échoue, le suivant part EN PARALLÈLE. Première sortie
   // valide gagnante, les autres requêtes sont annulées. Latence ≈ min(fournisseurs).
-  const queue = [...order];
+  // Les fournisseurs dont TOUS les modèles sont connus comme épuisés (en-têtes x-ratelimit-*,
+  // 429 précédents) sont sautés sans requête ; s'il ne reste rien, dernier recours sur eux.
+  const queue: { id: ProviderId; forced: boolean }[] = order.map((id) => ({ id, forced: false }));
+  const deferred: Deferred[] = [];
+  let lastResort = false;
   const running = new Map<ProviderId, AbortController>();
   const abortAll = () => { for (const c of running.values()) c.abort(); running.clear(); };
 
@@ -117,22 +145,61 @@ export async function cleanTranscriptDetailed(raw: string, opts: CleanOptions = 
       const kind: ProviderErrorKind = e instanceof ProviderError ? err.kind : 'unknown';
       const message = e?.message ?? String(e);
       attempts.push({ provider: id, outcome: kind, message, latencyMs: Math.round(now() - t1) });
-      if (kind !== 'bad_output') quota.recordFailure(id, kind, message, { retryAfterMs: err.retryAfterMs, daily: err.daily });
+      if (kind === 'quota') {
+        // Le 429 est déjà mémorisé PAR MODÈLE (providers/common.ts → quota.observe). Pause du fournisseur
+        // entier seulement pour un plafond journalier de compte (OpenRouter free-models-per-day).
+        if (err.daily && id === 'openrouter') quota.recordFailure(id, kind, message, { daily: true });
+        else quota.recordError(id, kind, message);
+      } else if (kind !== 'bad_output') {
+        quota.recordFailure(id, kind, message, { retryAfterMs: err.retryAfterMs, daily: err.daily });
+      }
       throw e;
     }
   };
 
+  const defer = (id: ProviderId, until: number, guess: boolean) => {
+    if (id !== 'ollama') deferred.push({ id, until, guess });
+  };
+
   // Prochain fournisseur utilisable (vérifs de disponibilité rapides, en cache côté providers).
   const nextAvailable = async (): Promise<ProviderId | undefined> => {
-    while (queue.length) {
-      const id = queue.shift()!;
-      const blocked = quota.blockedReason(id);
-      if (blocked) { attempts.push({ provider: id, outcome: 'skipped', message: blocked }); continue; }
-      const av = await getProvider(id, cfg).availability();
+    for (;;) {
+      if (!queue.length && !lastResort && !speculative) {
+        // Plus rien de « connu bon » : dernier recours sur les fournisseurs mis de côté dont la pause
+        // est une estimation ou se termine bientôt (le 429 coûte ~200 ms, le texte brut coûte la dictée).
+        lastResort = true;
+        const t = Date.now();
+        const again = deferred
+          .filter((d) => d.guess || d.until - t <= LAST_RESORT_WINDOW_MS)
+          .sort((a, b) => a.until - b.until);
+        for (const d of again) if (!running.has(d.id)) queue.push({ id: d.id, forced: true });
+      }
+      const next = queue.shift();
+      if (!next) return undefined;
+      const { id, forced } = next;
+      const p = getProvider(id, cfg);
+      if (!forced) {
+        const blocked = quota.blockedReason(id);
+        if (blocked) {
+          attempts.push({ provider: id, outcome: 'skipped', message: blocked });
+          const q = quota.quotaInfo(id);
+          if (q.cooldownKind !== 'auth') defer(id, q.cooldownUntil ?? Date.now(), q.cooldownUntil === null || q.cooldownKind !== 'quota');
+          continue;
+        }
+        if (id !== 'ollama') {
+          const mb = quota.modelsBlockedReason(id, p.candidates ?? [p.model], estTokens);
+          if (mb) {
+            attempts.push({ provider: id, outcome: 'skipped', message: mb.reason });
+            defer(id, mb.until, mb.guess);
+            continue;
+          }
+        }
+      }
+      const av = await p.availability();
       if (!av.ok) { attempts.push({ provider: id, outcome: 'skipped', message: av.reason }); continue; }
+      if (forced) attempts.push({ provider: id, outcome: 'skipped', message: 'dernier recours : nouvel essai malgré la pause' });
       return id;
     }
-    return undefined;
   };
 
   const winner = await new Promise<DetailedCleanResult | undefined>((resolve, reject) => {
@@ -153,7 +220,8 @@ export async function cleanTranscriptDetailed(raw: string, opts: CleanOptions = 
       if (!id) { if (running.size === 0) finish(undefined); return; }
       const ctrl = new AbortController();
       running.set(id, ctrl);
-      hedgeTimer = setTimeout(() => void launchNext(), cfg.hedgeMs);
+      // Spéculatif : pas de requête parallèle (économise le quota), bascule seulement sur échec.
+      if (!speculative) hedgeTimer = setTimeout(() => void launchNext(), cfg.hedgeMs);
       attempt(id, ctrl).then(finish, (e) => {
         running.delete(id);
         if (settled) return;
@@ -163,8 +231,20 @@ export async function cleanTranscriptDetailed(raw: string, opts: CleanOptions = 
     };
     void launchNext();
   });
-  if (winner) return winner;
 
+  const summary = () =>
+    attempts.map((a) => `${a.provider}: ${a.outcome}${a.latencyMs !== undefined ? ` ${a.latencyMs} ms` : ''}${a.message ? ` — ${redact(a.message).slice(0, 160)}` : ''}`);
+  if (winner) {
+    if (attempts.some((a) => a.outcome !== 'ok' && a.outcome !== 'skipped')) {
+      logger(`router: nettoyé par ${winner.provider} (${winner.model}) après bascule${speculative ? ' [spéculatif]' : ''}`, summary());
+    }
+    return winner;
+  }
+
+  logger(
+    `router: ÉCHEC du nettoyage${speculative ? ' [spéculatif]' : ''} — AUCUN fournisseur n'a répondu → texte brut (fallbackClean)`,
+    summary(),
+  );
   return done(fallbackClean(input), 'passthrough', 'fallbackClean');
 }
 
@@ -179,6 +259,8 @@ export interface ProviderStatus extends QuotaInfo {
   /** Valeur directement utilisable par window.dicta.setProviderStatus(). */
   uiStatus: ProviderUiStatus;
   reason?: string;
+  /** Quotas connus par modèle (en-têtes x-ratelimit-*, 429). */
+  models: Record<string, quota.ModelLimit>;
 }
 
 /** État de chaque fournisseur pour l'écran Réglages (clé, joignabilité, quotas, pauses). */
@@ -189,10 +271,11 @@ export async function providerStatuses(): Promise<ProviderStatus[]> {
       const p = getProvider(id, cfg);
       const av = await p.availability();
       const q = quota.quotaInfo(id);
-      const blocked = quota.blockedReason(id);
+      const mb = id === 'ollama' ? null : quota.modelsBlockedReason(id, p.candidates ?? [p.model]);
+      const blocked = quota.blockedReason(id) ?? mb?.reason ?? null;
       let uiStatus: ProviderUiStatus;
       if (!av.ok) uiStatus = id === 'ollama' ? 'offline' : 'missing_key';
-      else if (blocked && (q.cooldownKind === 'quota' || (q.dailyLimit !== null && q.usedToday >= q.dailyLimit))) uiStatus = 'quota';
+      else if (mb || (blocked && (q.cooldownKind === 'quota' || (q.dailyLimit !== null && q.usedToday >= q.dailyLimit)))) uiStatus = 'quota';
       else if (blocked && q.cooldownKind === 'auth') uiStatus = 'missing_key'; // clé refusée
       else if (blocked) uiStatus = 'offline';
       else uiStatus = 'available';
@@ -204,6 +287,7 @@ export async function providerStatuses(): Promise<ProviderStatus[]> {
         uiStatus,
         reason: av.reason ?? blocked ?? undefined,
         ...q,
+        models: id === 'ollama' ? {} : quota.modelLimits(id),
       };
     }),
   );
@@ -224,17 +308,83 @@ export async function testProvider(id: ProviderId): Promise<{ ok: boolean; messa
     return { ok: true, message: `OK (${out.model}) : ${out.text.slice(0, 80)}`, latencyMs: Math.round(now() - t0) };
   } catch (e: any) {
     const kind = e instanceof ProviderError ? e.kind : 'unknown';
-    if (kind !== 'bad_output') quota.recordFailure(id, kind, e?.message ?? String(e), { retryAfterMs: e?.retryAfterMs, daily: e?.daily });
+    if (kind === 'quota') quota.recordError(id, kind, e?.message ?? String(e));
+    else if (kind !== 'bad_output') quota.recordFailure(id, kind, e?.message ?? String(e), { retryAfterMs: e?.retryAfterMs, daily: e?.daily });
     return { ok: false, message: redact(`${kind} : ${e?.message ?? e}`), latencyMs: Math.round(now() - t0) };
   }
 }
 
-/** Précharge le modèle Ollama si Ollama fait partie de l'ordre (à appeler au démarrage de l'app). */
+/**
+ * À appeler au démarrage de l'app ET au début de chaque dictée (src/main/pipeline.ts, limité à 1×/10 s) :
+ * - précharge Ollama s'il est le moteur principal ;
+ * - rafraîchit en arrière-plan l'état de quota des premiers fournisseurs cloud (voir refreshQuotas),
+ *   ce qui ouvre aussi la connexion TLS avant l'appel réel.
+ */
 export async function warmup(): Promise<void> {
   const cfg = loadConfig();
   // Ne précharge le modèle local (~10 Go) que s'il est le moteur principal.
-  if (cfg.providers[0] === 'ollama') await warmupOllama(cfg);
+  const jobs: Promise<unknown>[] = [refreshQuotas(cfg)];
+  if (cfg.providers[0] === 'ollama') jobs.push(warmupOllama(cfg));
+  await Promise.allSettled(jobs);
+}
+
+/**
+ * Nombre de fournisseurs cloud (clé présente) qui ne sont PAS connus comme épuisés / en pause.
+ * Synchrone et local (usage.json) : sert à la dictée pour décider si un nettoyage spéculatif
+ * vaut la dépense de quota (en pénurie, on garde le quota pour l'appel final).
+ */
+export function usableCloudProviders(cfg: LLMConfig = loadConfig()): ProviderId[] {
+  return cfg.providers.filter((id) => {
+    if (id === 'ollama') return false;
+    const p = getProvider(id, cfg);
+    if (!(cfg.keys as Record<string, string | undefined>)[id] || (id === 'cloudflare' && !cfg.cloudflare.accountId)) return false;
+    return !quota.blockedReason(id) && !quota.modelsBlockedReason(id, p.candidates ?? [p.model]);
+  });
+}
+
+const lastProbe = new Map<ProviderId, number>();
+/** Un fournisseur dont le quota n'a pas été observé depuis ce délai est sondé (1 mini requête). */
+const PROBE_STALE_MS = 5 * 60_000;
+/** Jamais sondés : OpenRouter (50 req/jour) et Ollama (local). */
+const NO_PROBE: ProviderId[] = ['openrouter', 'ollama'];
+
+/**
+ * Sonde légère des 2 premiers fournisseurs cloud « a priori bons » dont l'état de quota est inconnu
+ * ou périmé : une requête de quelques tokens dont les en-têtes x-ratelimit-* (et un éventuel 429)
+ * sont mémorisés par quota.observe. La dictée suivante saute alors un fournisseur épuisé sans l'essayer.
+ * Renvoie les fournisseurs sondés.
+ */
+export async function refreshQuotas(cfg: LLMConfig = loadConfig()): Promise<ProviderId[]> {
+  const probed: ProviderId[] = [];
+  const jobs: Promise<unknown>[] = [];
+  const t = Date.now();
+  let considered = 0;
+  for (const id of cfg.providers) {
+    if (considered >= 2) break;
+    if (NO_PROBE.includes(id)) continue;
+    const p = getProvider(id, cfg);
+    if (!(await p.availability()).ok || quota.blockedReason(id)) continue;
+    const cands = p.candidates ?? [p.model];
+    const { usable } = quota.orderModels(id, cands);
+    if (!usable.length) continue;
+    considered++;
+    const seen = quota.modelLimits(id)[usable[0]]?.at ?? 0;
+    if (t - seen < PROBE_STALE_MS || t - (lastProbe.get(id) ?? 0) < PROBE_STALE_MS) continue;
+    lastProbe.set(id, t);
+    probed.push(id);
+    quota.recordRequest(id);
+    jobs.push(
+      p
+        .complete({ system: 'Réponds uniquement « ok ».', user: 'ok', temperature: 0, maxTokens: 16, signal: AbortSignal.timeout(5000) })
+        .catch((e: any) => {
+          if (e?.kind === 'quota') logger(`router: sonde de quota — ${id} épuisé, il sera sauté`, redact(String(e?.message ?? e)).slice(0, 200));
+        }),
+    );
+  }
+  await Promise.allSettled(jobs);
+  return probed;
 }
 
 export { clearCooldowns } from './quota.ts';
 export { setConfigOverrides, setSecretAccessor } from './config.ts';
+export { modelLimits } from './quota.ts';

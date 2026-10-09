@@ -105,7 +105,7 @@ section { border-top: 2px solid var(--trait); padding-top: 20px; margin-top: 56p
 <script>
 const sq = (q, g, v) => `<div class="cbw${v ? ' v' : ''}" style="--q:${q}px;--g:${g}px;LEFT;TOP"><b>C</b><b>B</b><b>W</b></div>`;
 const at = (html, x, y) => html.replace('LEFT', 'left:' + x + 'px').replace('TOP', 'top:' + y + 'px');
-const nav = (y) => `<div class="nav" style="top:${y}px"><div class="on">Accueil</div><div>Notes</div><div>Brainstorm</div><div>Dictionnaire</div></div>`;
+const nav = (y) => `<div class="nav" style="top:${y}px"><div class="on">Accueil</div><div>Notes</div><div>Dictionnaire</div><div>Style</div></div>`;
 // chaque option : nom, texte, avantages, et le contenu de la barre pour 3 états (w = fenêtre, f = plein écran, c = replié)
 const OPTS = [
   { id: 'A', name: 'Sur la ligne des feux', reco: true,

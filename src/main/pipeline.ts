@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import type { CleanResult, DictaState, DictaStatus } from '../shared/types';
+import type { CleanOptions, CleanResult, DictaState, DictaStatus } from '../shared/types';
 import { clean, routerModule } from './cleaner';
 import { insertText, snapshot } from './insert';
 import { log, textForLog } from './paths';
@@ -9,6 +9,13 @@ import { ensureWhisperModel, transcribe, whisperModel } from './whisper';
 import { modelDownloader } from './whisperModels';
 
 type UiohookModule = typeof import('uiohook-napi');
+
+/** Exports du router (src/llm/router.ts) utilisés ici, en plus de ceux typés dans cleaner.ts. */
+interface RouterExtras {
+  warmup?: () => Promise<void>;
+  setRouterLogger?: (fn: ((msg: string, data?: unknown) => void) | null) => void;
+  usableCloudProviders?: () => string[];
+}
 
 const MIN_DURATION_MS = 350;
 /** En dessous, ce n'est pas de la parole (souffle, clic, bruit). */
@@ -71,6 +78,10 @@ export class Pipeline extends EventEmitter {
   private partial = '';
   private llmSpec: { raw: string; ac: AbortController; result: Promise<CleanResult> } | null = null;
   private recAbort: AbortController | null = null;
+  /** Nettoyage spéculatif : dernier lancement + report (anti-rafale, économise le quota des fournisseurs). */
+  private lastSpecAt = 0;
+  private specTimer: NodeJS.Timeout | null = null;
+  private routerLogHooked = false;
 
   constructor(
     private recorder: Recorder,
@@ -114,10 +125,22 @@ export class Pipeline extends EventEmitter {
     this.recorder.arm(); // pas de warmup LLM ici (fn sert aussi à d'autres raccourcis)
   }
 
+  /** Router ↔ dicta.log : bascules et échecs de nettoyage (raison par fournisseur) journalisés. */
+  private router(): RouterExtras | null {
+    const r = routerModule() as (ReturnType<typeof routerModule> & RouterExtras) | null;
+    if (r && !this.routerLogHooked) {
+      this.routerLogHooked = true;
+      r.setRouterLogger?.((msg, data) => log(msg, data));
+    }
+    return r;
+  }
+
+  /** Début de dictée : rafraîchit l'état des quotas (sonde légère, connexion TLS ouverte) avant le nettoyage. */
   private warmup(): void {
+    const r = this.router();
     if (Date.now() - this.lastWarmup < 10000) return;
     this.lastWarmup = Date.now();
-    void routerModule()?.warmup?.().catch(() => {});
+    void r?.warmup?.().catch(() => {});
   }
 
   private starting = false;
@@ -136,6 +159,9 @@ export class Pipeline extends EventEmitter {
   }
 
   private resetStreaming(): void {
+    if (this.specTimer) clearTimeout(this.specTimer);
+    this.specTimer = null;
+    this.lastSpecAt = 0;
     this.recAbort?.abort();
     this.recAbort = new AbortController();
     this.llmSpec?.ac.abort();
@@ -234,19 +260,44 @@ export class Pipeline extends EventEmitter {
   }
 
   /** Nettoyage mémoïsé : la spéculation et le relâchement partagent le même appel pour un même texte. */
-  private cleanOnce(raw: string): Promise<CleanResult> {
+  private cleanOnce(raw: string, speculative = false): Promise<CleanResult> {
     if (this.llmSpec?.raw === raw) return this.llmSpec.result;
     this.llmSpec?.ac.abort();
+    this.router();
     const ac = new AbortController();
     const lang = this.lang();
-    const result = clean(raw, { language: lang === 'auto' ? undefined : lang, signal: ac.signal });
+    // `speculative` (option du router, transmise telle quelle par cleaner.ts) : pas de course parallèle
+    // ni de dernier recours → une pause ne brûle pas le quota dont l'appel final aura besoin.
+    const opts: CleanOptions & { speculative: boolean } = { language: lang === 'auto' ? undefined : lang, signal: ac.signal, speculative };
+    const result = clean(raw, opts);
     result.catch(() => undefined);
     this.llmSpec = { raw, ac, result };
     return result;
   }
 
+  /**
+   * Nettoyage spéculatif à chaque pause, mais limité : chaque appel consomme le quota (tokens/min)
+   * même s'il est annulé ensuite. Le 09/10, une dictée de 73 s a lancé ~17 nettoyages spéculatifs et
+   * épuisé Groq, Z.ai, OpenRouter et Gemini → texte collé brut. Désormais : au plus un lancement par
+   * intervalle (3 s + 10 % de la durée déjà dictée, reporté sur la dernière pause), et aucun quand il
+   * reste moins de 2 fournisseurs cloud disponibles (le quota est gardé pour l'appel final).
+   */
   private speculateLLM(raw: string): void {
-    if (raw) void this.cleanOnce(raw);
+    if (!raw) return;
+    if (this.specTimer) clearTimeout(this.specTimer);
+    this.specTimer = null;
+    const usable = this.router()?.usableCloudProviders?.();
+    if (usable && usable.length < 2) return;
+    const interval = 3000 + 0.1 * (Date.now() - this.recStartedAt);
+    const wait = this.lastSpecAt + interval - Date.now();
+    const run = () => {
+      this.specTimer = null;
+      if (this.state !== 'recording' || this.partial !== raw) return;
+      this.lastSpecAt = Date.now();
+      void this.cleanOnce(raw, true);
+    };
+    if (wait <= 0) run();
+    else this.specTimer = setTimeout(run, wait);
   }
 
   /** Échap : abandonne l'enregistrement (ou le traitement en cours) sans rien coller. */
@@ -338,10 +389,17 @@ export class Pipeline extends EventEmitter {
       const llmHit = this.llmSpec?.raw === raw; // déjà lancé pendant la pause
       let c = await this.cleanOnce(raw);
       if (aborted()) return;
-      if (llmHit && c.provider === 'passthrough' && c.model === '') {
-        // spéculation interrompue (abort / délai) → vrai appel
+      if (this.specTimer) clearTimeout(this.specTimer);
+      this.specTimer = null;
+      if (llmHit && c.provider === 'passthrough' && (c.model === '' || c.model === 'fallbackClean')) {
+        // Spéculation interrompue OU tombée en texte brut (quotas épuisés au moment de la pause) :
+        // vrai appel, avec course parallèle et dernier recours sur tous les fournisseurs.
+        log(`pipeline: nettoyage spéculatif sans résultat (${c.model || 'interrompu'}) → nouvel essai complet`);
         this.llmSpec = null;
         c = await this.cleanOnce(raw);
+      }
+      if (c.provider === 'passthrough' && (c.model === '' || c.model === 'fallbackClean')) {
+        log(`pipeline: ⚠ TEXTE BRUT collé — aucun fournisseur n'a pu nettoyer (${c.model || 'router indisponible / délai'}) ; détail : lignes « router: » ci-dessus`);
       }
       this.llmSpec = null;
       const tClean = Date.now();

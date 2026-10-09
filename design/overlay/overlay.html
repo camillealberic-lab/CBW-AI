@@ -19,10 +19,9 @@
                   window.postMessage({ type: 'dicta-accent', color }, '*')
                   window.postMessage({ type: 'dicta-hover', on }, '*')          // simulation du survol
   Survol (façon Wispr Flow) : la zone de l'étiquette déplie une barre d'actions.
-    idle → « Dicter » | « Note » | « Brainstorm » ; recording → « Arrêter » ; note → « Terminer la note » ;
-    brainstorm (mode:'brainstorm') → « Terminer le brainstorm » (action 'brainstorm') ; traitement → rien.
+    idle → « Dicter » | « Note » ; recording → « Arrêter » ; note → « Terminer la note » ; traitement → rien.
     window.dicta.setHover(bool) rend la fenêtre cliquable pendant le survol ;
-    window.dicta.action('dictate' | 'note' | 'brainstorm') déclenche l'action (sans bridge : postMessage dicta-action au parent).
+    window.dicta.action('dictate' | 'note') déclenche l'action (sans bridge : postMessage dicta-action au parent).
   Si un preload expose window.dicta.onStatus(cb), l'abonnement est automatique.
   Paramètres d'URL : ?idle=hidden  ?accent=%23FF5A1F  (couleur d'enregistrement)
 -->
@@ -74,6 +73,8 @@
   }
 
   /* ---------- Étiquette ---------- */
+  #zone { cursor: grab; }
+  #pill.dragging { cursor: grabbing; transition-property: opacity, border-color; }
   #pill {
     position: relative;
     box-sizing: border-box;
@@ -220,11 +221,7 @@
   }
 
   /* ---------- Prise de notes ---------- */
-  #pill[data-mode="note"] .clock, #pill[data-mode="brainstorm"] .clock { display: inline-block; color: var(--text); }
-  /* ---------- Brainstorm (vidage) : carré bleu au lieu du rouge ---------- */
-  #pill[data-mode="brainstorm"] .mark { width: 8px; height: 8px; background: var(--bleu-vif); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
-  #pill[data-state="recording"][data-mode="brainstorm"] .mark { animation: recSlow 2000ms ease-in-out infinite; }
-  #pill[data-mode="brainstorm"] .bars i { background: var(--orange); }
+  #pill[data-mode="note"] .clock { display: inline-block; color: var(--text); }
   #pill[data-mode="note"] .mark {
     width: 8px; height: 8px;
     background: var(--rec);
@@ -354,7 +351,6 @@
   .act-rule { width: 1px; align-self: center; height: 18px; background: var(--fil-int); flex: none; }
   .act[hidden], .act-rule[hidden] { display: none; }
   .act-c { display: flex; align-items: center; gap: 7px; }
-  .act[data-act="brainstorm"] { flex-grow: 1.3; }
   #pill[data-state="idle"][data-hover] .act { padding: 0 6px; }
 
   /* icônes */
@@ -367,14 +363,6 @@
              box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
   .ico-stop { width: 8px; height: 8px; background: var(--text); flex: none; }
   #pill[data-hover="stop-note"] .ico-stop { background: var(--rec); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
-  #pill[data-hover="stop-brainstorm"] .ico-stop { background: var(--bleu-vif); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
-  /* étincelle « Brainstorm » : 4 branches carrées, bleu */
-  .ico-spark { position: relative; width: 11px; height: 11px; flex: none; }
-  .ico-spark::before, .ico-spark::after { content: ""; position: absolute; background: var(--bleu-vif); }
-  .ico-spark::before { left: 4.5px; top: 0; width: 2px; height: 11px; }
-  .ico-spark::after { top: 4.5px; left: 0; width: 11px; height: 2px; }
-  .act[data-act="brainstorm"]:hover .ico-spark { transform: rotate(45deg); transition: transform 240ms var(--ease-out); }
-  .ico-spark { transition: transform 240ms var(--ease-out); }
 
   /* état déplié */
   #pill[data-hover] {
@@ -385,7 +373,7 @@
       transform 240ms var(--ease-out),
       border-color 200ms var(--ease);
   }
-  #pill[data-state="idle"][data-hover] { width: 300px !important; height: 38px; }
+  #pill[data-state="idle"][data-hover] { width: 220px !important; height: 38px; }
   #pill[data-hover] .idle-mark,
   #pill[data-hover] .inner { opacity: 0; transition-duration: 90ms; transition-delay: 0ms; }
   #pill[data-hover] .actions {
@@ -432,8 +420,6 @@
       <button type="button" class="act" data-act="dictate" tabindex="-1"><span class="act-c"><span class="ico-bars"><i></i><i></i><i></i><i></i><i></i></span><span class="lbl">Dicter</span></span></button>
       <span class="act-rule"></span>
       <button type="button" class="act" data-act="note" tabindex="-1"><span class="act-c"><span class="ico-dot"></span><span class="lbl">Note</span></span></button>
-      <span class="act-rule act-rule2"></span>
-      <button type="button" class="act" data-act="brainstorm" tabindex="-1"><span class="act-c"><span class="ico-spark"></span><span class="lbl">Brainstorm</span></span></button>
     </div>
   </div>
   </div>
@@ -576,11 +562,9 @@
   var actions = pill.querySelector('.actions');
   var btnDictate = actions.querySelector('[data-act="dictate"]');
   var btnNote = actions.querySelector('[data-act="note"]');
-  var btnBrain = actions.querySelector('[data-act="brainstorm"]');
   var actRule = actions.querySelector('.act-rule');
-  var actRule2 = actions.querySelector('.act-rule2');
   var HOVER_IN = 120, HOVER_OUT = 250;
-  var hoverMode = '';          // '' | 'idle' | 'stop-dictate' | 'stop-note' | 'stop-brainstorm'
+  var hoverMode = '';          // '' | 'idle' | 'stop-dictate' | 'stop-note'
   var pointerIn = false, suppressed = false, inTimer = 0, outTimer = 0, hoverOn = false;
 
   var ICO_BARS = '<span class="ico-bars"><i></i><i></i><i></i><i></i><i></i></span>';
@@ -589,8 +573,7 @@
       (kbd ? '<span class="kbd">' + kbd + '</span>' : '') + '</span>';
   }
   var CONTENT = {
-    idle: [btnHTML(ICO_BARS, 'Dicter', ''), btnHTML('<span class="ico-dot"></span>', 'Note', ''), btnHTML('<span class="ico-spark"></span>', 'Brainstorm', '')],
-    'stop-brainstorm': btnHTML('<span class="ico-stop"></span>', 'Terminer le brainstorm', ''),
+    idle: [btnHTML(ICO_BARS, 'Dicter', ''), btnHTML('<span class="ico-dot"></span>', 'Note', '')],
     'stop-dictate': btnHTML('<span class="ico-stop"></span>', 'Arrêter', ''),
     'stop-note': btnHTML('<span class="ico-stop"></span>', 'Terminer la note', '')
   };
@@ -608,7 +591,7 @@
   function allowedMode() {
     var st = current.state;
     if (st === 'idle') return root.getAttribute('data-idle') === 'hidden' ? '' : 'idle';
-    if (st === 'recording') return current.mode === 'note' ? 'stop-note' : current.mode === 'brainstorm' ? 'stop-brainstorm' : 'stop-dictate';
+    if (st === 'recording') return current.mode === 'note' ? 'stop-note' : 'stop-dictate';
     return ''; // traitement : pas d'actions
   }
 
@@ -623,12 +606,11 @@
     if (mode === 'idle') {
       btnDictate.innerHTML = CONTENT.idle[0];
       btnNote.innerHTML = CONTENT.idle[1];
-      btnBrain.innerHTML = CONTENT.idle[2];
-      btnDictate.hidden = false; btnNote.hidden = false; btnBrain.hidden = false; actRule.hidden = false; actRule2.hidden = false;
+      btnDictate.hidden = false; btnNote.hidden = false; actRule.hidden = false;
     } else if (mode) {
       btnDictate.innerHTML = CONTENT[mode];
-      btnDictate.dataset.act = mode === 'stop-note' ? 'note' : mode === 'stop-brainstorm' ? 'brainstorm' : 'dictate';
-      btnNote.hidden = true; btnBrain.hidden = true; actRule.hidden = true; actRule2.hidden = true;
+      btnDictate.dataset.act = mode === 'stop-note' ? 'note' : 'dictate';
+      btnNote.hidden = true; actRule.hidden = true;
     }
     if (mode === 'idle') btnDictate.dataset.act = 'dictate';
     if (mode) pill.setAttribute('data-hover', mode); else pill.removeAttribute('data-hover');
@@ -672,13 +654,43 @@
   actions.addEventListener('click', function (e) {
     var b = e.target.closest('.act');
     if (!b || !hoverMode) return;
-    var act = b.dataset.act === 'note' || b.dataset.act === 'brainstorm' ? b.dataset.act : 'dictate';
+    var act = b.dataset.act === 'note' ? 'note' : 'dictate';
     suppressed = true;           // ne pas redéplier tant que le pointeur n'est pas ressorti
     collapse();
     setHoverBridge(false);
     if (window.dicta && typeof window.dicta.action === 'function') bridge('action', act);
     else if (window.parent !== window) window.parent.postMessage({ type: 'dicta-action', action: act }, '*'); // démo
   });
+
+  // Glisser la pastille ailleurs (au-delà de 4 px : sinon c'est un clic) ; la position est mémorisée par l'app.
+  // Réglages › Pastille › « Remettre en bas » la ramène à sa place par défaut.
+  var dragSt = null, dragged = false;
+  zone.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return;
+    dragSt = { x: e.screenX, y: e.screenY, id: e.pointerId }; dragged = false;
+  });
+  zone.addEventListener('pointermove', function (e) {
+    if (!dragSt || dragged) return;
+    if (Math.abs(e.screenX - dragSt.x) + Math.abs(e.screenY - dragSt.y) < 5) return;
+    dragged = true;
+    try { zone.setPointerCapture(dragSt.id); } catch (err) { /* */ }
+    pill.classList.add('dragging');
+    collapse();
+    bridge('drag', 'start');
+  });
+  function endDrag() {
+    if (dragSt && dragged) {
+      bridge('drag', 'end');
+      // le curseur est sur la pastille déposée : resynchronise le survol (un « leave » a pu être ignoré pendant le glisser)
+      pointerIn = true; hoverOn = true; bridge('setHover', true);
+    }
+    dragSt = null;
+    pill.classList.remove('dragging');
+  }
+  zone.addEventListener('pointerup', endDrag);
+  zone.addEventListener('pointercancel', endDrag);
+  zone.addEventListener('lostpointercapture', endDrag);
+  zone.addEventListener('click', function (e) { if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false; } }, true);
 
   // Appelé à chaque statut : replie si l'état n'autorise plus ce mode
   function syncHover() {
@@ -709,16 +721,15 @@
     targetLevel = clamp01(status.level);
 
     // prise de notes
-    var brain = state === 'recording' && status.mode === 'brainstorm';
-    var note = (state === 'recording' && status.mode === 'note') || brain;
+    var note = state === 'recording' && status.mode === 'note';
     var paused = note && /pause/i.test(status.message || '');
-    if (note) pill.setAttribute('data-mode', brain ? 'brainstorm' : 'note'); else pill.removeAttribute('data-mode');
+    if (note) pill.setAttribute('data-mode', 'note'); else pill.removeAttribute('data-mode');
     if (paused) pill.setAttribute('data-paused', ''); else pill.removeAttribute('data-paused');
 
     // libellé
     var str = '', dim = false, live = false;
     if (note) {
-      str = paused ? 'Pause' : (brain ? 'Brainstorm' : 'Note');
+      str = paused ? 'Pause' : 'Note';
     } else if (state === 'recording') {
       var p = typeof status.partialText === 'string' ? status.partialText.replace(/\s+/g, ' ').trim() : '';
       if (p) { str = p; live = true; } else { str = status.message || LABELS.recording; }

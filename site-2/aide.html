@@ -51,7 +51,7 @@
         <li><a href="#autorisations">Autorisations</a></li>
         <li><a href="#cle">Clé gratuite</a></li>
         <li><a href="#gestes">Les gestes</a></li>
-        <li><a href="#notes">Notes et brainstorm</a></li>
+        <li><a href="#notes">Notes de réunion</a></li>
         <li><a href="#confidentialite">Confidentialité</a></li>
         <li><a href="#depannage">Dépannage</a></li>
         <li><a href="#desinstaller">Désinstaller</a></li>
@@ -65,7 +65,7 @@
         <li><a href="#autorisations">Autorisations</a></li>
         <li><a href="#cle">Clé gratuite</a></li>
         <li><a href="#gestes">Les gestes</a></li>
-        <li><a href="#notes">Notes et brainstorm</a></li>
+        <li><a href="#notes">Notes de réunion</a></li>
         <li><a href="#confidentialite">Confidentialité</a></li>
         <li><a href="#depannage">Dépannage</a></li>
         <li><a href="#desinstaller">Désinstaller</a></li>
@@ -141,7 +141,7 @@
           <pre id="prompt-install">Installe et configure l'application macOS « CBW AI » sur ce Mac, étape par étape, en m'expliquant en français ce que tu fais.
 
 Contexte :
-- CBW AI est une app gratuite de dictée vocale, prise de notes et brainstorm (Mac Apple Silicon, macOS 14 ou plus).
+- CBW AI est une app gratuite de dictée vocale et de prise de notes (Mac Apple Silicon, macOS 14 ou plus).
 - Fichier : <span data-dl-url>/download</span>
 - L'app n'est pas encore notarisée par Apple : macOS la bloque au premier lancement.
 
@@ -152,7 +152,7 @@ Contexte :
 4. Ouvre l'app (open -a "CBW AI").
 5. Guide-moi pour les autorisations, sans les accorder à ma place : Micro, puis Accessibilité (Réglages Système › Confidentialité et sécurité › Accessibilité › cocher « CBW AI »), et Enregistrement de l'écran et audio système si je veux capter les visios.
 6. Aide-moi à créer une clé Groq gratuite (https://console.groq.com/keys) : je la colle moi-même dans CBW AI › Réglages › Fournisseurs, puis je clique « Tester ». Ne me demande jamais de te donner la clé.
-7. Termine par un récapitulatif : comment dicter (Control gauche ×2, puis ×1 pour coller), prendre une note (Control gauche ×3), lancer un brainstorm, et où sont les fichiers (~/Documents/CBW AI/).
+7. Termine par un récapitulatif : comment dicter (Control gauche ×2, puis ×1 pour coller), prendre une note (Control gauche ×3), et où sont les fichiers (~/Documents/CBW AI/).
 
 Règles : ne modifie rien d'autre sur le Mac, n'installe aucun autre logiciel sans me demander, et arrête-toi en cas d'erreur pour m'expliquer.</pre>
         </div>
@@ -211,11 +211,8 @@ Règles : ne modifie rien d'autre sur le Mac, n'installe aucun autre logiciel sa
 
       <section id="notes">
         <p class="sourcil">07</p>
-        <h2>Notes et brainstorm</h2>
-        <h3>Prise de notes</h3>
+        <h2>Notes de réunion</h2>
         <p>Trois appuis sur Control (ou Notes › nouvelle note, ou la barre de menus). Un appui pour arrêter. CBW AI rédige un compte rendu : en bref, participants, sujets, décisions, actions, échéances, questions ouvertes, par personne et chronologie. Les notes sont des fichiers Markdown dans <code>~/Documents/CBW AI/Notes</code>.</p>
-        <h3>Brainstorm → master prompt</h3>
-        <p>Depuis l'app ou la barre de menus, parle librement de ton projet. CBW AI range ce que tu as dit (contexte, rôle, tâche, format, contraintes, critères…), te pose quelques questions avec des réponses à cliquer, puis écrit un prompt prêt à coller dans <strong>Claude Code</strong> ou <strong>Cursor</strong>. Ce que tu n'as pas dit reste « à préciser ».</p>
       </section>
 
       <section id="confidentialite">

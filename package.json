@@ -58,7 +58,6 @@
       "!dist/design/app/notes-demo*",
       "!dist/design/app/notes-[abc].js",
       "!dist/design/app/notes-previous.js",
-      "!dist/design/app/brainstorm-fake.js",
       "!dist/design/app/charts-demo.html",
       "!dist/**/*.md"
     ],

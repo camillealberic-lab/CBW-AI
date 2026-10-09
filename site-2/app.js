@@ -268,48 +268,6 @@
     if (n !== etapeNotes) { etapeNotes = n; selNotes(n); } // un clic garde la main jusqu'à l'étape suivante
   }
 
-  /* Brainstorm : cases qui se remplissent, réponse cliquable, prompt */
-  var pre = $('#prompt-txt'), puces = $$('#puces .puce'), caseFmt = $('#case-format');
-  var format = 'À préciser.', cible = 'Claude Code', choixUtil = false, choixAuto = false;
-  function prompt() {
-    var h = function (t) { return '<span class="h"># ' + t + '</span> '; };
-    pre.innerHTML = h('Rôle') + 'Dev senior, dans ' + cible + '.\n' + h('Contexte') + 'App de dictée, déjà en place.\n' +
-      h('Tâche') + 'Exporter les notes en PDF.\n' + h('Format') + format + '\n' + h('Limite') + 'Ne pas toucher à la dictée.';
-  }
-  function repondre(p) {
-    puces.forEach(function (q) { q.setAttribute('aria-pressed', q === p); });
-    if (!p) {
-      format = 'À préciser.'; caseFmt.setAttribute('data-st', 'vide');
-      var v = $('p', caseFmt); v.textContent = 'à préciser'; v.classList.add('vide');
-      $('#bs-score').textContent = '3 / 4 cases'; prompt(); return;
-    }
-    format = p.textContent + '.';
-    caseFmt.setAttribute('data-st', 'ok');
-    var para = $('p', caseFmt); para.textContent = p.textContent + '.'; para.classList.remove('vide');
-    caseFmt.classList.remove('flash'); void caseFmt.offsetWidth; caseFmt.classList.add('flash');
-    setTimeout(function () { caseFmt.classList.remove('flash'); }, 900);
-    $('#bs-score').textContent = '4 / 4 cases';
-    prompt();
-  }
-  if (pre) {
-    puces.forEach(function (p) { p.addEventListener('click', function () { choixUtil = true; choixAuto = false; repondre(p); }); });
-    $$('#cible button').forEach(function (b, n, all) {
-      b.addEventListener('click', function () { all.forEach(function (q) { q.setAttribute('aria-pressed', q === b); }); cible = b.dataset.c; prompt(); });
-    });
-    $('#copier').addEventListener('click', function () {
-      var b = this;
-      copier(pre.textContent).catch(function () {});
-      b.textContent = 'Copié ✓'; setTimeout(function () { b.textContent = 'Copier'; }, 1800);
-    });
-  }
-  var casesBs = $$('#craft .case');
-  function brainstormScroll(p) {
-    casesBs.forEach(function (c, i) { c.classList.toggle('cache', p < .06 + i * .08); });
-    if (choixUtil) return;
-    if (p >= .55 && !choixAuto) { choixAuto = true; repondre(puces[0]); }
-    else if (p < .55 && choixAuto) { choixAuto = false; repondre(null); }
-  }
-
   /* Boucle de défilement (une seule, en rAF) */
   var enAttente = false;
   function majPins() {
@@ -322,9 +280,7 @@
       el.style.setProperty('--p', p.toFixed(3));
       if (el.id === 'p-dictee' && pil) dicteeScroll(p);
       else if (el.id === 'p-notes' && seg) notesScroll(p);
-      else if (el.id === 'p-brainstorm' && pre) brainstormScroll(p);
     });
-    if (!on) casesBs.forEach(function (c) { c.classList.remove('cache'); });
     majBoucle();
   }
   function demander() { if (!enAttente) { enAttente = true; requestAnimationFrame(majPins); } }

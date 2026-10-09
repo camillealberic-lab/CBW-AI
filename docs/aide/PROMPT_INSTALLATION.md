@@ -9,7 +9,7 @@ Il installe CBW AI, lève le blocage macOS, ouvre l'app et te guide pour les aut
 Installe et configure l'application macOS « CBW AI » sur ce Mac, étape par étape, en m'expliquant en français ce que tu fais.
 
 Contexte :
-- CBW AI est une app gratuite de dictée vocale, prise de notes et brainstorm (Mac Apple Silicon, macOS 14 ou plus).
+- CBW AI est une app gratuite de dictée vocale et prise de notes (Mac Apple Silicon, macOS 14 ou plus).
 - Fichier : https://github.com/camillealberic-lab/CBW-AI/releases/latest/download/CBW-AI-arm64.dmg
 - L'app n'est pas encore notarisée par Apple : macOS la bloque au premier lancement.
 
@@ -21,7 +21,7 @@ Contexte :
 4. Vérifie que l'app est ouverte (sinon open -a "CBW AI").
 5. Guide-moi pour les autorisations, sans les accorder à ma place : Micro, puis Accessibilité (Réglages Système › Confidentialité et sécurité › Accessibilité › cocher « CBW AI »), et Enregistrement de l'écran et audio système si je veux capter les visios.
 6. Aide-moi à créer une clé Groq gratuite (https://console.groq.com/keys) : je la colle moi-même dans CBW AI › Réglages › Fournisseurs, puis je clique « Tester ». Ne me demande jamais de te donner la clé.
-7. Termine par un récapitulatif : comment dicter (Control gauche ×2, puis ×1 pour coller), prendre une note (Control gauche ×3), lancer un brainstorm, et où sont les fichiers (~/Documents/CBW AI/).
+7. Termine par un récapitulatif : comment dicter (Control gauche ×2, puis ×1 pour coller), prendre une note (Control gauche ×3), et où sont les fichiers (~/Documents/CBW AI/).
 
 Règles : ne modifie rien d'autre sur le Mac, n'installe aucun autre logiciel sans me demander, et arrête-toi en cas d'erreur pour m'expliquer.
 ```

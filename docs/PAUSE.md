@@ -1,7 +1,7 @@
 # État — 9 oct. 2026
 
 ## Installé et fonctionnel
-Dictée (Control gauche ×2, prompt v1.5), notes v2 + qui a dit quoi (diarisation sherpa-onnx, son du Mac), brainstorm en direct + bulles bas-droite, preloader A1 « Il parle », icône 5 barres blanc·orange·bleu·vert·blanc, menu repliable ⌘\, survols, garde-fou mémoire Ollama, sons de marque.
+Dictée (Control gauche ×2, prompt v1.5), notes v2 + qui a dit quoi (diarisation sherpa-onnx, son du Mac), preloader A1 « Il parle », icône 5 barres blanc·orange·bleu·vert·blanc, menu repliable ⌘\, survols, garde-fou mémoire Ollama, sons de marque.
 
 ## À tester par l'utilisateur
 - Note réelle avec son du Mac (permission « audio système »).

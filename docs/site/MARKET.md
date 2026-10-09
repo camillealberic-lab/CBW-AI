@@ -146,7 +146,6 @@ Les concurrents numérotent (Dia) ou découpent en temps (Granola). Format recom
 Une rangée de 3 blocs, chacun avec une petite maquette UI :
 - **Dicter partout** : le texte s'écrit dans l'app active. Rangée d'icônes d'apps.
 - **Prendre une note** : « Trois appuis sur Control, tu parles aussi longtemps que tu veux. La note est enregistrée sur ton Mac en Markdown. »
-- **Du brainstorm au prompt maître** : « Parle en vrac de ton idée, CBW AI en fait un prompt clair et structuré, prêt à coller dans ChatGPT ou Claude. »
 - Ne pas dépasser 3 blocs. Les réglages avancés (raccourcis alternatifs, moteurs) vont dans la FAQ ou l'aide.
 
 ### S5. Confidentialité (exacte, rassurante)

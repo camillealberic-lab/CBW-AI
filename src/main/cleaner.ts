@@ -1,14 +1,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type {
-  AnalyzeBrainstormInput,
-  AnalyzeBrainstormResult,
   CleanOptions,
   CleanResult,
-  CompileMasterPromptInput,
-  CompileMasterPromptResult,
-  LiveBrainstormInput,
-  LiveBrainstormResult,
 } from '../shared/types';
 import { distDir, log } from './paths';
 
@@ -32,10 +26,6 @@ export interface RouterModule {
     transcript: string,
     opts: { signal?: AbortSignal; onProgress?: (step: number, total: number) => void },
   ) => Promise<{ markdown: string; title: string; provider: string; model: string; parts: number; latencyMs: number }>;
-  /** src/llm/brainstorm.ts (même bundle) — mode Brainstorm → master prompt. */
-  analyzeBrainstorm?: (input: AnalyzeBrainstormInput, opts?: { signal?: AbortSignal }) => Promise<AnalyzeBrainstormResult>;
-  compileMasterPrompt?: (input: CompileMasterPromptInput, opts?: { signal?: AbortSignal }) => Promise<CompileMasterPromptResult>;
-  liveBrainstorm?: (input: LiveBrainstormInput, opts?: { signal?: AbortSignal }) => Promise<LiveBrainstormResult>;
 }
 let cached: CleanFn | null | undefined;
 let mod: RouterModule | null = null;

@@ -4,6 +4,10 @@
 import type { LLMConfig } from '../config.ts';
 import { providerError, requestJson } from './common.ts';
 import type { DictaProvider } from './common.ts';
+import * as quota from '../quota.ts';
+
+/** Quota gratuit Gemini = PAR MODÈLE : modèles Flash-Lite de secours (404 → écarté 6 h). */
+export const GEMINI_ROTATION = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite'];
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
@@ -45,9 +49,11 @@ function classify(status: number, body: any) {
 export function createGeminiProvider(cfg: LLMConfig): DictaProvider {
   const model = cfg.models.gemini;
   const key = cfg.keys.gemini;
+  const candidates = [model, ...GEMINI_ROTATION.filter((m) => m !== model)];
   return {
     id: 'gemini',
     model,
+    candidates,
     async availability() {
       return key ? { ok: true } : { ok: false, reason: 'clé GEMINI_API_KEY absente' };
     },
@@ -56,6 +62,24 @@ export function createGeminiProvider(cfg: LLMConfig): DictaProvider {
     },
     async complete(req) {
       if (!key) throw providerError('gemini', 'auth', 'clé GEMINI_API_KEY absente');
+      const { usable, forced } = quota.orderModels('gemini', candidates, quota.estimateTokens(req));
+      const models = usable.length ? usable : forced ? [forced] : candidates.slice(0, 1);
+      let lastErr: unknown;
+      for (const m of models) {
+        try {
+          return await completeWith(m, req);
+        } catch (e: any) {
+          // 429 (mémorisé par requestJson, quota journalier compris) ou modèle introuvable → modèle suivant.
+          if (e?.kind !== 'quota' && e?.status !== 404) throw e;
+          lastErr = e;
+          if (req.signal?.aborted) throw e;
+        }
+      }
+      throw lastErr ?? providerError('gemini', 'quota', 'tous les modèles Gemini sont en limite de débit');
+    },
+  };
+
+  async function completeWith(model: string, req: Parameters<DictaProvider['complete']>[0]): Promise<{ text: string; model: string }> {
       const thinking = thinkingConfigFor(model, cfg.gemini.thinkingLevel);
       const makeBody = (withThinking: boolean) => ({
         systemInstruction: { parts: [{ text: req.system }] },
@@ -71,7 +95,7 @@ export function createGeminiProvider(cfg: LLMConfig): DictaProvider {
         requestJson(
           'gemini',
           `${BASE}/${encodeURIComponent(model)}:generateContent`,
-          { headers: { 'x-goog-api-key': key }, body: makeBody(withThinking), timeoutMs: cfg.timeouts.cloudMs, signal: req.signal },
+          { headers: { 'x-goog-api-key': key! }, body: makeBody(withThinking), timeoutMs: cfg.timeouts.cloudMs, signal: req.signal, model },
           classify,
         );
 
@@ -99,6 +123,5 @@ export function createGeminiProvider(cfg: LLMConfig): DictaProvider {
       if (fr && fr !== 'STOP') throw providerError('gemini', 'bad_output', `finishReason ${fr}`);
       if (!text) throw providerError('gemini', 'bad_output', 'réponse vide');
       return { text, model: String(body.modelVersion ?? model) };
-    },
-  };
+  }
 }

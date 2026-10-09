@@ -1,16 +1,14 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, shell, systemPreferences } from 'electron';
+import { app, ipcMain, Menu, nativeImage, Notification, shell, systemPreferences } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import type { Brainstorm, DictaStatus } from '../shared/types';
+import type { DictaStatus } from '../shared/types';
 import { routerAvailable, routerModule } from './cleaner';
 import { PushToTalk } from './hotkey';
 import { Overlay } from './overlay';
 import { captureAppWindow, initAppIpc, openAppWindow } from './appWindow';
 import { ensureOllama, stopOllama } from './ollama';
-import { dataDir, distDir, logFile, log } from './paths';
+import { distDir, logFile, log } from './paths';
 import { NoteSession } from './notes';
-import { BrainstormManager } from './brainstorm';
-import { Bubbles } from './bubbles';
 import { Pipeline } from './pipeline';
 import { Recorder } from './recorder';
 import { settings } from './settings';
@@ -74,28 +72,8 @@ async function main(): Promise<void> {
     onForcedStop: () => hotkey.reset(),
     nativePaste: () => hotkey.fn.paste(),
   });
-  // Brainstorm → master prompt : même capture que la note ; refusé pendant une dictée ou une note.
-  const brainstorm = new BrainstormManager(recorder, () =>
-    notes.busy
-      ? 'Une prise de notes est en cours — termine-la avant de lancer un brainstorm'
-      : !['idle', 'done', 'error'].includes(pipeline.current)
-        ? 'Une dictée est en cours — termine-la avant de lancer un brainstorm'
-        : null,
-  );
-  // Brainstorm v2 : bulles de questions en direct (panneau non activable, bas-droite de l'écran)
-  const bubbles = new Bubbles(brainstorm);
-  /** Micro occupé par une session longue (note ou vidage brainstorm) : la dictée est suspendue. */
-  const longCapture = (): boolean => notes.busy || brainstorm.capturing;
-  const startBrainstorm = async (target?: unknown): Promise<void> => {
-    await brainstorm.start(target);
-  };
-  const toggleBrainstorm = (fromOverlay = false): void => {
-    if (brainstorm.recording) return void brainstorm.stop();
-    if (brainstorm.capturing) return; // fin de transcription en cours
-    openAppWindow('brainstorm');
-    void startBrainstorm();
-    if (fromOverlay) log('brainstorm: lancé depuis la pastille');
-  };
+  /** Micro occupé par une prise de notes : la dictée est suspendue. */
+  const longCapture = (): boolean => notes.busy;
 
   const tray = new AppTray({
     openApp: () => openAppWindow(),
@@ -106,9 +84,6 @@ async function main(): Promise<void> {
         notes.active
           ? { label: 'Terminer la note', click: () => void notes.stop() }
           : { label: 'Prise de notes', enabled: !longCapture(), click: () => void startNote() },
-        brainstorm.recording
-          ? { label: 'Terminer le brainstorm', click: () => void brainstorm.stop() }
-          : { label: 'Brainstorm → prompt', enabled: !longCapture() && !brainstorm.working, click: () => toggleBrainstorm() },
         ...(notes.active
           ? [
               notes.state === 'paused'
@@ -207,27 +182,9 @@ async function main(): Promise<void> {
     tray.setState(s.state, s.state === 'error' ? s.message : s.mode === 'note' ? s.message : '');
   });
   notes.on('active', (on: boolean) => {
-    hotkey.setNoteActive(on || brainstorm.recording);
+    hotkey.setNoteActive(on);
     tray.rebuild();
   });
-  // Brainstorm : pastille « BRAINSTORM · mm:ss » ; un simple appui sur la touche de dictée termine le vidage.
-  brainstorm.on('status', (s: DictaStatus) => {
-    if (s.state === 'error') playSound('error');
-    overlay.setStatus(s);
-    tray.setState(s.state, s.state === 'error' || s.state === 'recording' ? s.message : '');
-  });
-  brainstorm.on('active', (on: boolean) => {
-    hotkey.setNoteActive(on || notes.active);
-    tray.rebuild();
-  });
-  brainstorm.on('update', () => {
-    if (!brainstorm.recording) tray.rebuild();
-  });
-  try {
-    brainstorm.recover();
-  } catch (e) {
-    log('brainstorm: récupération', e);
-  }
   notes.on('saved', (meta: { id: string; title: string }) => {
     tray.rebuild();
     if (!Notification.isSupported()) return;
@@ -236,7 +193,6 @@ async function main(): Promise<void> {
     n.show();
   });
   const startNote = async (): Promise<void> => {
-    if (brainstorm.capturing) return void log('note: refusée (brainstorm en cours)');
     if (pipeline.current === 'recording') pipeline.cancel();
     await notes.start();
   };
@@ -246,7 +202,7 @@ async function main(): Promise<void> {
     log('note: récupération', e);
   }
 
-  initAppIpc({ hotkey, recorder, pipeline, notes, brainstorm, startBrainstorm });
+  initAppIpc({ hotkey, recorder, pipeline, notes });
   // Mises à jour : 30 s après le lancement puis toutes les 6 h ; installation au redémarrage / au Quitter.
   let lastUpKey = '';
   updater.on('update', (u: { state: string; percent?: number }) => {
@@ -261,11 +217,9 @@ async function main(): Promise<void> {
     busy: () =>
       notes.busy
         ? 'Une prise de notes est en cours — termine-la avant de mettre à jour'
-        : brainstorm.capturing
-          ? 'Un brainstorm est en cours — termine-le avant de mettre à jour'
-          : pipeline.current === 'recording'
-            ? 'Une dictée est en cours'
-            : null,
+        : pipeline.current === 'recording'
+          ? 'Une dictée est en cours'
+          : null,
   });
   syncLoginItem(!!settings.get('general.launchAtLogin'));
   // Ollama : lancé par l'app s'il ne tourne pas déjà, puis préchauffage du modèle.
@@ -292,8 +246,6 @@ async function main(): Promise<void> {
   hotkey.on('up', () => !SELFTEST && !longCapture() && void pipeline.end());
   hotkey.on('cancel', () => {
     if (SELFTEST) return;
-    if (brainstorm.recording)
-      return void (brainstorm.capture.elapsed() < 30000 ? brainstorm.cancel() : log('brainstorm: Échap ignoré (> 30 s)'));
     // Échap pendant une note : annule seulement au tout début (< 30 s) — au-delà, confirmation dans l'UI.
     if (notes.active) return void (notes.elapsed() < 30000 ? notes.cancel() : log('note: Échap ignoré (> 30 s)'));
     pipeline.cancel();
@@ -310,8 +262,7 @@ async function main(): Promise<void> {
   });
   hotkey.on('noteStop', () => {
     if (SELFTEST) return;
-    if (brainstorm.recording) void brainstorm.stop();
-    else if (notes.active) void notes.stop();
+    if (notes.active) void notes.stop();
   });
 
   // Actions directes (survol de la pastille, menu du Dock) : dictée mains libres et prise de notes.
@@ -325,29 +276,27 @@ async function main(): Promise<void> {
     else if (!longCapture()) void startNote();
   };
   ipcMain.on('overlay:hover', (e, on: boolean) => isTrustedSender(e) && overlay.setInteractive(!!on));
+  ipcMain.on('overlay:drag', (e, phase: string) => {
+    if (!isTrustedSender(e)) return;
+    if (phase === 'start') overlay.dragStart();
+    else if (phase === 'end') overlay.dragEnd();
+    else if (phase === 'reset') overlay.resetPosition();
+  });
   ipcMain.on('overlay:action', (e, name: string) => {
     if (!isTrustedSender(e)) return;
-    // Pendant un vidage brainstorm, le bouton d'arrêt de la pastille (quel que soit son libellé) le termine.
-    if (brainstorm.recording && (name === 'brainstorm' || name === 'note' || name === 'dictate')) return void brainstorm.stop();
     if (name === 'dictate') toggleDictation();
     else if (name === 'note') toggleNote();
-    else if (name === 'brainstorm') toggleBrainstorm(true);
   });
   let dockKey = '';
   const rebuildDockMenu = (): void => {
     // Les statuts arrivent ~30×/s (niveau micro) : on ne reconstruit que si le menu change.
-    const key = `${pipeline.current === 'recording'}|${notes.active}|${notes.state}|${notes.busy}|${brainstorm.recording}|${brainstorm.capturing}|${brainstorm.working}`;
+    const key = `${pipeline.current === 'recording'}|${notes.active}|${notes.state}|${notes.busy}`;
     if (key === dockKey) return;
     dockKey = key;
     app.dock?.setMenu(
       Menu.buildFromTemplate([
         { label: pipeline.current === 'recording' ? 'Arrêter la dictée' : 'Dicter', click: toggleDictation, enabled: !longCapture() },
         { label: notes.active ? 'Terminer la note' : 'Démarrer une note', click: toggleNote, enabled: notes.active || !longCapture() },
-        {
-          label: brainstorm.recording ? 'Terminer le brainstorm' : 'Brainstorm → prompt',
-          click: () => toggleBrainstorm(),
-          enabled: brainstorm.recording || (!longCapture() && !brainstorm.working),
-        },
         ...(notes.active
           ? [notes.state === 'paused'
               ? { label: 'Reprendre la note', click: () => notes.resume() }
@@ -355,15 +304,12 @@ async function main(): Promise<void> {
           : []),
         { type: 'separator' },
         { label: 'Mes notes', click: () => openAppWindow('notes') },
-        { label: 'Mes brainstorms', click: () => openAppWindow('brainstorm') },
       ]),
     );
   };
   rebuildDockMenu();
   notes.on('active', rebuildDockMenu);
   notes.on('status', rebuildDockMenu);
-  brainstorm.on('active', rebuildDockMenu);
-  brainstorm.on('update', rebuildDockMenu);
   pipeline.on('status', rebuildDockMenu);
   hotkey.on('mode', () => tray.rebuild());
   if (!hotkey.configure(String(settings.get('general.shortcut')))) hotkey.configure(PushToTalk.FALLBACK);
@@ -380,6 +326,7 @@ async function main(): Promise<void> {
       else void whisperServer.start(name);
     }
     if (k === 'overlay.idleMode') overlay.setIdleMode(v === 'hidden' ? 'hidden' : 'dim');
+    if (k === 'overlay.position') overlay.reposition(); // Réglages › Réinitialiser la position de la pastille
     if (k === 'general.launchAtLogin') syncLoginItem(!!v);
     if (k === 'updates.auto' && v !== false) void updater.check();
     tray.rebuild();
@@ -395,10 +342,6 @@ async function main(): Promise<void> {
     shortcut: settings.get('general.shortcut'),
   });
 
-  if (process.env.DICTA_SELFTEST && process.env.DICTA_SELFTEST_BRAINSTORM === '1') {
-    await selfTestBrainstorm(process.env.DICTA_SELFTEST, brainstorm, recorder, overlay, bubbles);
-    return;
-  }
   const noteWav = process.env.DICTA_SELFTEST_NOTE === '1' ? process.env.DICTA_SELFTEST : process.env.DICTA_SELFTEST_NOTE;
   if (noteWav) {
     await selfTestNote(noteWav, notes, recorder, overlay);
@@ -516,119 +459,6 @@ async function selfTestNote(wav: string, notes: NoteSession, recorder: Recorder,
     if (note?.segments) log('selftest-note: segments', JSON.stringify(note.segments));
   } catch (e) {
     log('selftest-note: échec', e);
-  }
-  app.quit();
-}
-
-/**
- * DICTA_SELFTEST=/chemin/brainstorm.wav DICTA_SELFTEST_BRAINSTORM=1 : mode Brainstorm de bout en bout
- * (audio injecté comme pour la note) → analyse → réponses vides (« Passer ») → compilation → fichier .md.
- */
-async function selfTestBrainstorm(wav: string, bs: BrainstormManager, recorder: Recorder, overlay: Overlay, bubbles?: Bubbles): Promise<void> {
-  const fs = await import('node:fs');
-  const { decodeWav } = await import('../shared/vad');
-  const states: string[] = [];
-  const t00 = Date.now();
-  const at = () => `${((Date.now() - t00) / 1000).toFixed(1)} s`;
-  // Brainstorm v2 : questions en direct qui apparaissent / se résolvent (diff à chaque mise à jour)
-  const seen = new Map<string, string>();
-  let calls = 0;
-  let failed = 0;
-  let callMs = 0;
-  let answeredOne = false;
-  let shotBubbles = false;
-  bs.on('live-call', (c: { ms: number; provider?: string; words?: number; resolved?: number; added?: string[]; error?: string }) => {
-    calls++;
-    callMs += c.ms;
-    if (c.error) failed++;
-    log(`selftest-brainstorm: [${at()}] appel direct #${calls} ${c.ms} ms`, c.error ? `ÉCHEC ${c.error.split('\n')[0]}` : `${c.provider} · ${c.words} mots · ${c.resolved} résolue(s) · +${c.added?.length ?? 0}`);
-  });
-  bs.on('update', (b: Brainstorm) => {
-    if (states[states.length - 1] !== b.state) states.push(b.state);
-    for (const q of b.live ?? []) {
-      const prev = seen.get(q.id);
-      if (prev === q.state) continue;
-      seen.set(q.id, q.state);
-      if (!prev) log(`selftest-brainstorm: [${at()}] + ${q.id} (${q.slot}, à ${(q.askedAt / 1000).toFixed(1)} s d'audio) ${q.question}`, q.suggestions);
-      else log(`selftest-brainstorm: [${at()}] ${q.id} → ${q.state}${q.answer ? ` : ${q.answer}` : ''}`);
-    }
-    const open = (b.live ?? []).filter((q) => q.state === 'open');
-    // simule un clic sur la 1re suggestion de la 1re bulle (pont cbwBubbles.answer → answerLive)
-    if (process.env.DICTA_SELFTEST_ANSWER === '1' && !answeredOne && b.state === 'recording' && open[0]?.suggestions[0]) {
-      answeredOne = true;
-      const q = open[0];
-      setTimeout(() => bs.answerLive(b.id, q.id, q.suggestions[0]), 0);
-    }
-    // clic sur une suggestion (événements injectés dans la page) : la bulle passe à « answered »,
-    // aucune fenêtre CBW AI ne prend le focus et l'app au premier plan ne change pas.
-    if (process.env.DICTA_SELFTEST_CLICK === '1' && bubbles && !answeredOne && b.state === 'recording' && open[0]?.suggestions[0]) {
-      answeredOne = true;
-      const q = open[0];
-      setTimeout(async () => {
-        const { execFileSync } = await import('node:child_process');
-        const front = () => execFileSync('lsappinfo', ['info', '-only', 'name', execFileSync('lsappinfo', ['front'], { encoding: 'utf8' }).trim()], { encoding: 'utf8' }).trim();
-        const before = front();
-        const text = await bubbles.debugClick();
-        await new Promise((r) => setTimeout(r, 800));
-        const st = bs.current?.live?.find((x) => x.id === q.id);
-        log('selftest-brainstorm: clic suggestion', { texte: text, bulle: st?.state, réponse: st?.answer, fenêtreFocus: BrowserWindow.getFocusedWindow()?.getTitle() ?? null, avant: before, après: front() });
-      }, 1200);
-    }
-    if (bubbles && !shotBubbles && open.length && b.state === 'recording') {
-      shotBubbles = true;
-      setTimeout(async () => {
-        const img = await bubbles.capture();
-        if (img) fs.writeFileSync(`${wav}.bubbles.png`, img);
-        log('selftest-brainstorm: bulles visibles =', bubbles.visible);
-      }, 600);
-    }
-  });
-  const waitFor = (ok: (s: string) => boolean, ms: number) =>
-    new Promise<string>((resolve) => {
-      const t = setTimeout(() => resolve('timeout'), ms);
-      const h = (b: { state: string }) => {
-        if (ok(b.state)) {
-          clearTimeout(t);
-          bs.off('update', h);
-          resolve(b.state);
-        }
-      };
-      bs.on('update', h);
-    });
-  try {
-    log('selftest-brainstorm: whisper-server prêt =', await whisperServer.start(String(settings.get('whisper.model'))));
-    const pcm = decodeWav(new Uint8Array(fs.readFileSync(wav)));
-    const speed = Number(process.env.DICTA_SELFTEST_SPEED || 1);
-    log(`selftest-brainstorm: audio ${(pcm.length / 16000).toFixed(1)} s, vitesse ×${speed}`);
-    await bs.start('claude-code', { feed: true });
-    let shot = false;
-    bs.on('status', async (s: DictaStatus) => {
-      if (!shot && s.mode === 'brainstorm' && s.state === 'recording' && (s.elapsedMs ?? 0) > 3000) {
-        shot = true;
-        const img = await overlay.capture();
-        if (img) fs.writeFileSync(`${wav}.overlay-brainstorm.png`, img);
-      }
-    });
-    await recorder.feed(pcm, speed);
-    const t0 = Date.now();
-    // Brainstorm v2 : l'arrêt compile directement (plus d'écran de questions)
-    const settled = waitFor((s) => s === 'done' || s === 'error', 300000);
-    if (bs.recording) await bs.stop();
-    else log('selftest-brainstorm: vidage déjà arrêté avant la fin de l’audio');
-    if (!['done', 'error'].includes(bs.current?.state ?? '')) await settled;
-    const b = bs.current!;
-    log('selftest-brainstorm: direct', { appels: calls, échecs: failed, moyenneMs: calls ? Math.round(callMs / calls) : 0, questions: b.live?.length ?? 0, répondues: b.live?.filter((q) => q.state === 'answered').length ?? 0, ouvertes: b.live?.filter((q) => q.state === 'open').length ?? 0 });
-    log('selftest-brainstorm: arrêt → prompt', { state: b.state, ms: Date.now() - t0, title: b.title, words: b.words, path: b.path, provider: b.provider, message: b.message, chars: b.prompt?.length });
-    log('selftest-brainstorm: transcription', b.transcript);
-    log('selftest-brainstorm: cases', Object.fromEntries(Object.entries(b.slots).map(([k, v]) => [k, `${v.status}: ${v.value.slice(0, 80)}`])));
-    if (b.prompt) log('selftest-brainstorm: prompt\n' + b.prompt);
-    await new Promise((r) => setTimeout(r, 1200));
-    log('selftest-brainstorm: bulles visibles après la fin =', bubbles?.visible);
-    const listed = bs.list().find((x) => x.id === b.id);
-    const persisted = JSON.parse(fs.readFileSync(path.join(dataDir(), 'brainstorms', `${b.id}.json`), 'utf8'));
-    log('selftest-brainstorm: états', states.join(' → '), '| listé =', !!listed, '| JSON état =', persisted.state, '| JSON live =', persisted.live?.length);
-  } catch (e) {
-    log('selftest-brainstorm: échec', e);
   }
   app.quit();
 }

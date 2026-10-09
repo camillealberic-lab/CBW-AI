@@ -13,7 +13,6 @@ import type { DictationResult, Pipeline } from './pipeline';
 import type { Recorder } from './recorder';
 import { settings } from './settings';
 import { copyNote, deleteNote, getNote, listNotes, renameSpeaker, revealNote, type NoteSession } from './notes';
-import type { BrainstormManager } from './brainstorm';
 import { downloadWhisper, whisperStatus } from './whisper';
 import { modelDownloader, type DownloadProgress } from './whisperModels';
 import { updater, type UpdateStatus } from './updater';
@@ -96,18 +95,6 @@ function pushLlmOverrides(): void {
 const PROVIDER_IDS: readonly ProviderId[] = ['gemini', 'groq', 'zai', 'mistral', 'cloudflare', 'openrouter', 'ollama'];
 const isProviderId = (x: unknown): x is ProviderId => typeof x === 'string' && (PROVIDER_IDS as readonly string[]).includes(x);
 
-/** Le chemin (fichiers réels, liens résolus) est-il dans ~/Documents/CBW AI/Prompts ? */
-function isInPromptsDir(p: unknown): p is string {
-  if (typeof p !== 'string' || !p || !p.toLowerCase().endsWith('.md')) return false;
-  try {
-    const root = fs.realpathSync(path.join(app.getPath('documents'), 'CBW AI', 'Prompts'));
-    const real = fs.realpathSync(p);
-    return real.startsWith(root + path.sep) && fs.statSync(real).isFile();
-  } catch {
-    return false;
-  }
-}
-
 /** Fenêtre principale attendue comme émetteur de tous les canaux `app:*`. */
 const appContents = () => (win && !win.isDestroyed() ? win.webContents : null);
 
@@ -127,8 +114,6 @@ export function initAppIpc(d: {
   recorder: Recorder;
   pipeline: Pipeline;
   notes: NoteSession;
-  brainstorm: BrainstormManager;
-  startBrainstorm: (target?: unknown) => Promise<void>;
 }): void {
   deps = d;
   pushLlmOverrides();
@@ -239,7 +224,6 @@ export function initAppIpc(d: {
   // ── prise de notes
   const n = d.notes;
   handle('app:startNote', async () => {
-    if (d.brainstorm.capturing) throw new Error('Un brainstorm est en cours d’enregistrement');
     if (d.pipeline.current === 'recording') d.pipeline.cancel();
     await n.start();
   });
@@ -261,27 +245,6 @@ export function initAppIpc(d: {
   handle('app:copyNote', (_e, id: unknown) => copyNote(String(id)));
   handle('app:renameSpeaker', (_e, id: unknown, from: unknown, to: unknown) => renameSpeaker(String(id), String(from ?? ''), String(to ?? '')));
   n.on('progress', (p: unknown) => send('app:noteProgress', p));
-
-  // ── brainstorm → master prompt
-  const bs = d.brainstorm;
-  handle('app:startBrainstorm', (_e, target: unknown) => d.startBrainstorm(target));
-  handle('app:stopBrainstorm', () => bs.stop());
-  handle('app:cancelBrainstorm', () => bs.cancel());
-  handle('app:answerBrainstorm', (_e, id: unknown, qid: unknown, answer: unknown) => bs.answer(id, qid, answer));
-  handle('app:answerLive', (_e, id: unknown, qid: unknown, answer: unknown) => bs.answerLive(id, qid, answer));
-  handle('app:dismissLive', (_e, id: unknown, qid: unknown) => bs.dismissLive(id, qid));
-  handle('app:askMore', (_e, id: unknown) => bs.askMore(id));
-  handle('app:compileBrainstorm', (_e, id: unknown, target: unknown) => bs.compile(id, target));
-  handle('app:listBrainstorms', () => bs.list());
-  handle('app:getBrainstorm', (_e, id: unknown) => bs.get(id));
-  handle('app:copyBrainstormPrompt', (_e, id: unknown) => bs.copyPrompt(id));
-  handle('app:revealBrainstorm', (_e, id: unknown) => {
-    const p = bs.get(id)?.path; // lu dans le JSON du brainstorm : jamais montré hors du dossier des prompts
-    if (isInPromptsDir(p)) shell.showItemInFolder(p);
-    else if (p) log('sécurité: revealBrainstorm hors de ~/Documents/CBW AI/Prompts refusé');
-  });
-  handle('app:deleteBrainstorm', (_e, id: unknown) => bs.delete(id));
-  bs.on('update', (b: unknown) => send('app:brainstorm', b));
 
   d.pipeline.on('status', (s: DictaStatus) => send('app:status', s));
   d.pipeline.on('result', (r: DictationResult) => send('app:dictation', recordDictation(r)));

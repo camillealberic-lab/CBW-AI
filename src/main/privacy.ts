@@ -92,7 +92,7 @@ export interface WipeOptions {
  * puis app.relaunch() + app.exit(0). Ne touche pas aux fichiers hors de l'app.
  *
  * Efface : clés API (secrets.json + élément « CBW AI Safe Storage » du trousseau), config.json, historique,
- * compteurs d'usage, notes (transcriptions, segments, audio), brainstorms, journaux, profil Chromium
+ * compteurs d'usage, notes (transcriptions, segments, audio), anciennes données, journaux, profil Chromium
  * (cache, localStorage) ; en option les modèles et les documents exportés.
  */
 export async function wipeAllUserData(opts: WipeOptions = {}): Promise<{ removed: string[] }> {

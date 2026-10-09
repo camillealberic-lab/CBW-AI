@@ -59,8 +59,10 @@
     '.cbwn.na{position:relative;container:cbwn / inline-size;min-height:min(100vh,100%)}',
     '.na{--pw:clamp(400px,42cqw,700px)}',
     '.na-shell{display:flex;align-items:flex-start;min-height:100vh;transition:opacity .32s var(--n-ease),transform .42s var(--n-out),filter .32s}',
-    '.na-main{flex:1 1 auto;min-width:0;overflow:hidden;container:namain / inline-size;padding:clamp(28px,4vh,56px) clamp(20px,4cqw,56px) 72px;transition:opacity .25s}',
-    '.na-col{max-width:780px;margin:0 auto}',
+    /* même gabarit que les autres pages : la marge et la largeur viennent de .page (app.html) */
+    '.na-main{flex:1 1 auto;min-width:0;overflow:hidden;container:namain / inline-size;padding:0 0 72px;transition:opacity .25s,padding .46s var(--n-out)}',
+    '.na[data-panel="open"] .na-main{padding-right:clamp(20px,3cqw,40px)}',
+    '.na-col{max-width:none;margin:0}',
     '.na-panel{position:sticky;top:0;height:100vh;width:0;flex:none;overflow:hidden;display:flex;justify-content:flex-end;background:var(--fond,#fff);transition:width .46s var(--n-out)}',
     '.na[data-panel="open"] .na-panel{width:var(--pw)}',
     '.na[data-panel="open"] .na-pin{border-left:1px solid var(--n-fil)}',

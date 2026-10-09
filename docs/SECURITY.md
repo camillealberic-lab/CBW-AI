@@ -7,7 +7,7 @@ Périmètre : clés API, données de la personne, durcissement Electron, IPC, se
 
 | Donnée | Destination | Quand |
 |---|---|---|
-| **Texte** transcrit (dictée, note complète, vidage brainstorm, réponses aux bulles) + vocabulaire perso | **Le seul** fournisseur LLM qui répond (ordre des Réglages : Groq, Mistral, Cloudflare, Gemini, Z.ai, OpenRouter) en HTTPS | À chaque nettoyage / organisation / compilation |
+| **Texte** transcrit (dictée, note complète) + vocabulaire perso | **Le seul** fournisseur LLM qui répond (ordre des Réglages : Groq, Mistral, Cloudflare, Gemini, Z.ai, OpenRouter) en HTTPS | À chaque nettoyage / organisation / compilation |
 | Rien (requête vide de contenu) | Hugging Face (`huggingface.co`) | Téléchargement des modèles Whisper / voix (SHA-256 vérifié) |
 | Version de l'app, adresse IP | GitHub Releases | Vérification des mises à jour |
 
@@ -27,7 +27,6 @@ Périmètre : clés API, données de la personne, durcissement Electron, IPC, se
 | `~/.dicta-ai/history.json` | Dernières dictées (texte brut + nettoyé) | 0600 |
 | `~/.dicta-ai/usage.json` | Compteurs par fournisseur, dernières erreurs (masquées) | 0600 |
 | `~/.dicta-ai/notes/` | `<id>.txt` transcription, `<id>.json` segments + locuteurs, `index.json` ; `<id>.wav` pendant la session | 0700 / 0600 |
-| `~/.dicta-ai/brainstorms/` | `<id>.txt` + `<id>.json` (transcription, grille, questions) | 0700 / 0600 |
 | `~/.dicta-ai/models/` | Modèles Whisper et voix (publics) | 0700 |
 | `~/.dicta-ai/dicta.log` (+ `.1`) | Journal : durées, longueurs, identifiants — **ni texte dicté ni clé** | 0600, rotation 2 Mo |
 | `~/.dicta-ai/ollama.log` | Journal d'Ollama s'il est lancé par l'app | 0600 |
@@ -74,7 +73,7 @@ CSP : `script-src 'unsafe-inline'` reste nécessaire (scripts en ligne dans `app
 - La dictée peut contenir des instructions : la sortie du LLM n'est **jamais exécutée**, seulement collée comme texte. Garde-fous `postProcess()` : rôle (réponse d'assistant refusée), longueur (+20 % max / −80 %), recopie d'exemple.
 - Collage (`insert.ts`) : caractères de contrôle et marques bidi retirés, pas de retour à la ligne final (une dictée piégée ne valide pas une commande dans un Terminal).
 - Fichiers `.md` : titres proposés par le LLM nettoyés (séparateurs, contrôles, « . » en tête) et préfixés par la date → pas d'injection de chemin. Suppressions limitées aux dossiers `~/Documents/CBW AI/Notes|Prompts`.
-- Identifiants venant de l'UI : notes `^\d{8}T\d{6}-[a-z0-9]{1,8}$`, brainstorms `^[\w-]{1,80}$`, vérifiés avant tout chemin. `renameSpeaker` : seulement un locuteur existant, nouveau nom en texte simple (60 car.).
+- Identifiants venant de l'UI : notes `^\d{8}T\d{6}-[a-z0-9]{1,8}$`, vérifiés avant tout chemin. `renameSpeaker` : seulement un locuteur existant, nouveau nom en texte simple (60 car.).
 
 ## 7. Mises à jour (modèle de menace)
 
@@ -91,7 +90,7 @@ Correctif (intégré le 09/10) :
 ## 8. « Supprimer toutes mes données » (design)
 
 - Emplacement : Réglages › Confidentialité, bouton rouge « Supprimer toutes mes données… ».
-- Dialogue de confirmation : liste de ce qui sera effacé (clés API et élément du trousseau, réglages, historique, notes et brainstorms internes, audio, journaux, cache), case « Supprimer aussi mes notes et prompts exportés dans Documents » (décochée), case « Supprimer les modèles téléchargés (≈ 600 Mo) » (décochée). Bouton « Tout supprimer » activé après saisie de « SUPPRIMER ».
+- Dialogue de confirmation : liste de ce qui sera effacé (clés API et élément du trousseau, réglages, historique, notes internes, audio, journaux, cache), case « Supprimer aussi mes notes et prompts exportés dans Documents » (décochée), case « Supprimer les modèles téléchargés (≈ 600 Mo) » (décochée). Bouton « Tout supprimer » activé après saisie de « SUPPRIMER ».
 - Côté main : `wipeAllUserData({ documents, models })` dans `src/main/privacy.ts` (implémenté), puis `app.relaunch(); app.exit(0)` → l'app repart sur l'onboarding.
 - Exposé : `app:wipeAllData` (émetteur vérifié, options booléennes strictes) dans `appWindow.ts`, `wipeAllData(opts)` dans `preload-app.ts`, contrat dans `docs/APP_API.md`. Reste à faire : le bouton et le dialogue dans `app.html`.
 
@@ -111,15 +110,15 @@ Correctif (intégré le 09/10) :
 | 10 | Moyenne | `providers/common.ts`, `quota.ts` | Erreurs des fournisseurs pouvant recopier la clé → `usage.json`, journal, UI | Corrigé (`redact()`) |
 | 11 | Moyenne | toutes les fenêtres | Pas de garde de navigation commune, pas de blocage du contenu distant, `openExternal` http accepté (Réglages) | Corrigé (`security.ts`) |
 | 12 | Moyenne | `settings.html`, `src/renderer/*.html` | 4 pages sans CSP ; `base-uri` / `form-action` absents ailleurs | Corrigé |
-| 13 | Moyenne | `~/.dicta-ai/*` | Fichiers 0644, dossiers 0755 (notes, brainstorms, journal) | Corrigé (umask 077 + rattrapage) |
+| 13 | Moyenne | `~/.dicta-ai/*` | Fichiers 0644, dossiers 0755 (notes, journal) | Corrigé (umask 077 + rattrapage) |
 | 14 | Moyenne | IPC `rec:*`, `overlay:*`, `bubbles:*`, `settings:*` | Émetteur non vérifié | Corrigé |
-| 15 | Moyenne | `src/main/appWindow.ts` | Handlers `app:*` sans vérification d'émetteur ; `revealBrainstorm` sur un chemin lu dans le JSON | Corrigé (`isTrustedSender` sur tous les `app:*`, `testProvider` limité aux fournisseurs connus, `revealBrainstorm` confiné à `~/Documents/CBW AI/Prompts`) |
+| 15 | Moyenne | `src/main/appWindow.ts` | Handlers `app:*` sans vérification d'émetteur ; ancien handler « reveal » sur un chemin lu dans un JSON (fonction retirée) | Corrigé (`isTrustedSender` sur tous les `app:*`, `testProvider` limité aux fournisseurs connus) |
 | 16 | Moyenne | `design/*.html` | `script-src 'unsafe-inline'` | Documenté (scripts à externaliser) |
 | 17 | Moyenne | `after-pack.cjs` | Exigence désignée `identifier` seule (ad hoc) : un autre binaire avec cet identifiant hérite de Micro / Accessibilité / trousseau | Documenté (Developer ID) |
 | 18 | Faible | `src/main/ollama.ts` | `OLLAMA_ORIGINS` hérité pouvait ouvrir le CORS d'Ollama | Corrigé |
 | 19 | Faible | `whisper-server` | CORS `*` côté whisper.cpp (port aléatoire, local) | Documenté |
 | 20 | Faible | `src/main/insert.ts` | Retour à la ligne final / caractères de contrôle collés | Corrigé |
-| 21 | Faible | `notes.ts`, `brainstorm.ts` | Titres LLM : caractères de contrôle, « . » en tête | Corrigé |
+| 21 | Faible | `notes.ts` | Titres LLM : caractères de contrôle, « . » en tête | Corrigé |
 | 22 | Faible | `renameSpeaker` | Remplaçait n'importe quel mot ; noms journalisés | Corrigé |
 | 23 | Faible | binaires `whisper-*` | Chemin `/Users/<nom>/…` compilé dans les binaires | Corrigé (`-ffile-prefix-map`, binaires recompilés le 09/10 : 0 chemin `/Users/`) |
 | 24 | Faible | `whisper.ts` | WAV temporaire 0644, orphelin après plantage | Corrigé (0600 + nettoyage) |

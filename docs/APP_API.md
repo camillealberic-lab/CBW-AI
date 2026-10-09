@@ -4,6 +4,7 @@ Une seule fenêtre principale (`design/app/app.html`, ~85 % de l'écran, min 960
 - Premier lancement (ou `onboarding.done !== true`) : **onboarding** plein écran dans la fenêtre.
 - Ensuite : **hub** (barre latérale : Accueil · Dictionnaire · Style · Réglages).
 - L'app est visible dans le **Dock** (clic Dock → ouvre la fenêtre) ET garde l'icône de barre de menus + l'overlay pastille.
+- Pastille (overlay) : déplaçable au glisser (`window.dicta.drag('start'|'end')`, la fenêtre suit le curseur côté main) ; position mémorisée dans le réglage `overlay.position` = « idÉcran:x:y » (relatif à l'écran) ; `''` = place par défaut (bas de l'écran, au-dessus du Dock s'il est visible) — bouton Réglages › Général › « Remettre en bas ».
 
 ## Pont exposé par le preload : `window.dictaApp` (si absent → la page tourne en mode démo avec données factices)
 
@@ -109,36 +110,6 @@ window.dictaApp += {
 Implémentation (src/main/notes.ts) : pendant la note, la pastille reçoit `{ state: 'recording', mode: 'note', message: 'NOTE · mm:ss' | 'NOTE · PAUSE mm:ss', elapsedMs, level }` (≥ 1×/s), puis `transcribing` / `cleaning` (« Note · organisation… ») et `done` (« Note prête : <titre> »). Pas de limite de durée (la dictée garde sa limite de 5 min) ; l'audio déjà transcrit est libéré au fil de l'eau (mémoire constante). Sans moteur IA disponible, la note est enregistrée avec la transcription brute (`provider: 'passthrough'`) et `NoteProgress.message` l'indique ; « Réorganiser » la reprend plus tard. Une transcription orpheline (plantage) est récupérée au démarrage suivant en « Note récupérée du … ».
 Notification macOS « Note prête » → clic : ouvre la fenêtre sur `#notes:<id>` et émet `dicta:navigate` avec `detail: 'notes'` (l'id est dans `location.hash`).
 
-## Mode « Brainstorm → master prompt » (CRAFT+, cible Claude Code / Cursor)
-
-Parcours : 1) **vidage libre** à la voix (même enregistrement que les notes, rien n'est collé) → 2) **analyse** : l'IA remplit les cases CRAFT+ et pose 3 à 6 questions, chacune avec 0–3 suggestions cliquables → 3) l'utilisateur répond (champ texte ; la dictée Control gauche ×2 colle dedans car la fenêtre est au premier plan ; ou clic sur une suggestion ; ou « Passer ») → 4) **compilation** du master prompt (Markdown) → copier / enregistrer.
-Lancement : section « Brainstorm » de la barre latérale, 3e bouton « Brainstorm » de la pastille au survol (ouvre la fenêtre sur #brainstorm et démarre le vidage).
-Fichiers : `~/Documents/CBW AI/Prompts/AAAA-MM-JJ HHhMM — <titre>.md` ; sessions dans `~/.dicta-ai/brainstorms/<id>.json`.
-
-```ts
-type SlotKey = 'contexte' | 'role' | 'action' | 'format' | 'cible' | 'contraintes' | 'criteres' | 'exemples';
-interface Slot { value: string; status: 'vide' | 'partiel' | 'ok'; evidence?: string }
-interface BQuestion { id: string; slot: SlotKey; question: string; why: string; suggestions: string[] }
-interface Brainstorm { id: string; title: string; createdAt: string; target: 'claude-code' | 'cursor';
-  state: 'recording' | 'analyzing' | 'questions' | 'compiling' | 'done' | 'error';
-  transcript: string; slots: Record<SlotKey, Slot>; questions: BQuestion[]; answers: Record<string, string>;
-  prompt?: string; path?: string; message?: string }
-window.dictaApp += {
-  startBrainstorm(target?: 'claude-code'|'cursor'): Promise<void>;   // démarre le vidage (comme startNote)
-  stopBrainstorm(): Promise<void>;                                   // fin du vidage → analyse
-  cancelBrainstorm(): Promise<void>;
-  onBrainstorm(cb: (b: Brainstorm) => void): void;                   // état complet poussé à chaque étape (+ timer via onNoteProgress-like {elapsedMs, words, level})
-  answerBrainstorm(id: string, questionId: string, answer: string): Promise<void>;  // '' = passer
-  askMore(id: string): Promise<void>;                                // re-analyse avec les réponses → nouvelles questions si cases floues (max 6 au total)
-  compileBrainstorm(id: string, target?: 'claude-code'|'cursor'): Promise<void>;
-  listBrainstorms(): Promise<{ id: string; title: string; createdAt: string; state: string }[]>;
-  getBrainstorm(id: string): Promise<Brainstorm>;
-  copyBrainstormPrompt(id: string): Promise<void>;
-  deleteBrainstorm(id: string): Promise<void>;
-}
-```
-LLM : `src/llm/brainstorm.ts` → `analyzeBrainstorm(transcript, prior?)` et `compileMasterPrompt(state, target)` (orchestrateur).
-
 ## Notes v2 — compte rendu exhaustif + qui a dit quoi
 
 **Audio** : deux sources quand c'est possible — micro (toujours) + **son du Mac** (visios / appels sur le Mac, via la capture audio système macOS, permission « Enregistrement de l'écran et audio système » demandée au 1er usage, désactivable). Le WAV complet de la session est conservé pendant l'organisation (`~/.dicta-ai/notes/<id>.wav`), puis supprimé (option « garder l'audio »).
@@ -149,21 +120,12 @@ LLM : `src/llm/brainstorm.ts` → `analyzeBrainstorm(transcript, prior?)` et `co
 `# Titre` · `## En bref` · `## Participants` · `## Sujets abordés` (### un sous-titre par sujet, tous les points, attribution « — Personne 2 ») · `## Décisions` · `## Actions` (`- [ ] Personne 1 — action — échéance si dite`) · `## Questions ouvertes` · `## Par personne` (### Personne n : positions, propositions, engagements) · `## Chronologie` (`- mm:ss — sujet`)
 **Bridge ajouté** : `renameSpeaker(noteId, from, to)` (remplace dans la note + transcription), `getNote(id)` renvoie aussi `segments: {startMs, endMs, speaker, text}[]` quand disponibles. Réglage `notes.systemAudio` (bool, défaut true), `notes.diarization` (bool, défaut true), `notes.keepAudio` (bool, défaut false).
 
-## Brainstorm v2 — conversation en direct (bulles en bas à droite)
-
-Pendant le vidage, à **chaque pause de parole** (segment Whisper validé) et dès qu'il y a ≥ 12 mots nouveaux non analysés (un seul appel à la fois ; sinon on accumule), le main appelle `liveBrainstorm({ target, slots, open, asked, said, fresh, maxNew: 3 - open.length (≥0, max 3 bulles visibles) })` (src/llm/brainstorm.ts, exporté dans le bundle router).
-Effets : la grille se met à jour ; les questions « resolved » passent à `answered` (réponse = celle de l'IA, éditable) ; les nouvelles questions sont ajoutées (`state: 'open'`, id `q1…`).
-`Brainstorm` gagne : `live: { id: string; slot: SlotKey; question: string; suggestions: string[]; state: 'open' | 'answered' | 'dismissed'; answer?: string; askedAt: number }[]`.
-Bridge ajouté : `answerLive(id, questionId, answer)` (clic sur une suggestion ou réponse tapée), `dismissLive(id, questionId)`.
-À l'arrêt : plus d'écran de questions obligatoire → compilation directe du master prompt avec toutes les Q/R (`answered` + réponses de la grille) ; les questions encore ouvertes deviennent « À clarifier ». (L'ancien flux questions reste accessible via « Encore une question ».)
-**Bulles** : fenêtre flottante dédiée (panneau macOS non activable, toujours au-dessus, tous les bureaux) en **bas à droite** de l'écran actif, au-dessus du Dock ; visible seulement pendant un brainstorm ; 3 cartes max empilées (question, 0–3 suggestions cliquables, ×), animation d'entrée (glisse depuis la droite + fondu, 240 ms), une carte répondue se coche en vert puis s'efface (800 ms) ; rien ne vole le focus de l'app active. Preload `window.cbwBubbles = { onState(cb), answer(qid, text), dismiss(qid) }`.
-
 ## Confidentialité — « Supprimer toutes mes données » (src/main/privacy.ts › wipeAllUserData)
 
-`wipeAllData(opts?: { documents?: boolean; models?: boolean }): Promise<{ removed: string[] }>` — efface clés API (+ élément « CBW AI Safe Storage » du trousseau), réglages, historique, compteurs, notes et brainstorms internes, audio, journaux, profil Chromium ; `documents: true` supprime aussi `~/Documents/CBW AI` (notes et prompts exportés), `models: true` les modèles téléchargés (≈ 600 Mo). Seul `true` strict active une option (défaut : conservés). L'app se relance ≈ 300 ms après la réponse et repart sur l'onboarding : afficher « Suppression… » puis ne plus rien appeler.
+`wipeAllData(opts?: { documents?: boolean; models?: boolean }): Promise<{ removed: string[] }>` — efface clés API (+ élément « CBW AI Safe Storage » du trousseau), réglages, historique, compteurs, notes internes, audio, journaux, profil Chromium ; `documents: true` supprime aussi `~/Documents/CBW AI` (notes exportées), `models: true` les modèles téléchargés (≈ 600 Mo). Seul `true` strict active une option (défaut : conservés). L'app se relance ≈ 300 ms après la réponse et repart sur l'onboarding : afficher « Suppression… » puis ne plus rien appeler.
 UI (docs/SECURITY.md › 8) : Réglages › Confidentialité, bouton rouge « Supprimer toutes mes données… » → dialogue listant ce qui sera effacé, deux cases décochées (Documents, modèles), bouton « Tout supprimer » actif après saisie de « SUPPRIMER ».
 
-Tous les canaux `app:*` vérifient l'émetteur (cadre principal d'une page de l'app dans la fenêtre principale) ; `testProvider(id)` n'accepte que `gemini | groq | zai | mistral | cloudflare | openrouter | ollama` (sinon `{ ok: false, message: 'Fournisseur inconnu' }`) ; `revealBrainstorm` n'ouvre que des fichiers `.md` de `~/Documents/CBW AI/Prompts`.
+Tous les canaux `app:*` vérifient l'émetteur (cadre principal d'une page de l'app dans la fenêtre principale) ; `testProvider(id)` n'accepte que `gemini | groq | zai | mistral | cloudflare | openrouter | ollama` (sinon `{ ok: false, message: 'Fournisseur inconnu' }`).
 
 ## Mises à jour (src/main/updater.ts)
 
@@ -172,7 +134,7 @@ Sans Developer ID : l'app lit `https://github.com/<package.json › cbw.repo>/re
 - `getVersion(): Promise<string>` (aussi `platform.version`, synchrone)
 - `getUpdateStatus(): Promise<UpdateStatus>` — état courant (à lire à l'ouverture de Réglages)
 - `checkForUpdates(): Promise<UpdateStatus>` — bouton « Vérifier les mises à jour »
-- `installUpdate(): Promise<{ ok: boolean; message?: string }>` — bouton « Redémarrer pour mettre à jour » (refusé pendant une note / un brainstorm / une dictée : afficher `message`) ; l'app quitte puis se relance sur la nouvelle version
+- `installUpdate(): Promise<{ ok: boolean; message?: string }>` — bouton « Redémarrer pour mettre à jour » (refusé pendant une note / une dictée : afficher `message`) ; l'app quitte puis se relance sur la nouvelle version
 - `onUpdate(cb)` — `cb(UpdateStatus)` à chaque changement (progression du téléchargement incluse)
 - `onFullscreen(cb)` — `cb(boolean)` à l'entrée / sortie du plein écran macOS (et au chargement) ; l'UI pose `html.fs`
 

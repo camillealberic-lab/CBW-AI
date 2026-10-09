@@ -1,4 +1,4 @@
-/* CBW AI — site éditorial (langage CBW Studio). Coins carrés, filets 1–2 px, trois couleurs = trois fonctions. Chapitres épinglés au défilement. */
+/* CBW AI — site éditorial (langage CBW Studio). Coins carrés, filets 1–2 px, une couleur par fonction. Chapitres épinglés au défilement. */
 @font-face{font-family:'Archivo';font-style:normal;font-weight:400 900;font-stretch:62% 125%;font-display:swap;src:url('fonts/Archivo-latin.var.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 @font-face{font-family:'Archivo';font-style:normal;font-weight:400 900;font-stretch:62% 125%;font-display:swap;src:url('fonts/Archivo-latin-ext.var.woff2') format('woff2');unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+1E00-1E9F,U+20A0-20AB,U+20AD-20C4,U+2113,U+A720-A7FF}
 @font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;src:url('fonts/JetBrainsMono-latin.var.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
@@ -178,13 +178,13 @@ button,input{font:inherit;color:inherit}
 .chap-num .n{font-weight:900;font-stretch:70%;font-size:clamp(96px,10vw,160px);line-height:.76;letter-spacing:-.055em}
 .chap-num .bar{flex:1;height:8px;margin-bottom:6px;transform-origin:left;transform:scaleX(0);transition:transform .9s var(--ease-barre)}
 .vu .chap-num .bar{transform:scaleX(1)}
-.c-o .bar{background:var(--orange)}.c-v .bar{background:var(--vert)}.c-b .bar{background:var(--bleu)}
+.c-o .bar{background:var(--orange)}.c-v .bar{background:var(--vert)}
 .h3{font-weight:900;font-stretch:85%;font-size:clamp(34px,3.4vw,54px);line-height:.95;letter-spacing:-.03em}
 .chap-texte > p:not(.geste){font-size:18px;max-width:26em}
 .points{list-style:none;border-top:2px solid var(--trait)}
 .points li{padding:12px 0;border-bottom:1px solid var(--fil);display:grid;grid-template-columns:28px 1fr;gap:8px;font-size:16px}
 .points li::before{content:"";width:10px;height:10px;margin-top:7px;background:var(--accent)}
-.c-o{--accent:var(--orange)}.c-v{--accent:var(--vert)}.c-b{--accent:var(--bleu)}
+.c-o{--accent:var(--orange)}.c-v{--accent:var(--vert)}
 .geste{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:14px;color:var(--texte-sec)}
 
 /* Pages épinglées : le chapitre reste à l'écran pendant que la démo avance */
@@ -198,8 +198,6 @@ button,input{font:inherit;color:inherit}
   .page .section-tete{padding-top:64px}
   .hero .cadre{min-height:calc(100svh - var(--entete) - 120px)}
 }
-.pin.actif .case{transition:opacity .35s var(--ease),background .3s}
-.pin.actif .case.cache{opacity:.18}
 
 /* Mini UI — fenêtre générique */
 .fen{border:2px solid var(--trait);background:var(--surface);min-width:0;display:flex;flex-direction:column}
@@ -251,31 +249,7 @@ button,input{font:inherit;color:inherit}
 .vue[hidden]{display:none}
 .vue{animation:entree .32s var(--ease)}
 
-/* Brainstorm */
-.bs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
-.craft{display:grid;grid-template-columns:1fr 1fr;border-right:2px solid var(--trait);align-content:start}
-.case{padding:14px;border-bottom:1px solid var(--fil);border-right:1px solid var(--fil);display:flex;flex-direction:column;gap:6px;min-width:0;transition:background .3s}
-.case:nth-child(2n){border-right:0}
-.case:nth-child(n+3){border-bottom:0}
-.case .label{font-size:11px}
-.case p{font-size:14px;line-height:1.35;color:var(--texte)}
-.case p.vide{color:var(--texte-3);font-style:italic}
-.case .st{width:10px;height:10px;flex:none}
-.case[data-st="ok"] .st{background:var(--vert)}.case[data-st="vide"] .st{background:transparent;border:1.5px solid var(--champ)}
-.case.flash{background:color-mix(in srgb,var(--bleu) 12%,transparent)}
-.bs-q{padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
-.bs-q .question{font-weight:800;font-size:19px;line-height:1.25}
-.puces{display:flex;flex-wrap:wrap;gap:8px}
-.puce{min-height:44px;padding:0 12px;border:2px solid var(--trait);background:var(--surface);font-weight:700;font-size:14px;cursor:pointer;text-align:left;transition:background .2s,color .2s}
-.puce:hover{background:var(--fond-2)}
-.puce[aria-pressed="true"]{background:var(--inverse-fond);color:var(--inverse-texte)}
-.prompt{border-top:2px solid var(--trait);grid-column:1/-1;background:var(--fond-2)}
-.prompt pre{margin:0;padding:14px 16px;font-family:var(--mono);font-size:13px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:var(--texte)}
-.prompt pre .h{color:var(--bleu-txt);font-weight:700}
 .prompt-tete{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--fil);flex-wrap:wrap}
-.cible{display:flex;border:1px solid var(--fil-fort)}
-.cible button{min-height:36px;padding:0 10px;border:0;background:none;font-family:var(--mono);font-size:12px;cursor:pointer;color:var(--texte)}
-.cible button[aria-pressed="true"]{background:var(--bleu);color:#fff}
 
 /* Flux (confidentialité, installation) */
 .flux{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:2px solid var(--trait);margin-bottom:96px}
@@ -406,8 +380,6 @@ table.comp{width:100%;border-collapse:collapse;min-width:620px;font-size:16px}
   .flux{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:72px}
   .flux-etape:nth-child(2){border-right:0}
   .flux-etape:nth-child(n+3){border-top:1px solid var(--fil)}
-  .bs{grid-template-columns:1fr}
-  .craft{border-right:0;border-bottom:2px solid var(--trait)}
   .aide-corps{grid-template-columns:1fr;gap:24px;padding-top:24px}
   .toc{display:none}
   .toc-mobile{display:block;position:sticky;top:66px;z-index:10;background:var(--fond);border:2px solid var(--trait)}
@@ -433,12 +405,6 @@ table.comp{width:100%;border-collapse:collapse;min-width:620px;font-size:16px}
   .hero-actions,.cta-bloc{width:100%}
   .final .btn-l{width:100%}
   .h2 br{display:none}
-}
-@media (max-width:420px){
-  .craft{grid-template-columns:1fr}
-  .case{border-right:0}
-  .case:nth-child(n+3){border-bottom:1px solid var(--fil)}
-  .case:last-child{border-bottom:0}
 }
 
 /* ── Installation en une ligne (Terminal) ── */

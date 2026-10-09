@@ -156,21 +156,10 @@ type OrganizeFn = (t: string, o: { signal?: AbortSignal; onProgress?: (s: number
   latencyMs: number;
 }>;
 
-/** Transcriptions du vidage Brainstorm : ~/.dicta-ai/brainstorms/<id>.txt (à côté de <id>.json). */
-export const brainstormsDataDir = (): string => {
-  const d = path.join(dataDir(), 'brainstorms');
-  fs.mkdirSync(d, { recursive: true });
-  return d;
-};
-
-/**
- * Session de capture longue (VAD → segments Whisper au fil de l'eau). `kind: 'brainstorm'` réutilise la même
- * capture pour le vidage du mode Brainstorm : libellé « BRAINSTORM · mm:ss », transcription dans
- * ~/.dicta-ai/brainstorms/, et arrêt via stopCapture() (pas d'organisation ni de fichier Markdown).
- */
+/** Session de prise de notes (VAD → segments Whisper au fil de l'eau). */
 export class NoteSession extends EventEmitter {
   private recorder: Recorder;
-  readonly kind: 'note' | 'brainstorm';
+  readonly kind = 'note' as const;
   state: 'idle' | 'recording' | 'paused' | 'transcribing' | 'organizing' = 'idle';
   private id = '';
   private createdAt = new Date();
@@ -188,10 +177,9 @@ export class NoteSession extends EventEmitter {
   /** Mesures (autotest) : instants clés de la dernière note. */
   timings = { stopAt: 0, transcribedAt: 0, diarizedAt: 0, organizedAt: 0, segments: 0, segMs: 0, diarizeMs: 0, diarizeMode: '', speakers: 0 };
 
-  constructor(recorder: Recorder, kind: 'note' | 'brainstorm' = 'note') {
+  constructor(recorder: Recorder) {
     super();
     this.recorder = recorder;
-    this.kind = kind;
     recorder.on('segment', (wav: Buffer, a: number, b: number, commit: boolean) => {
       if (commit && (this.state === 'recording' || this.state === 'paused')) this.enqueue(wav, a, b);
     });
@@ -234,9 +222,9 @@ export class NoteSession extends EventEmitter {
   private words(): number {
     return countWords(this.texts.join(' '));
   }
-  /** Fichier de transcription au fil de l'eau (notes ou brainstorms selon `kind`). */
+  /** Fichier de transcription au fil de l'eau. */
   private txt(id: string): string {
-    return this.kind === 'brainstorm' ? path.join(brainstormsDataDir(), `${id}.txt`) : txtFile(id);
+    return txtFile(id);
   }
   get currentId(): string {
     return this.id;
@@ -264,7 +252,7 @@ export class NoteSession extends EventEmitter {
   private emitOverlay(): void {
     const el = this.elapsed();
     const paused = this.state === 'paused';
-    const tag = this.kind === 'brainstorm' ? 'BRAINSTORM' : 'NOTE';
+    const tag = 'NOTE';
     this.status({
       state: 'recording',
       mode: this.kind,
@@ -409,34 +397,7 @@ export class NoteSession extends EventEmitter {
     fs.rmSync(this.txt(this.id), { force: true });
     log(`${this.kind}: annulée`, this.id);
     this.status({ state: 'idle' });
-    this.progress({ state: 'error', message: this.kind === 'brainstorm' ? 'Brainstorm annulé' : 'Note annulée' });
-  }
-
-  /**
-   * Arrête l'enregistrement et termine la transcription, sans organisation (mode Brainstorm).
-   * Renvoie la transcription complète ; la session repasse à 'idle'.
-   */
-  async stopCapture(): Promise<{ id: string; transcript: string; durationMs: number; createdAt: Date } | null> {
-    if (!this.active) return null;
-    const id = this.id;
-    this.endRecording();
-    playSound('stop');
-    this.state = 'transcribing';
-    this.timings.stopAt = Date.now();
-    this.status({ state: 'transcribing', mode: this.kind, message: this.kind === 'brainstorm' ? 'Brainstorm · transcription…' : 'Note · transcription…' });
-    this.progress({ state: 'transcribing' });
-    try {
-      const rec = await this.recorder.stop();
-      if (rec.tail) this.enqueue(rec.tail, rec.tailStart, rec.total);
-    } catch (e) {
-      log(`${this.kind}: fin de capture`, e);
-    }
-    await this.queue;
-    this.timings.transcribedAt = Date.now();
-    const transcript = this.texts.join(' ').trim();
-    log(`${this.kind}: transcription finie ${this.timings.transcribedAt - this.timings.stopAt} ms après l'arrêt, ${countWords(transcript)} mots`);
-    this.state = 'idle';
-    return { id, transcript, durationMs: this.elapsed(), createdAt: this.createdAt };
+    this.progress({ state: 'error', message: 'Note annulée' });
   }
 
   /** Arrête l'enregistrement, termine la transcription, organise et enregistre la note. Renvoie son id. */

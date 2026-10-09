@@ -50,23 +50,6 @@ contextBridge.exposeInMainWorld('dictaApp', {
   copyNote: (id: string) => invoke('copyNote', id),
   renameSpeaker: (noteId: string, from: string, to: string) => invoke('renameSpeaker', noteId, from, to),
 
-  // brainstorm → master prompt (docs/APP_API.md › Mode « Brainstorm → master prompt »)
-  startBrainstorm: (target?: 'claude-code' | 'cursor') => invoke('startBrainstorm', target),
-  stopBrainstorm: () => invoke('stopBrainstorm'),
-  cancelBrainstorm: () => invoke('cancelBrainstorm'),
-  onBrainstorm: on('brainstorm'),
-  answerBrainstorm: (id: string, questionId: string, answer: string) => invoke('answerBrainstorm', id, questionId, answer),
-  // Brainstorm v2 : bulles en direct (docs/APP_API.md › Brainstorm v2)
-  answerLive: (id: string, questionId: string, answer: string) => invoke('answerLive', id, questionId, answer),
-  dismissLive: (id: string, questionId: string) => invoke('dismissLive', id, questionId),
-  askMore: (id: string) => invoke('askMore', id),
-  compileBrainstorm: (id: string, target?: 'claude-code' | 'cursor') => invoke('compileBrainstorm', id, target),
-  listBrainstorms: () => invoke('listBrainstorms'),
-  getBrainstorm: (id: string) => invoke('getBrainstorm', id),
-  copyBrainstormPrompt: (id: string) => invoke('copyBrainstormPrompt', id),
-  revealBrainstorm: (id: string) => invoke('revealBrainstorm', id),
-  deleteBrainstorm: (id: string) => invoke('deleteBrainstorm', id),
-
   // mises à jour (docs/APP_API.md › Mises à jour)
   getVersion: () => invoke('getVersion'),
   getUpdateStatus: () => invoke('getUpdateStatus'),

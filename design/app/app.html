@@ -675,15 +675,13 @@ dialog.palette[open] { animation: rise var(--d-2) var(--ease-sortie); }
 .side-status .s { font: 500 10.5px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--texte-sec); }
 .main { position: relative; overflow-y: auto; overflow-x: hidden; container: main / inline-size; }
 .main .dragstrip { display: none; }
-.page { display: none; padding: var(--s5) var(--gout) var(--s6); max-width: clamp(1100px, 72vw, 1480px); margin: 0 auto; }
-.page.narrow { max-width: 960px; }
+.page { display: none; padding: var(--s5) var(--gout) var(--s6); max-width: 1120px; margin: 0 auto; }
 .page.active { display: block; }
 .page.active > * { animation: rise var(--d-3) var(--ease) both; }
 .page.active > :nth-child(2) { animation-delay: 40ms; } .page.active > :nth-child(3) { animation-delay: 80ms; }
 .page.active > :nth-child(4) { animation-delay: 120ms; } .page.active > :nth-child(5) { animation-delay: 160ms; }
 .page.active > :nth-child(n+6) { animation-delay: 200ms; }
 .page-head { margin-bottom: var(--s5); }
-.page-k { margin-bottom: var(--s2); color: var(--texte-3); }
 .page h1 { font-size: clamp(44px, 4.4vw, 68px); line-height: .92; font-weight: 900; font-stretch: 80%; letter-spacing: -.045em; margin-bottom: var(--s2); }
 .page-head .lede { font-size: 15px; margin: 0; max-width: 40em; }
 .banner { display: flex; align-items: center; gap: 12px; padding: var(--s2) 0; border-top: 1px solid var(--trait); border-bottom: 1px solid var(--fil); margin-bottom: var(--s5); font-size: 13px; font-weight: 600; }
@@ -1287,7 +1285,6 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     <!-- icônes de navigation 18 px (trait 1,6, angles droits) -->
     <symbol id="n-home" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter"><path d="M2.8 8.2 9 3l6.2 5.2V15.2H2.8z"/><path d="M7.2 15.2v-4.4h3.6v4.4"/></g></symbol>
     <symbol id="n-notes" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M3.8 2.8h7.4l3 3v9.4H3.8z"/><path d="M6.6 8.2h4.8M6.6 11.4h3.2"/></g></symbol>
-    <symbol id="n-brainstorm" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><rect x="2.6" y="2.6" width="4" height="4"/><rect x="11.4" y="2.6" width="4" height="4"/><rect x="7" y="11.4" width="4" height="4"/><path d="M6.6 4.6h4.8M5.2 6.6 8 11.4M12.8 6.6 10 11.4"/></g></symbol>
     <symbol id="n-dictionary" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M3.2 3.2h4.2c.9 0 1.6.7 1.6 1.6v10.4c0-.9-.7-1.6-1.6-1.6H3.2z"/><path d="M14.8 3.2h-4.2c-.9 0-1.6.7-1.6 1.6v10.4c0-.9.7-1.6 1.6-1.6h4.2z"/></g></symbol>
     <symbol id="n-style" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M2.8 4.6h12.4M2.8 9h12.4M2.8 13.4h6.2"/></g><rect x="11.6" y="11.6" width="3.6" height="3.6" fill="currentColor"/></symbol>
     <symbol id="n-settings" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M2.6 5.4h6.2M14.2 5.4h1.2M2.6 12.6h1.4M9.4 12.6h6"/><rect x="9.2" y="3.4" width="4" height="4"/><rect x="4.4" y="10.6" width="4" height="4"/></g></symbol>
@@ -1494,10 +1491,9 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       <i class="nav-ind" aria-hidden="true"></i>
       <button class="nav-btn" data-page="home" data-tip="Accueil"><span class="ix">01</span><svg class="ni" aria-hidden="true"><use href="#n-home"/></svg><span class="nl">Accueil</span></button>
       <button class="nav-btn" data-page="notes" data-tip="Notes"><span class="ix">02</span><svg class="ni" aria-hidden="true"><use href="#n-notes"/></svg><span class="nl">Notes</span></button>
-      <button class="nav-btn" data-page="brainstorm" data-tip="Brainstorm"><span class="ix">03</span><svg class="ni" aria-hidden="true"><use href="#n-brainstorm"/></svg><span class="nl">Brainstorm</span></button>
-      <button class="nav-btn" data-page="dictionary" data-tip="Dictionnaire"><span class="ix">04</span><svg class="ni" aria-hidden="true"><use href="#n-dictionary"/></svg><span class="nl">Dictionnaire</span></button>
-      <button class="nav-btn" data-page="style" data-tip="Style"><span class="ix">05</span><svg class="ni" aria-hidden="true"><use href="#n-style"/></svg><span class="nl">Style</span></button>
-      <button class="nav-btn" data-page="settings" data-tip="Réglages"><span class="ix">06</span><svg class="ni" aria-hidden="true"><use href="#n-settings"/></svg><span class="nl">Réglages</span></button>
+      <button class="nav-btn" data-page="dictionary" data-tip="Dictionnaire"><span class="ix">03</span><svg class="ni" aria-hidden="true"><use href="#n-dictionary"/></svg><span class="nl">Dictionnaire</span></button>
+      <button class="nav-btn" data-page="style" data-tip="Style"><span class="ix">04</span><svg class="ni" aria-hidden="true"><use href="#n-style"/></svg><span class="nl">Style</span></button>
+      <button class="nav-btn" data-page="settings" data-tip="Réglages"><span class="ix">05</span><svg class="ni" aria-hidden="true"><use href="#n-settings"/></svg><span class="nl">Réglages</span></button>
     </div>
     <div class="grow"></div>
     <button class="side-note" id="sideNote" data-goto="notes"><span class="snl">Note en cours · </span><span id="sideNoteT">00:00</span></button>
@@ -1511,7 +1507,6 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     <!-- Accueil -->
     <section class="page" id="page-home" aria-labelledby="h-home">
       <div class="page-head">
-        <div class="page-k label">01 · Accueil</div>
         <h1 id="h-home">Bonjour</h1>
         <p class="lede" id="homeLede"></p>
         <div class="home-acts"><button class="btn" data-newnote>Nouvelle note</button><button class="btn ghost" data-goto="onboarding:practice">Faire un essai de dictée</button></div>
@@ -1548,16 +1543,10 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       </div>
     </section>
 
-    <!-- Brainstorm → master prompt (design/app/brainstorm.js) -->
-    <section class="page" id="page-brainstorm" aria-label="Brainstorm" style="max-width:none;padding:0">
-      <div id="brainstormRoot"></div>
-    </section>
-
     <!-- Notes -->
-    <section class="page" id="page-notes" data-mode="list" aria-labelledby="h-notes" style="max-width:1120px">
+    <section class="page" id="page-notes" data-mode="list" aria-labelledby="h-notes">
       <div class="notes-head">
         <div class="page-head">
-          <div class="page-k label">02 · Notes</div>
           <h1 id="h-notes">Notes</h1>
           <p class="lede">Parle 10 minutes, récupère une note rangée : titres, points clés, tâches.</p>
         </div>
@@ -1608,9 +1597,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     </section>
 
     <!-- Dictionnaire -->
-    <section class="page narrow" id="page-dictionary" aria-labelledby="h-dict">
+    <section class="page" id="page-dictionary" aria-labelledby="h-dict">
       <div class="page-head">
-        <div class="page-k label">03 · Vocabulaire</div>
         <h1 id="h-dict">Dictionnaire</h1>
         <p class="lede">Les mots que CBW doit écrire exactement comme toi : prénoms, marques, jargon.</p>
       </div>
@@ -1632,9 +1620,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     </section>
 
     <!-- Style -->
-    <section class="page" id="page-style" aria-labelledby="h-style" style="max-width:1120px">
+    <section class="page" id="page-style" aria-labelledby="h-style">
       <div class="page-head">
-        <div class="page-k label">04 · Style</div>
         <h1 id="h-style">Style</h1>
         <p class="lede">Choisis jusqu'où CBW range ta phrase.</p>
       </div>
@@ -1657,9 +1644,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     </section>
 
     <!-- Réglages -->
-    <section class="page narrow" id="page-settings" aria-labelledby="h-set">
+    <section class="page" id="page-settings" aria-labelledby="h-set">
       <div class="page-head">
-        <div class="page-k label">05 · Configuration</div>
         <h1 id="h-set">Réglages</h1>
       </div>
       <div class="set-index" id="setIndex" role="tablist" aria-label="Sections des réglages"><i class="ind"></i>
@@ -1680,6 +1666,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
           <select data-setting="general.language"><option value="fr">Français</option><option value="en">Anglais</option><option value="auto">Détection automatique</option></select></div>
         <div class="row"><div class="label">Lancer au démarrage<span class="hint">CBW AI reste discret dans la barre de menus</span></div>
           <label class="switch"><input type="checkbox" data-setting="general.launchAtLogin" aria-label="Lancer au démarrage"><span></span></label></div>
+        <div class="row"><div class="label">Pastille<span class="hint">Glisse-la où tu veux à l'écran : sa place est mémorisée</span></div>
+          <button class="btn" id="setPillReset">Remettre en bas</button></div>
       </div>
 
       <p class="group-title">Autorisations</p>
@@ -1725,8 +1713,6 @@ body:not([data-view="hub"]) .side-resize { display: none; }
 
 <script src="charts.js"></script>
 <script src="notes.js"></script>
-<script src="brainstorm.js"></script>
-<script src="brainstorm-fake.js"></script>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <dialog class="palette" id="palette" aria-label="Recherche"><input type="text" id="palInput" placeholder="Rechercher une page, un réglage, une note…" spellcheck="false" aria-label="Rechercher"><div class="pal-list" id="palList" role="listbox"></div></dialog>
 <dialog class="cbw-modal" id="cbwModal" aria-labelledby="mTitle"><div class="mb"><h3 id="mTitle"></h3><p id="mBody"></p></div>
@@ -2025,7 +2011,6 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   /* ═════════ Pont : window.dictaApp ou démo ═════════ */
   const DEMO = !window.dictaApp;
   const api = window.dictaApp || makeDemo();
-  if (DEMO && window.CBWBrainstormFake) Object.assign(api, window.CBWBrainstormFake.create());
   if (DEMO) { $('#demoBadge').hidden = false; $('#tbDemo').hidden = false; window.__dictaDemo = api; }
   const has = (m) => typeof api[m] === 'function';
 
@@ -2152,7 +2137,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   const IX = (name) => STEPS.indexOf(name);
   let view = null;
   // Alias français (tray « Réglages… » → #reglages, ou CustomEvent 'dicta:navigate')
-  const PAGE_ALIAS = { accueil: 'home', home: 'home', notes: 'notes', note: 'notes', brainstorm: 'brainstorm', dictionnaire: 'dictionary', dictionary: 'dictionary', style: 'style', reglages: 'settings', 'réglages': 'settings', settings: 'settings' };
+  const PAGE_ALIAS = { accueil: 'home', home: 'home', notes: 'notes', note: 'notes', dictionnaire: 'dictionary', dictionary: 'dictionary', style: 'style', reglages: 'settings', 'réglages': 'settings', settings: 'settings' };
   function parseHash(raw) {
     const h = decodeURIComponent(raw != null ? raw : (location.hash || '').slice(1)); if (!h) return null;
     const i = h.indexOf(':'); const v = i < 0 ? h : h.slice(0, i); const arg = i < 0 ? '' : h.slice(i + 1);
@@ -2761,11 +2746,10 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     if (p === 'home') refreshHome();
     if (p === 'settings') { refreshStatuses(); refreshWhisper(); renderPermRows(); setTimeout(moveIndex, 30); }
     if (p === 'notes') openNotes(sub);
-    if (p === 'brainstorm') openBrainstorm(sub);
     syncSegs();
   }
   $$('.nav-btn').forEach((b) => b.addEventListener('click', () => openPage(b.dataset.page)));
-  const PAGE_NAME = { home: 'Accueil', notes: 'Notes', brainstorm: 'Brainstorm', dictionary: 'Dictionnaire', style: 'Style', settings: 'Réglages' };
+  const PAGE_NAME = { home: 'Accueil', notes: 'Notes', dictionary: 'Dictionnaire', style: 'Style', settings: 'Réglages' };
   function setCrumb(child) {
     const c = $('#crumb'); if (!c) return;
     c.innerHTML = child ? '<button class="p" data-goto="' + page + '">' + PAGE_NAME[page] + '</button><span class="sep">/</span><span class="c">' + esc(child) + '</span>' : '<span class="c">' + (PAGE_NAME[page] || '') + '</span>';
@@ -2823,6 +2807,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     e.preventDefault(); toggleSide();
   });
   applySide(false);
+  // Réglages › Pastille : retour à la place par défaut (bas de l'écran, au-dessus du Dock s'il est visible)
+  (function () { const b = $('#setPillReset'); if (b) b.addEventListener('click', () => { cset('overlay.position', ''); b.textContent = 'Remise en bas ✓'; setTimeout(() => { b.textContent = 'Remettre en bas'; }, 1600); }); })();
   // largeur de la barre latérale : glisser le séparateur (180–380 px, mémorisée) ; < 130 px → rail ; depuis le rail, tirer → déplie
   const SIDE_W_KEY = 'cbw.sideW', SIDE_W_MIN = 180, SIDE_W_MAX = 380, SIDE_W_DEF = 232;
   function setSideW(w) { root.style.setProperty('--side-w', w + 'px'); }
@@ -3335,17 +3321,6 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   $('#noteSearch').addEventListener('input', renderNoteList);
   $('#noteList').addEventListener('click', (e) => { const b = e.target.closest('[data-note]'); if (b) openNote(b.dataset.note); });
   let notesMounted = false, notesHandle = null;
-  /* ═════════ BRAINSTORM (design/app/brainstorm.js) ═════════ */
-  let bsHandle = null;
-  function openBrainstorm(sub) {
-    if (!window.CBWBrainstorm || typeof window.CBWBrainstorm.mount !== 'function') return;
-    if (!bsHandle) {
-      try { bsHandle = window.CBWBrainstorm.mount($('#brainstormRoot'), { api, navigate: (h) => { h = String(h || '').replace(/^#?/, '#'); if (location.hash !== h) location.hash = h; }, id: sub || null }); } catch (e) { console.error('CBWBrainstorm', e); }
-    } else { try { bsHandle.open(sub || null); } catch (e) { console.error(e); } }
-  }
-  if (!has('startBrainstorm')) { const nb = $('.nav-btn[data-page="brainstorm"]'); if (nb) nb.hidden = true; }
-  // la pastille (3e bouton) ou le menu démarrent un brainstorm : on suit l'état poussé par le pont
-  if (has('onBrainstorm')) api.onBrainstorm((b) => { if (b && b.state === 'recording' && (view !== 'hub' || page !== 'brainstorm')) { if (view !== 'hub') show('hub', 'brainstorm'); else openPage('brainstorm'); } });
 
   function openNotes(sub) {
     if (window.CBWNotes && typeof window.CBWNotes.mount === 'function') {
@@ -3467,10 +3442,9 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   function palSource() {
     const I = (g, t, k, run) => ({ g, t, k, run });
     const a = [
-      I('Pages', 'Accueil', '', () => openPage('home')), I('Pages', 'Notes', '', () => openPage('notes')), I('Pages', 'Brainstorm', '', () => openPage('brainstorm')),
+      I('Pages', 'Accueil', '', () => openPage('home')), I('Pages', 'Notes', '', () => openPage('notes')),
       I('Pages', 'Dictionnaire', '', () => openPage('dictionary')), I('Pages', 'Style', '', () => openPage('style')), I('Pages', 'Réglages', '', () => openPage('settings')),
       I('Actions', 'Nouvelle note', '', () => startNote(null)),
-      I('Actions', 'Nouveau brainstorm', 'Master prompt', () => { openPage('brainstorm'); if (bsHandle && bsHandle.start) bsHandle.start(); }),
       I('Actions', 'Thème clair', '', () => setThemeFromPal('light')), I('Actions', 'Thème sombre', '', () => setThemeFromPal('dark')), I('Actions', 'Thème du système', '', () => setThemeFromPal('system')),
       I('Actions', 'Revoir la présentation', '', () => $('#replayBtn').click()),
       I('Réglages', 'Raccourci', 'Général', () => { openPage('settings'); scrollToSection('settings-general'); }),
