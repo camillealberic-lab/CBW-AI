@@ -88,6 +88,18 @@
       <section id="installation">
         <p class="sourcil">02</p>
         <h2>Installation et premier lancement</h2>
+        <h3>Le plus simple : en une ligne</h3>
+        <p>Ouvre <strong>Terminal</strong> (<span class="kbd-inline">⌘ Espace</span>, tape « Terminal »), colle cette ligne et appuie sur Entrée.</p>
+        <div class="prompt-bloc cmd-aide">
+          <div class="prompt-tete">
+            <span class="sourcil">Terminal</span>
+            <button class="btn btn-primaire btn-s btn-copier" type="button" data-copier="cmd-aide">Copier</button>
+          </div>
+          <pre id="cmd-aide">curl -fsSL https://cbw-ai-liard.vercel.app/install.sh | bash</pre>
+        </div>
+        <p>Le script vérifie ton Mac, télécharge la dernière version sur GitHub, contrôle son empreinte SHA-256, la copie dans Applications et l'ouvre. Pas d'avertissement de macOS, pas de mot de passe. <a href="/install.sh">Lire le script</a> avant, si tu veux.</p>
+
+        <h3>Ou à la main, avec le .dmg</h3>
         <ol>
           <li>Télécharge <strong>CBW-AI-arm64.dmg</strong> et ouvre-le (double-clic dans Téléchargements).</li>
           <li><strong>Glisse l'icône CBW AI sur le dossier Applications.</strong></li>
@@ -95,15 +107,16 @@
           <li>Ouvre <strong>Applications</strong> et double-clique sur <strong>CBW AI</strong>.</li>
         </ol>
         <div class="encadre" style="--accent:var(--bleu)">
-          <p class="sourcil"><span class="pastille p-b"></span>Le message « Apple ne peut pas vérifier »</p>
-          <p>CBW AI n'est pas encore notarisé par Apple (une démarche payante que CBW Studio fera plus tard). macOS te demande donc une confirmation au premier lancement. C'est normal, et c'est à faire une seule fois.</p>
+          <p class="sourcil"><span class="pastille p-b"></span>Le message « Élément non ouvert »</p>
+          <p>CBW AI n'est pas encore notarisé par Apple (une démarche payante que CBW Studio fera plus tard). macOS demande donc une confirmation au premier lancement. C'est normal, et c'est une seule fois.</p>
           <ol>
-            <li>Clique sur <strong>OK</strong> (ou <strong>Terminé</strong>) pour fermer le message.</li>
+            <li>macOS 15 et plus : clique sur <strong>Terminé</strong>. <strong>Surtout pas</strong> « Placer dans la corbeille ».</li>
             <li>Ouvre <strong>Réglages Système › Confidentialité et sécurité</strong>.</li>
-            <li>Dans la rubrique <strong>Sécurité</strong>, à côté de « CBW AI a été bloqué », clique sur <strong>Ouvrir quand même</strong>.</li>
+            <li>Tout en bas, à côté de « CBW AI a été bloqué », clique sur <strong>Ouvrir quand même</strong>.</li>
             <li>Confirme avec ton mot de passe ou Touch ID, puis clique sur <strong>Ouvrir</strong>.</li>
           </ol>
           <p><strong>Sur macOS 14 Sonoma</strong>, plus court : clic droit sur CBW AI dans Applications › <strong>Ouvrir</strong>, puis <strong>Ouvrir</strong>.</p>
+          <p><button class="lien-btn" type="button" data-guide>Voir les 3 étapes en images →</button></p>
         </div>
         <h3>Ensuite, l'app te guide</h3>
         <ol>
@@ -224,8 +237,8 @@ Règles : ne modifie rien d'autre sur le Mac, n'installe aucun autre logiciel sa
         <p>Presque toujours l'Accessibilité. Vérifie l'interrupteur de CBW AI dans Réglages Système › Confidentialité et sécurité › Accessibilité. S'il est déjà activé : retire CBW AI avec <strong>−</strong>, relance l'app et réactive-le. En attendant, ton texte est dans le presse-papiers (<span class="kbd-inline">⌘ V</span>).</p>
         <h3>Control ne déclenche rien</h3>
         <p>Appuie deux fois <strong>rapidement</strong> sur le Control de <strong>gauche</strong>. Vérifie que l'icône est dans la barre de menus, puis les autorisations. Après une autorisation, quitte et relance CBW AI.</p>
-        <h3>« L'app est endommagée »</h3>
-        <p>Supprime-la, retélécharge le .dmg et réessaie. En dernier recours, dans Terminal :</p>
+        <h3>« Élément non ouvert » ou « L'app est endommagée »</h3>
+        <p>Le plus simple : réinstalle avec <a href="#installation">la ligne Terminal</a>, elle évite ce blocage. Sinon, dans Terminal :</p>
         <pre><code>xattr -dr com.apple.quarantine "/Applications/CBW AI.app"</code></pre>
         <h3>Texte collé mais pas nettoyé</h3>
         <p>Le quota gratuit du jour est atteint chez tous tes moteurs : CBW AI colle la transcription brute pour que tu ne perdes rien. Ajoute une clé de secours (Mistral, Cloudflare). Les quotas reviennent chaque jour.</p>

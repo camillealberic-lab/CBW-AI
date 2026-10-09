@@ -15,9 +15,10 @@ Contexte :
 
 Étapes :
 1. Vérifie que le Mac est Apple Silicon (uname -m = arm64) et sous macOS 14+ (sw_vers). Sinon, arrête-toi et explique-moi pourquoi.
-2. Télécharge le .dmg dans ~/Downloads, monte-le, copie « CBW AI.app » dans /Applications (remplace l'ancienne version si elle existe, après me l'avoir dit), puis démonte le .dmg.
-3. Retire l'attribut de quarantaine : xattr -dr com.apple.quarantine "/Applications/CBW AI.app"
-4. Ouvre l'app (open -a "CBW AI").
+2. Lis puis lance le script officiel (il télécharge la dernière version, vérifie son SHA-256, la copie dans /Applications sans quarantaine et l'ouvre) : curl -fsSL https://cbw-ai-liard.vercel.app/install.sh | bash
+   Si une ancienne version existe, dis-le-moi avant.
+3. En cas d'échec du script : télécharge le .dmg dans ~/Downloads, monte-le, copie « CBW AI.app » dans /Applications, démonte-le, puis xattr -dr com.apple.quarantine "/Applications/CBW AI.app"
+4. Vérifie que l'app est ouverte (sinon open -a "CBW AI").
 5. Guide-moi pour les autorisations, sans les accorder à ma place : Micro, puis Accessibilité (Réglages Système › Confidentialité et sécurité › Accessibilité › cocher « CBW AI »), et Enregistrement de l'écran et audio système si je veux capter les visios.
 6. Aide-moi à créer une clé Groq gratuite (https://console.groq.com/keys) : je la colle moi-même dans CBW AI › Réglages › Fournisseurs, puis je clique « Tester ». Ne me demande jamais de te donner la clé.
 7. Termine par un récapitulatif : comment dicter (Control gauche ×2, puis ×1 pour coller), prendre une note (Control gauche ×3), lancer un brainstorm, et où sont les fichiers (~/Documents/CBW AI/).

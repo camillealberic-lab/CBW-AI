@@ -61,6 +61,11 @@
             <span class="dl-txt">Télécharger pour macOS</span> <span class="fleche" aria-hidden="true">↓</span>
           </a>
           <p class="cta-note"><b>Gratuit</b> · macOS 14+ · Apple Silicon (M1 et +) · 126 Mo</p>
+          <details class="une-ligne">
+            <summary>ou installer en une ligne (Terminal)</summary>
+            <div class="cmd"><code id="cmd-hero">curl -fsSL https://cbw-ai-liard.vercel.app/install.sh | bash</code><button class="btn btn-secondaire btn-s btn-copier" type="button" data-copier="cmd-hero">Copier</button></div>
+            <p class="cmd-note">Évite l'avertissement de macOS au premier lancement. <a href="/install.sh">Lire le script</a></p>
+          </details>
         </div>
       </div>
     </div>
@@ -296,15 +301,24 @@
   <div class="cadre">
     <div class="section-tete">
       <h2 class="h2 rv" id="inst-titre">Installer <br>en une minute.</h2>
-      <p class="chapeau rv">Au premier lancement, macOS demande une confirmation&nbsp;: c'est normal, et c'est une seule fois.</p>
+      <p class="chapeau rv">Le plus simple&nbsp;: une ligne dans Terminal. Sinon, le .dmg classique.</p>
     </div>
+    <div class="cmd-bloc rv">
+      <div class="cmd-bloc-tete">
+        <span class="label"><span class="pastille p-v"></span>Le plus simple · Terminal</span>
+        <button class="btn btn-primaire btn-s btn-copier" type="button" data-copier="cmd-inst">Copier</button>
+      </div>
+      <code id="cmd-inst">curl -fsSL https://cbw-ai-liard.vercel.app/install.sh | bash</code>
+      <p class="cmd-note">Ouvre Terminal (⌘ Espace, tape «&nbsp;Terminal&nbsp;»), colle, Entrée. L'app s'installe et s'ouvre, sans l'avertissement de macOS. <a href="/install.sh">Lire le script</a></p>
+    </div>
+    <p class="label sec ou-main rv">Ou à la main</p>
     <ol class="flux" style="list-style:none">
       <li class="flux-etape rv" style="--accent:var(--orange)"><span class="k">01</span><h3>Télécharge</h3><p>CBW-AI-arm64.dmg, 126 Mo.</p></li>
-      <li class="flux-etape rv" style="--accent:var(--orange)"><span class="k">02</span><h3>Glisse</h3><p>Dans le dossier Applications.</p></li>
-      <li class="flux-etape rv" style="--accent:var(--bleu)"><span class="k">03</span><h3>Confirme</h3><p>Réglages Système › Confidentialité et sécurité › <b>Ouvrir quand même</b>.</p></li>
+      <li class="flux-etape rv" style="--accent:var(--orange)"><span class="k">02</span><h3>Glisse</h3><p>Dans le dossier Applications, puis ouvre l'app.</p></li>
+      <li class="flux-etape rv" style="--accent:var(--bleu)"><span class="k">03</span><h3>Confirme</h3><p>Clique <b>Terminé</b> (pas Corbeille), puis Réglages Système › Confidentialité et sécurité › <b>Ouvrir quand même</b>.</p></li>
       <li class="flux-etape rv" style="--accent:var(--vert)"><span class="k">04</span><h3>Autorise</h3><p>Micro et Accessibilité&nbsp;: l'app te guide.</p></li>
     </ol>
-    <p class="note-comp rv"><a href="aide.html#installation">Le pas à pas complet →</a> · <a href="aide.html#prompt">Installer avec un agent →</a></p>
+    <p class="note-comp rv"><button class="lien-btn" type="button" data-guide>Le premier lancement en images →</button> · <a href="aide.html#installation">Le pas à pas complet →</a> · <a href="aide.html#prompt">Installer avec un agent →</a></p>
   </div>
 </section>
 
@@ -358,6 +372,11 @@
         <span class="dl-txt">Télécharger pour macOS</span> <span class="fleche" aria-hidden="true">↓</span>
       </a>
       <p class="cta-note"><b>Gratuit</b> · macOS 14+ · Apple Silicon (M1 et +) · 126 Mo</p>
+          <details class="une-ligne">
+            <summary>ou installer en une ligne (Terminal)</summary>
+            <div class="cmd"><code id="cmd-final">curl -fsSL https://cbw-ai-liard.vercel.app/install.sh | bash</code><button class="btn btn-secondaire btn-s btn-copier" type="button" data-copier="cmd-final">Copier</button></div>
+            <p class="cmd-note">Évite l'avertissement de macOS au premier lancement. <a href="/install.sh">Lire le script</a></p>
+          </details>
     </div>
   </div>
 </section>

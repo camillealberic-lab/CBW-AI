@@ -40,6 +40,46 @@
   if (/^https?:$/.test(location.protocol))
     $$('[data-dl-url]').forEach(function (el) { el.textContent = location.origin + '/download'; });
 
+  /* ── Guide « Premier lancement » (après Télécharger, ou via [data-guide]) ── */
+  var guide = null;
+  function creerGuide() {
+    if (guide || typeof HTMLDialogElement !== 'function') return guide;
+    guide = document.createElement('dialog');
+    guide.className = 'guide';
+    guide.setAttribute('aria-labelledby', 'guide-titre');
+    guide.innerHTML =
+      '<div class="guide-tete"><span class="label sec">macOS 15 et plus</span>' +
+      '<button class="guide-x" type="button" aria-label="Fermer" data-fermer>×</button></div>' +
+      '<h2 class="guide-titre" id="guide-titre">Premier lancement&nbsp;: 3 étapes<span class="o">.</span></h2>' +
+      '<p class="guide-sous">macOS demande une confirmation, une seule fois. C\'est normal&nbsp;: l\'app n\'est pas encore notarisée par Apple.</p>' +
+      '<ol class="guide-etapes">' +
+        '<li style="--accent:var(--orange)"><div class="ill ill-glisse" aria-hidden="true"><span class="ill-app">CBW</span><span class="ill-fl">→</span><span class="ill-dossier"><i></i>Applications</span></div>' +
+          '<span class="k">01</span><p>Glisse <b>CBW AI</b> dans Applications et ouvre-le.</p></li>' +
+        '<li style="--accent:var(--bleu)"><div class="ill" aria-hidden="true"><div class="ill-alerte"><span class="ill-ico"></span><b>«&nbsp;CBW AI&nbsp;» non ouvert</b><span class="ill-gris"></span><span class="ill-gris court"></span>' +
+          '<span class="ill-b non">Placer dans la corbeille</span><span class="ill-b oui">Terminé</span></div></div>' +
+          '<span class="k">02</span><p>macOS affiche «&nbsp;Élément non ouvert&nbsp;»&nbsp;: clique <b>Terminé</b> (pas Corbeille).</p></li>' +
+        '<li style="--accent:var(--vert)"><div class="ill" aria-hidden="true"><div class="ill-reglages"><div class="ill-cote"><span></span><span class="on">Confidentialité</span><span></span><span></span></div>' +
+          '<div class="ill-panneau"><span class="ill-gris"></span><span class="ill-gris court"></span><small>«&nbsp;CBW AI&nbsp;» a été bloqué</small><span class="ill-b oui">Ouvrir quand même</span></div></div></div>' +
+          '<span class="k">03</span><p>Réglages Système › Confidentialité et sécurité › tout en bas <b>Ouvrir quand même</b> › mot de passe › <b>Ouvrir</b>.</p></li>' +
+      '</ol>' +
+      '<p class="guide-14"><b>macOS 14&nbsp;:</b> clic droit sur CBW AI › Ouvrir › Ouvrir.</p>' +
+      '<div class="guide-alt"><span class="label sec">Plus simple&nbsp;: sans avertissement</span>' +
+        '<div class="cmd"><code id="cmd-guide">curl -fsSL https://cbw-ai-liard.vercel.app/install.sh | bash</code><button class="btn btn-secondaire btn-s btn-copier" type="button" data-copier="cmd-guide">Copier</button></div>' +
+        '<p class="cmd-note">À coller dans Terminal. <a href="/install.sh">Lire le script</a></p></div>' +
+      '<div class="guide-pied"><a class="lien" href="aide.html#installation">Le pas à pas complet</a><button class="btn btn-primaire btn-s" type="button" data-fermer>J\'ai compris</button></div>';
+    document.body.appendChild(guide);
+    $$('[data-fermer]', guide).forEach(function (b) { b.addEventListener('click', function () { guide.close(); }); });
+    guide.addEventListener('click', function (e) { if (e.target === guide) guide.close(); });
+    return guide;
+  }
+  function ouvrirGuide() {
+    var g = creerGuide(); if (!g || g.open) return;
+    try { g.showModal(); } catch (e) { return; }
+    var b = $('.guide-pied .btn', g); if (b) b.focus({ preventScroll: true });
+  }
+  creerGuide();
+  $$('[data-guide]').forEach(function (b) { b.addEventListener('click', ouvrirGuide); });
+
   /* ── Téléchargement : Mac seulement ── */
   var estMac = /Macintosh|Mac OS X/.test(navigator.userAgent) && !(navigator.maxTouchPoints > 1);
   $$('a.dl').forEach(function (a) {
@@ -55,6 +95,7 @@
       return;
     }
     a.addEventListener('click', function () {
+      setTimeout(ouvrirGuide, 700);
       if (!t || petit) return;
       var o = t.textContent; t.textContent = 'Téléchargement lancé ✓';
       setTimeout(function () { t.textContent = o; }, 3000);

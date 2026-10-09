@@ -441,10 +441,93 @@ table.comp{width:100%;border-collapse:collapse;min-width:620px;font-size:16px}
   .case:last-child{border-bottom:0}
 }
 
+/* ── Installation en une ligne (Terminal) ── */
+.une-ligne{max-width:100%}
+.une-ligne summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:var(--texte-sec);text-decoration:underline;text-decoration-color:var(--fil-fort);text-underline-offset:3px;padding:4px 0}
+.une-ligne summary::-webkit-details-marker{display:none}
+.une-ligne summary::after{content:"↓";font-size:12px;transition:transform .2s var(--ease)}
+.une-ligne[open] summary::after{transform:rotate(180deg)}
+.une-ligne summary:hover{color:var(--texte);text-decoration-color:var(--texte)}
+.une-ligne[open]{width:min(100%,560px)}
+.une-ligne .cmd{margin-top:8px}
+.cmd{display:flex;align-items:stretch;border:2px solid var(--trait);background:var(--fond-2)}
+.cmd code{flex:1;min-width:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;padding:9px 12px;overflow-wrap:anywhere;color:var(--texte);user-select:all}
+.cmd .btn{border:0;border-left:2px solid var(--trait);--h:auto;min-height:38px;flex:none}
+.cmd-note{font-size:13px;color:var(--texte-sec);margin-top:8px}
+.cmd-note a{font-weight:700}
+.cmd-bloc{border:2px solid var(--trait);border-left:8px solid var(--vert);background:var(--surface);margin-bottom:40px;max-width:820px}
+.cmd-bloc-tete{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:2px solid var(--trait)}
+.cmd-bloc > code{display:block;font-family:var(--mono);font-size:clamp(13px,1.6vw,17px);line-height:1.5;padding:18px;background:var(--fond-2);overflow-wrap:anywhere;user-select:all}
+.cmd-bloc .cmd-note{padding:12px 16px 14px;margin:0;border-top:1px solid var(--fil);font-size:14px}
+.ou-main{display:block;margin-bottom:14px}
+.lien-btn{background:none;border:0;padding:0;font-weight:700;color:var(--lien);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font-size:inherit}
+.doc .cmd-aide pre{font-size:13.5px}
+
+/* ── Guide « Premier lancement » ── */
+.guide{width:min(820px,calc(100% - 32px));max-height:calc(100dvh - 32px);overflow:auto;padding:0;border:2px solid var(--trait);background:var(--fond);color:var(--texte);box-shadow:8px 8px 0 var(--trait)}
+.guide::backdrop{background:rgba(20,20,18,.5)}
+.guide[open]{animation:guide-in .28s var(--ease-sortie)}
+@keyframes guide-in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.guide-tete{display:flex;justify-content:space-between;align-items:center;padding:12px 16px 0 24px}
+.guide-x{background:none;border:0;font-size:26px;line-height:1;width:36px;height:36px;cursor:pointer;color:var(--texte-sec)}
+.guide-x:hover{color:var(--texte)}
+.guide-titre{font-weight:900;font-stretch:80%;font-size:clamp(28px,4vw,40px);line-height:1;letter-spacing:-.03em;padding:8px 24px 0}
+.guide-titre .o{color:var(--orange)}
+.guide-sous{padding:10px 24px 0;color:var(--texte-sec);font-size:15px;max-width:60ch}
+.guide-etapes{list-style:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:20px 24px 0;border-top:2px solid var(--trait)}
+.guide-etapes li{position:relative;padding:16px 14px 18px;border-right:1px solid var(--fil);display:flex;flex-direction:column;gap:10px}
+.guide-etapes li:first-child{padding-left:0}
+.guide-etapes li:last-child{border-right:0;padding-right:0}
+.guide-etapes li::before{content:"";position:absolute;left:0;right:0;top:-2px;height:4px;background:var(--accent)}
+.guide-etapes .k{font-family:var(--mono);font-size:12px;color:var(--texte-sec)}
+.guide-etapes p{font-size:14.5px;line-height:1.45}
+.guide-14{margin:4px 24px 0;padding:12px 0;border-top:1px solid var(--fil);font-size:14px;color:var(--texte-sec)}
+.guide-14 b{color:var(--texte)}
+.guide-alt{margin:0 24px;padding:14px 0 4px;border-top:1px solid var(--fil);display:flex;flex-direction:column;gap:8px}
+.guide-alt .cmd-note{margin-top:0}
+.guide-pied{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 24px 20px}
+.guide-pied .lien{font-weight:700;font-size:14px}
+
+/* Illustrations (HTML/CSS, façon macOS) */
+.ill{height:128px;background:var(--fond-2);border:1px solid var(--fil);display:flex;align-items:center;justify-content:center;gap:12px;padding:10px;overflow:hidden;font-family:-apple-system,system-ui,sans-serif}
+.ill-app{width:46px;height:46px;border-radius:11px;background:#1C1C1E;color:#fff;font:900 12px/46px var(--police);letter-spacing:.02em;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.2);animation:ill-glisse 2.6s var(--ease) infinite}
+.ill-fl{font-size:20px;color:var(--texte-sec)}
+.ill-dossier{position:relative;width:64px;height:46px;border-radius:5px;background:#5AA9F5;color:#fff;font-size:8.5px;font-weight:600;display:flex;align-items:flex-end;justify-content:center;padding-bottom:5px}
+.ill-dossier i{position:absolute;left:0;top:-6px;width:26px;height:9px;border-radius:4px 4px 0 0;background:#4A97E2}
+@keyframes ill-glisse{0%,15%{transform:none}55%,80%{transform:translateX(78px) scale(.6);opacity:.2}100%{transform:none;opacity:1}}
+.ill-alerte{width:150px;background:#fff;color:#1E1E1C;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.18);padding:9px 10px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:9px;text-align:center}
+.ill-ico{width:18px;height:18px;border-radius:5px;background:#1C1C1E}
+.ill-gris{display:block;height:4px;width:88%;background:#E2E2E0;border-radius:2px}
+.ill-gris.court{width:60%}
+.ill-b{display:block;width:100%;border-radius:5px;padding:3px 0;font-size:8.5px;font-weight:600;background:#E9E9E7;color:#1E1E1C}
+.ill-b.non{opacity:.45;text-decoration:line-through}
+.ill-b.oui{background:#2B7FFF;color:#fff;outline:2px solid var(--orange);outline-offset:2px}
+.ill-reglages{width:168px;height:100px;background:#fff;color:#1E1E1C;border-radius:9px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:flex;overflow:hidden;font-size:8.5px}
+.ill-cote{width:58px;background:#EEEEEC;padding:12px 5px;display:flex;flex-direction:column;gap:5px}
+.ill-cote span{display:block;height:9px;border-radius:3px;background:#DCDCDA}
+.ill-cote span.on{height:auto;background:#2B7FFF;color:#fff;font-size:6.5px;font-weight:600;padding:2px 3px;white-space:nowrap;overflow:hidden}
+.ill-panneau{flex:1;padding:12px 7px;display:flex;flex-direction:column;gap:4px;justify-content:flex-end}
+.ill-panneau small{font-size:7px;color:#5F5F5A;margin-top:4px}
+.ill-panneau .ill-b.oui{padding:3px 2px}
+@media (max-width:700px){
+  .guide-etapes{grid-template-columns:1fr}
+  .guide-etapes li{padding:16px 0;border-right:0;border-top:1px solid var(--fil);display:grid;grid-template-columns:132px minmax(0,1fr);grid-template-rows:auto 1fr;column-gap:14px;row-gap:4px}
+  .guide-etapes li:first-child{border-top:0}
+  .guide-etapes li::before{display:none}
+  .guide-etapes .ill{grid-row:1 / span 2;height:104px;gap:6px;padding:4px}
+  .guide-etapes .ill > *{zoom:.72}
+  .guide-titre,.guide-sous{padding-inline:18px}
+  .guide-etapes,.guide-14,.guide-alt{margin-inline:18px}
+  .guide-tete{padding-left:18px}
+  .guide-pied{padding-inline:18px;flex-wrap:wrap}
+  .cmd-bloc-tete{flex-wrap:wrap}
+}
+
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
   .rv{opacity:1;transform:none}
   .titre-hero .ligne > span,.entree{transform:none;opacity:1}
   .barres i{transform:none}
   .curseur{animation:none}
+  .ill-app{animation:none}
 }

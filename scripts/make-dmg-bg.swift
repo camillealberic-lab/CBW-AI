@@ -27,7 +27,9 @@ func render(scale: CGFloat, to path: String) {
   let sub: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 13), .foregroundColor: hex(0x6B6B7B), .paragraphStyle: center]
   ("Glisse l’icône dans le dossier Applications" as NSString).draw(in: NSRect(x: 0, y: H - 86, width: W, height: 20), withAttributes: sub)
   let foot: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: hex(0x6B6B7B), .paragraphStyle: center]
-  ("1er lancement : clic droit › Ouvrir (app non notariée)" as NSString).draw(in: NSRect(x: 0, y: 36, width: W, height: 16), withAttributes: foot)
+  // macOS 15+ : « Élément non ouvert » → Terminé, puis Réglages › Confidentialité et sécurité › Ouvrir quand même
+  let hint: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: hex(0x14141F), .paragraphStyle: center]
+  ("1er lancement : Réglages › Confidentialité › Ouvrir quand même" as NSString).draw(in: NSRect(x: 0, y: 36, width: W, height: 16), withAttributes: hint)
   ("Dictée vocale locale · Apple Silicon" as NSString).draw(in: NSRect(x: 0, y: 18, width: W, height: 16), withAttributes: foot)
 
   // flèche app → Applications (y DMG 190 depuis le haut → 190 depuis le bas en AppKit)
