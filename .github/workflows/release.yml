@@ -1,3 +1,4 @@
+# Release CBW AI — construit et publie une version à chaque push sur main (signée via UPDATE_SIGNING_KEY).
 # CBW AI — build + release automatique (macOS Apple Silicon).
 # Chaque push sur main (hors docs/sites/captures/markdown) publie une nouvelle version :
 #   version = <majeur>.<mineur> de package.json + numéro de build (github.run_number) → ex. 1.0.42
