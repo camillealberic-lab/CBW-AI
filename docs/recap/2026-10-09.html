@@ -149,8 +149,8 @@ th { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .06em; text-tra
         <tr><td>gemma4:e4b (défaut actuel)</td><td>9,5 Go</td><td class="warn">Trop lourd pour 16 Go : il a gelé le Mac</td></tr>
         <tr><td><b>qwen3.5:4b</b></td><td>4 Go</td><td class="ok">Bon français, ~1 s par phrase une fois chargé (8–12 s au premier chargement)</td></tr>
       </table>
-      <p>Recommandation : qwen3.5:4b comme modèle local, déchargé après 5 min d'inactivité, Groq gardé en premier car plus rapide. Option « Local d'abord » pour du 100 % gratuit.</p>
-      <p><b>Clés Mistral / Cloudflare</b> : aucune sur ton Mac. À créer (gratuit) : <a href="https://console.mistral.ai/api-keys">console.mistral.ai</a> · <a href="https://dash.cloudflare.com/profile/api-tokens">dash.cloudflare.com</a> (jeton « Workers AI » + Account ID), à coller dans Réglages › Fournisseurs.</p>
+      <p><b>Appliqué</b> : qwen3.5:4b est le modèle local, utilisé <b>uniquement en ultime recours</b>, quand plus aucun fournisseur cloud n'a de quota. Sinon il n'est jamais chargé : 0 mémoire. Chargé en secours, il se libère 2 min après la dernière dictée. Jamais pour les nettoyages pendant les pauses. Absent de la machine (chez tes amis) → simplement ignoré. Tests : 3/3 (cloud dispo → local jamais contacté ; pause → jamais de local ; tout épuisé → qwen nettoie).</p>
+      <p><b>Mistral et Cloudflare retirés</b> des fournisseurs, des Réglages, de l'accueil de l'app et des docs. Ta config a été migrée (ordre : Groq, Z.ai, Gemini, local, OpenRouter) ; tes 4 clés restent intactes.</p>
     </div>
   </section>
 
@@ -158,12 +158,11 @@ th { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .06em; text-tra
     <div><div class="num">07</div><div class="k">À décider</div></div>
     <div>
       <ul class="todo">
-        <li>Passer le modèle local sur <b>qwen3.5:4b</b> (+ garde-fou mémoire) ?</li>
-        <li>Créer les clés Mistral et Cloudflare : plus de réserve de quotas.</li>
+        <li>Supprimer de ton disque les modèles Ollama inutilisés (gemma4:e4b, gemma4:e2b, ministral-3:8b : ~20 Go) ?</li>
         <li>Compte Apple Developer (99 $/an) pour supprimer définitivement l'avertissement macOS chez tes amis.</li>
-        <li>Mettre à jour ou supprimer les anciens sites site-1 et site-3, qui parlent encore du Brainstorm.</li>
+        <li><span class="ok">Fait</span> : site-1 et site-3 supprimés ; site-2 à jour (Dictée + Notes, relais local mentionné).</li>
       </ul>
-      <p style="margin-top:16px" class="k">Commits du jour : 5092ce7 · a40b177 · c0ebcfa · a9551a9 · 3ea6ec1 · 39e1bcc — dépôt camillealberic-lab/CBW-AI</p>
+      <p style="margin-top:16px" class="k">Commits du jour : 5092ce7 · a40b177 · c0ebcfa · a9551a9 · 3ea6ec1 · 39e1bcc · 4462790 — dépôt camillealberic-lab/CBW-AI</p>
     </div>
   </section>
 </div>
