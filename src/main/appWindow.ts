@@ -335,6 +335,10 @@ export function openAppWindow(section?: string): void {
     app.focus({ steal: true });
   });
   win.on('show', startPermLoop);
+  // plein écran : la marque et la nav remontent (design/app/app.html › html.fs)
+  win.on('enter-full-screen', () => send('app:fullscreen', true));
+  win.on('leave-full-screen', () => send('app:fullscreen', false));
+  win.webContents.on('did-finish-load', () => send('app:fullscreen', win?.isFullScreen() ?? false));
   win.on('focus', () => send('app:permissions', permissions()));
   win.on('closed', () => {
     win = null;

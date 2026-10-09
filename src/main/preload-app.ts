@@ -73,6 +73,7 @@ contextBridge.exposeInMainWorld('dictaApp', {
   checkForUpdates: () => invoke('checkForUpdates'),
   installUpdate: () => invoke('installUpdate'),
   onUpdate: on('update'),
+  onFullscreen: on('fullscreen'), // cb(boolean) — entrée / sortie du plein écran macOS
 
   finishOnboarding: () => invoke('finishOnboarding'),
   resetOnboarding: () => invoke('resetOnboarding'),

@@ -174,6 +174,7 @@ Sans Developer ID : l'app lit `https://github.com/<package.json › cbw.repo>/re
 - `checkForUpdates(): Promise<UpdateStatus>` — bouton « Vérifier les mises à jour »
 - `installUpdate(): Promise<{ ok: boolean; message?: string }>` — bouton « Redémarrer pour mettre à jour » (refusé pendant une note / un brainstorm / une dictée : afficher `message`) ; l'app quitte puis se relance sur la nouvelle version
 - `onUpdate(cb)` — `cb(UpdateStatus)` à chaque changement (progression du téléchargement incluse)
+- `onFullscreen(cb)` — `cb(boolean)` à l'entrée / sortie du plein écran macOS (et au chargement) ; l'UI pose `html.fs`
 
 `UpdateStatus = { state: 'disabled' | 'idle' | 'checking' | 'up-to-date' | 'downloading' | 'ready' | 'installing' | 'error'; current: string; version?: string; notes?: string /* Markdown */; percent?: number /* 0–100 */; message?: string }`.
 UI suggérée (Réglages › Général) : « Version 1.0.42 » + bouton « Vérifier les mises à jour » ; si `ready` : carte « Version X prête » + notes + bouton primaire « Redémarrer pour mettre à jour » ; interrupteur « Mises à jour automatiques » (`setConfig('updates.auto', bool)`). Un clic sur la notification ouvre `#reglages`.
