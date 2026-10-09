@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Récap du 9 octobre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root { --orange: #FF5A1F; --bleu: #2B3BFF; --vert: #1FD26A; --noir: #1C1C1E; --fond: #fff; --fond-2: #F4F4F2; --texte: #1C1C1E; --sec: #5A5A57; --t3: #6E6E6A; --fil: #E2E2DE; --trait: #1C1C1E; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --fond: #1A1B1D; --fond-2: #202124; --texte: #ECECEA; --sec: #A3A3A0; --t3: #8C8C88; --fil: #3A3B3E; --trait: #D9D9D6; } }
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--fond); color: var(--texte); font: 16px/1.55 Archivo, system-ui, sans-serif; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 56px 40px 96px; }
+.k { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--t3); }
+h1 { font: 900 clamp(48px, 7vw, 88px)/.9 Archivo; font-stretch: 78%; letter-spacing: -.045em; margin: 12px 0 16px; }
+h2 { font: 900 34px/1 Archivo; font-stretch: 80%; letter-spacing: -.03em; margin-bottom: 14px; }
+h3 { font-weight: 800; font-size: 17px; margin: 18px 0 6px; }
+.lede { font-size: 18px; color: var(--sec); max-width: 44em; }
+.cbw { display: inline-flex; gap: 3px; vertical-align: middle; }
+.cbw b { width: 26px; height: 26px; display: grid; place-items: center; font: 900 15px Archivo; }
+.cbw b:nth-child(1) { background: var(--orange); color: var(--noir); } .cbw b:nth-child(2) { background: var(--bleu); color: #fff; } .cbw b:nth-child(3) { background: var(--vert); color: var(--noir); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--trait); margin-top: 40px; }
+.stats div { padding: 16px 18px 18px 0; border-right: 1px solid var(--fil); }
+.stats div:last-child { border-right: 0; }
+.stats .n { font: 900 52px/.9 Archivo; font-stretch: 70%; letter-spacing: -.04em; margin-top: 8px; }
+section { border-top: 2px solid var(--trait); margin-top: 64px; padding-top: 22px; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 32px; }
+section > div:first-child .num { font: 900 64px/.85 Archivo; font-stretch: 70%; color: var(--k, var(--texte)); }
+ul { padding-left: 18px; } li { margin: 6px 0; } li::marker { color: var(--t3); }
+p + p, p + ul, ul + p { margin-top: 10px; }
+code { font: 13px 'JetBrains Mono', monospace; background: var(--fond-2); border: 1px solid var(--fil); padding: 1px 6px; }
+pre { font: 13.5px/1.5 'JetBrains Mono', monospace; background: var(--noir); color: #fff; padding: 14px 16px; overflow-x: auto; margin: 10px 0; }
+figure { margin: 18px 0 0; } figure img { width: 100%; display: block; border: 1px solid var(--fil); }
+figcaption { margin-top: 6px; } .two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 15px; }
+th, td { text-align: left; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--fil); vertical-align: top; }
+th { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--t3); }
+.ok { color: #12a150; font-weight: 800; } .warn { color: var(--orange); font-weight: 800; }
+.tag { display: inline-block; font: 500 10.5px 'JetBrains Mono', monospace; letter-spacing: .06em; text-transform: uppercase; padding: 3px 7px; border: 1px solid var(--fil); margin-right: 6px; }
+.todo li { list-style: none; position: relative; } .todo li::before { content: ""; position: absolute; left: -18px; top: 8px; width: 9px; height: 9px; border: 1.5px solid var(--texte); }
+@media (max-width: 820px) { .wrap { padding: 32px 16px 64px; } section { grid-template-columns: 1fr; gap: 8px; } .stats { grid-template-columns: 1fr 1fr; } .stats div:nth-child(2) { border-right: 0; } .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="k"><span class="cbw"><b>C</b><b>B</b><b>W</b></span> &nbsp; CBW AI · récap du jeudi 9 octobre 2026</div>
+  <h1>Ce qui a changé aujourd'hui</h1>
+  <p class="lede">Installation sans blocage pour tes amis, un en-tête d'app recentré, une app recentrée sur la dictée (Brainstorm retiré), une pastille que tu peux déplacer, et surtout un nettoyage qui ne lâche plus quand un quota tombe.</p>
+
+  <div class="stats">
+    <div><div class="k">Versions publiées</div><div class="n">1.0.3 → 1.0.9</div></div>
+    <div><div class="k">Lignes retirées</div><div class="n">−4 352</div></div>
+    <div><div class="k">Tests quotas</div><div class="n">21/21</div></div>
+    <div><div class="k">Nettoyage réel</div><div class="n">0,5 s</div></div>
+  </div>
+
+  <section style="--k: var(--orange)">
+    <div><div class="num">01</div><div class="k">Installation · amis</div></div>
+    <div>
+      <h2>Plus de « Élément non ouvert »</h2>
+      <p>macOS bloque les apps non validées par Apple. Sans compte Developer (99 $/an), deux parades sont en ligne :</p>
+      <h3>1 · Une commande dans Terminal (le plus simple)</h3>
+      <pre>curl -fsSL https://cbw-ai-liard.vercel.app/install.sh | bash</pre>
+      <p>Elle télécharge la dernière version, vérifie son empreinte SHA-256, l'installe dans Applications sans blocage et l'ouvre. <span class="ok">Testé depuis le site en ligne</span> : version 1.0.4 installée, signature valide, aucune quarantaine.</p>
+      <h3>2 · Le guide « Premier lancement »</h3>
+      <p>Après « Télécharger », le site affiche 3 étapes : <b>Terminé</b> (pas Corbeille) → Réglages Système › Confidentialité et sécurité → <b>Ouvrir quand même</b>. Le même rappel est écrit dans la fenêtre du DMG.</p>
+    </div>
+  </section>
+
+  <section style="--k: var(--bleu)">
+    <div><div class="num">02</div><div class="k">Logo &amp; en-tête</div></div>
+    <div>
+      <h2>Option C : en-tête avec filet</h2>
+      <ul>
+        <li><b>Un seul axe en haut</b> : les feux macOS, la bascule du menu, le titre de page et les boutons sont sur la même ligne (y = 26 px).</li>
+        <li><b>Logo C·B·W de 24 px calé à gauche</b>, sans « AI », fermé par un filet fin au-dessus du menu.</li>
+        <li><b>Plein écran</b> : le logo prend la place des feux, sur l'axe de la barre d'outils. <b>Menu replié</b> : les 3 carrés s'empilent au centre.</li>
+        <li><b>Séparateur glissable</b> : au survol, une poignée ; glisse pour régler la largeur du menu (180 – 380 px, mémorisée), tout à gauche pour le replier, double-clic pour la largeur par défaut.</li>
+        <li><b>Dock</b> : ton icône affiche bien les 5 barres (cache macOS vidé). L'icône grise voisine est Wispr Flow.</li>
+      </ul>
+      <div class="two">
+        <figure><img src="img/1009/logo-avant.png" alt="En-tête avant : logo plus bas avec AI"><figcaption class="k">Avant</figcaption></figure>
+        <figure><img src="img/1009/logo-c.png" alt="En-tête option C : C·B·W 24 px calé à gauche, filet"><figcaption class="k">Après · option C</figcaption></figure>
+      </div>
+      <p style="margin-top:12px">La planche comparative des 5 options est dans <code>design/brand/logo-placement.html</code>.</p>
+    </div>
+  </section>
+
+  <section style="--k: var(--vert)">
+    <div><div class="num">03</div><div class="k">App recentrée</div></div>
+    <div>
+      <h2>Cinq pages, un seul gabarit</h2>
+      <ul>
+        <li><b>Brainstorm retiré entièrement</b> : menu, page, bouton de la pastille, bulles, raccourcis, code, docs et site. Restent <b>Accueil, Notes, Dictionnaire, Style, Réglages</b>. Tes anciens brainstorms restent sur le disque, inutilisés.</li>
+        <li><b>Même largeur partout</b> (1120 px max, mêmes marges) : mesuré identique sur les 5 pages.</li>
+        <li><b>Kickers supprimés</b> (« 01 · ACCUEIL », « 03 · VOCABULAIRE »…).</li>
+        <li><b>Accueil</b> : plus aucun effet ombré ni de mouvement au survol de Mots dictés, Temps gagné, Série en cours et Vitesse.</li>
+      </ul>
+      <figure><img src="img/1009/accueil.png" alt="Accueil : en-tête option C, 5 pages, KPI sans effet"><figcaption class="k">Accueil, version installée</figcaption></figure>
+    </div>
+  </section>
+
+  <section style="--k: var(--orange)">
+    <div><div class="num">04</div><div class="k">Pastille</div></div>
+    <div>
+      <h2>Déplaçable, et elle s'en souvient</h2>
+      <ul>
+        <li><b>Glisse-la</b> où tu veux ; un simple clic sur Dicter ou Note marche toujours.</li>
+        <li><b>Position mémorisée</b> pour chaque écran, et toujours entière à l'écran.</li>
+        <li><b>Par défaut</b> : juste au-dessus du Dock s'il est visible, sinon collée en bas de l'écran (ton cas : Dock masqué).</li>
+        <li><b>Retour en bas</b> : Réglages › Général › « Remettre en bas ».</li>
+      </ul>
+      <figure><img src="img/1009/pastille.png" alt="La pastille au repos en bas de l'écran"><figcaption class="k">La pastille au repos, Dock masqué</figcaption></figure>
+    </div>
+  </section>
+
+  <section style="--k: var(--bleu)">
+    <div><div class="num">05</div><div class="k">Nettoyage &amp; quotas</div></div>
+    <div>
+      <h2>Le quota est connu avant que tu parles</h2>
+      <h3>Ce qui s'est passé (journal)</h3>
+      <p>Tes deux dictées collées brutes (12 h 43 et 13 h 06) venaient d'une dictée longue : l'app relançait un nettoyage à chaque pause, une trentaine sur 73 s, à ~3 300 tokens chacun. OpenRouter et Z.ai, puis les 3 modèles Groq, puis Gemini sont tombés en série. Le dernier nettoyage a trouvé tout le monde en pause et rendu le texte brut, et l'app l'a collé sans réessayer.</p>
+      <h3>Ce qui change</h3>
+      <ul>
+        <li><b>Quotas lus à chaque réponse</b> (restant + heure de remise à zéro, par fournisseur et par modèle). Un modèle épuisé est sauté <b>avant</b> l'envoi, sans requête perdue.</li>
+        <li><b>Rotation de modèles gratuits</b> chez Groq, Gemini, Z.ai et OpenRouter : un modèle saturé ne bloque plus tout le fournisseur.</li>
+        <li><b>Vérification au démarrage et dès que tu commences à parler</b> : la connexion est ouverte, le bon fournisseur est connu d'avance.</li>
+        <li><b>Nettoyages pendant les pauses limités</b> (1 fournisseur, au plus toutes les ~3 s, aucun si les réserves sont basses) : ils ne vident plus tes quotas.</li>
+        <li><b>Si un nettoyage partiel finit brut</b>, il est refait en entier au moment de coller. Le brut n'arrive que si absolument tout a échoué, avec la raison notée par fournisseur.</li>
+      </ul>
+      <h3>Tests</h3>
+      <table>
+        <tr><th>Test</th><th>Résultat</th></tr>
+        <tr><td>Simulations (Groq en 429 → sauté sans requête ; 1 seul fournisseur restant ; retour après remise à zéro)</td><td class="ok">21/21</td></tr>
+        <tr><td>Vraie dictée dans l'app installée, tes vraies clés (×3)</td><td class="ok">Nettoyé · 0,5–0,7 s</td></tr>
+        <tr><td>Modèle Groq saturé → sauté automatiquement</td><td class="ok">gpt-oss-120b a pris le relais</td></tr>
+        <tr><td>Modèles de secours Gemini (3.1 / 2.5 flash-lite)</td><td class="warn">Non confirmés : s'ils n'existent pas, ils sont écartés 6 h au premier refus</td></tr>
+      </table>
+      <p>Exemple réel : « une table pour trois, enfin non, quatre personnes demain soir vers 20h » devient « une table pour quatre personnes demain soir vers 20 h ».</p>
+    </div>
+  </section>
+
+  <section style="--k: var(--vert)">
+    <div><div class="num">06</div><div class="k">Modèle local</div></div>
+    <div>
+      <h2>0 token : qwen3.5:4b</h2>
+      <table>
+        <tr><th>Modèle</th><th>Taille</th><th>Verdict</th></tr>
+        <tr><td>gemma4:e4b (défaut actuel)</td><td>9,5 Go</td><td class="warn">Trop lourd pour 16 Go : il a gelé le Mac</td></tr>
+        <tr><td><b>qwen3.5:4b</b></td><td>4 Go</td><td class="ok">Bon français, ~1 s par phrase une fois chargé (8–12 s au premier chargement)</td></tr>
+      </table>
+      <p>Recommandation : qwen3.5:4b comme modèle local, déchargé après 5 min d'inactivité, Groq gardé en premier car plus rapide. Option « Local d'abord » pour du 100 % gratuit.</p>
+      <p><b>Clés Mistral / Cloudflare</b> : aucune sur ton Mac. À créer (gratuit) : <a href="https://console.mistral.ai/api-keys">console.mistral.ai</a> · <a href="https://dash.cloudflare.com/profile/api-tokens">dash.cloudflare.com</a> (jeton « Workers AI » + Account ID), à coller dans Réglages › Fournisseurs.</p>
+    </div>
+  </section>
+
+  <section>
+    <div><div class="num">07</div><div class="k">À décider</div></div>
+    <div>
+      <ul class="todo">
+        <li>Passer le modèle local sur <b>qwen3.5:4b</b> (+ garde-fou mémoire) ?</li>
+        <li>Créer les clés Mistral et Cloudflare : plus de réserve de quotas.</li>
+        <li>Compte Apple Developer (99 $/an) pour supprimer définitivement l'avertissement macOS chez tes amis.</li>
+        <li>Mettre à jour ou supprimer les anciens sites site-1 et site-3, qui parlent encore du Brainstorm.</li>
+      </ul>
+      <p style="margin-top:16px" class="k">Commits du jour : 5092ce7 · a40b177 · c0ebcfa · a9551a9 · 3ea6ec1 · 39e1bcc — dépôt camillealberic-lab/CBW-AI</p>
+    </div>
+  </section>
+</div>
+</body>
+</html>
