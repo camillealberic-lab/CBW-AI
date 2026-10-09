@@ -1,4 +1,4 @@
-import { app, Notification } from 'electron';
+import { app, Notification, powerMonitor } from 'electron';
 import { execFile, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
@@ -12,13 +12,13 @@ import { verifyManifest } from './updateVerify';
  * Mises à jour sans Developer ID (pas de Squirrel / electron-updater) :
  *   latest.json (GitHub Releases, signé Ed25519 → updateVerify.ts) → zip téléchargé dans ~/.dicta-ai/updates (reprise + SHA-256)
  *   → `ditto -x -k` → vérif `codesign` + identifiant + exigence désignée → « prête ».
- * Installation (action « Redémarrer pour mettre à jour » ou au prochain Quitter) : script détaché
+ * Installation (automatique quand le Mac est inactif, « Redémarrer pour mettre à jour », ou au Quitter) : script détaché
  * qui attend la fin de l'app, remplace le bundle par `ditto` (sauvegarde .previous, restaurée en cas
  * d'échec), retire la quarantaine et relance. Même bundle id + même exigence désignée
  * (`identifier "com.dicta-ai.app"`, cf. scripts/after-pack.cjs) → Micro / Accessibilité conservés.
  *
  * Env (tests) : CBW_UPDATE_URL (latest.json), CBW_INSTALL_PATH (bundle à remplacer),
- *               CBW_UPDATE_DELAY_MS (1re vérification, défaut 30 s).
+ *               CBW_UPDATE_DELAY_MS (1re vérification, défaut 30 s), CBW_AUTO_IDLE_S / CBW_AUTO_EVERY_MS (installation auto).
  */
 
 export type UpdateState = 'disabled' | 'idle' | 'checking' | 'up-to-date' | 'downloading' | 'ready' | 'installing' | 'error';
@@ -43,7 +43,10 @@ const BUNDLE_ID = 'com.dicta-ai.app';
 const DR = 'identifier "com.dicta-ai.app"';
 const APP_NAME = 'CBW AI.app';
 const PLACEHOLDER = /^OWNER\//i;
-const EVERY_MS = 6 * 3600_000;
+const EVERY_MS = 3600_000; // vérification toutes les heures (+ au réveil du Mac)
+/** Mise à jour prête : installée seule (avec relance) dès que le Mac est inactif depuis 3 min, sans dictée ni note en cours. */
+const AUTO_IDLE_S = Number(process.env.CBW_AUTO_IDLE_S ?? 180); // env : tests
+const AUTO_EVERY_MS = Number(process.env.CBW_AUTO_EVERY_MS) || 60_000;
 
 /** "1.2.10" > "1.2.9" ; suffixes (-beta…) ignorés. */
 export function semverGt(a: string, b: string): boolean {
@@ -154,6 +157,28 @@ class Updater extends EventEmitter {
       if (settings.get('updates.auto') !== false && this.status.state !== 'ready') void this.check();
     }, EVERY_MS);
     this.timer.unref?.();
+    // Réveil du Mac : vérifie tout de suite (l'app reste ouverte des jours dans la barre des menus).
+    powerMonitor.on('resume', () => {
+      if (settings.get('updates.auto') !== false && this.status.state !== 'ready') setTimeout(() => void this.check(), 15_000);
+    });
+    // Juste mise à jour (relance après installation) : le dire une fois.
+    const last = String(settings.get('updates.lastVersion') ?? '');
+    if (last && semverGt(app.getVersion(), last) && Notification.isSupported()) {
+      new Notification({ title: `CBW AI est à jour (v${app.getVersion()})`, body: 'Les nouveautés sont déjà actives.' }).show();
+    }
+    if (last !== app.getVersion()) settings.set('updates.lastVersion', app.getVersion());
+  }
+
+  private autoTimer: NodeJS.Timeout | null = null;
+  /** Installe seule la mise à jour prête quand personne n'utilise le Mac (sinon on retente chaque minute). */
+  private autoInstall(): void {
+    if (this.status.state !== 'ready' || settings.get('updates.auto') === false) return;
+    if (this.busy()) return;
+    const idle = powerMonitor.getSystemIdleTime();
+    if (idle < AUTO_IDLE_S) return;
+    log('update: installation automatique', this.status.version, `(Mac inactif depuis ${idle} s)`);
+    const r = this.install();
+    if (!r.ok) log('update: installation automatique refusée —', r.message);
   }
 
   /** Supprime les mises à jour déjà installées / périmées (≤ version courante). */
@@ -259,8 +284,12 @@ class Updater extends EventEmitter {
     this.readyApp = extracted;
     this.set({ state: 'ready', version: m.version, notes: m.notes, percent: 100 });
     log('update: prête', m.version, extracted);
+    if (!this.autoTimer) {
+      this.autoTimer = setInterval(() => this.autoInstall(), AUTO_EVERY_MS);
+      this.autoTimer.unref?.();
+    }
     if (Notification.isSupported()) {
-      const n = new Notification({ title: 'Mise à jour prête — redémarre CBW AI', body: `Version ${m.version} téléchargée. Elle s’installera au prochain redémarrage.` });
+      const n = new Notification({ title: `Mise à jour v${m.version} prête`, body: 'Elle s’installera toute seule dès que ton Mac sera inactif quelques minutes (ou via « Redémarrer pour mettre à jour »).' });
       n.on('click', () => this.emit('open'));
       n.show();
     }
@@ -332,7 +361,7 @@ else
 fi
 if [ "$RELAUNCH" = 1 ]; then
   ENVS=()
-  for V in DICTA_AI_HOME CBW_UPDATE_URL CBW_INSTALL_PATH CBW_UPDATE_DELAY_MS DICTA_NO_PROMPT OLLAMA_HOST DICTA_WHISPER_MODEL DICTA_WHISPER_SERVER_BIN; do
+  for V in DICTA_AI_HOME CBW_UPDATE_URL CBW_INSTALL_PATH CBW_UPDATE_DELAY_MS CBW_AUTO_IDLE_S CBW_AUTO_EVERY_MS DICTA_NO_PROMPT OLLAMA_HOST DICTA_WHISPER_MODEL DICTA_WHISPER_SERVER_BIN; do
     [ -n "\${!V:-}" ] && ENVS+=(--env "$V=\${!V}")
   done
   if [ \${#ENVS[@]} -gt 0 ]; then open -n "$DEST" "\${ENVS[@]}"; else open "$DEST"; fi

@@ -204,7 +204,7 @@ async function main(): Promise<void> {
   }
 
   initAppIpc({ hotkey, recorder, pipeline, notes });
-  // Mises à jour : 30 s après le lancement puis toutes les 6 h ; installation au redémarrage / au Quitter.
+  // Mises à jour : 30 s après le lancement, toutes les heures et au réveil ; installation seule quand le Mac est inactif (ou au Quitter).
   let lastUpKey = '';
   updater.on('update', (u: { state: string; percent?: number }) => {
     const key = `${u.state}|${u.state === 'downloading' ? Math.floor((u.percent ?? 0) / 10) : ''}`;
