@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aide CBW AI — Installation, réglages, dépannage</title>
+<meta name="description" content="Aide complète de CBW AI : installation sur Mac, autorisations, clé IA gratuite, utilisation, confidentialité et dépannage.">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="preload" href="fonts/Archivo-latin.var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Fichier généré par site/_build/build-aide.mjs depuis docs/aide/AIDE.md : modifier AIDE.md puis relancer le script. -->
+<a class="skip" href="#contenu">Aller au contenu</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="CBW AI, accueil">
+      <svg viewBox="0 0 664 560" aria-hidden="true"><rect x="0" y="160" width="88" height="240" fill="currentColor"/><rect x="144" y="80" width="88" height="400" fill="currentColor"/><rect x="288" y="0" width="88" height="560" fill="#FF5A1F"/><rect x="432" y="80" width="88" height="400" fill="currentColor"/><rect x="576" y="160" width="88" height="240" fill="currentColor"/></svg>
+      <span>CBW <small>AI</small></span>
+    </a>
+    <nav class="nav" aria-label="Navigation principale">
+      <a href="/">Accueil</a>
+      <a href="/#faq">FAQ</a>
+      <!-- TODO: remplacer OWNER/REPO par le dépôt GitHub des releases. -->
+      <a class="btn s download-link" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">Télécharger</a>
+    </nav>
+  </div>
+</header>
+
+<main id="contenu">
+  <div class="doc-hero">
+    <div class="wrap">
+      <span class="label"><i class="b"></i>Centre d'aide</span>
+      <h1>Aide CBW AI</h1>
+      <p>CBW AI est une app de dictée vocale gratuite pour Mac, éditée par CBW Studio. Tu parles, CBW AI écrit à ta place dans n'importe quelle app (mail, navigateur, Word, Notion, ChatGPT, Slack…), avec un texte déjà propre : sans les « euh », sans les répétitions, avec la ponctuation.</p>
+<p>C'est un correcteur de parole, pas un rédacteur : il n'invente rien, ne reformule pas tes idées et ne répond jamais à ce que tu dictes.</p>
+    </div>
+  </div>
+  <div class="wrap doc">
+    <aside class="toc" aria-label="Sommaire">
+      <span class="label"><i class="b"></i>Sommaire</span>
+      <ol><li><a href="#configuration-requise">Configuration requise</a></li><li><a href="#installation-pas-à-pas">Installation pas à pas</a></li><li class="sub"><a href="#premier-lancement--le-message--apple-ne-peut-pas-vérifier-">Premier lancement : le message « Apple ne peut pas vérifier »</a></li><li><a href="#premier-lancement">Premier lancement</a></li><li><a href="#autorisations">Autorisations</a></li><li><a href="#obtenir-une-clé-gratuite">Obtenir une clé gratuite</a></li><li class="sub"><a href="#pourquoi-une-clé-">Pourquoi une clé ?</a></li><li class="sub"><a href="#groq-conseillé-à-faire-en-premier">Groq (conseillé, à faire en premier)</a></li><li class="sub"><a href="#les-autres-moteurs-facultatifs-en-secours">Les autres moteurs (facultatifs, en secours)</a></li><li class="sub"><a href="#option-100--locale--ollama">Option 100 % locale : Ollama</a></li><li><a href="#utilisation-au-quotidien">Utilisation au quotidien</a></li><li class="sub"><a href="#les-gestes">Les gestes</a></li><li class="sub"><a href="#pas-à-pas">Pas à pas</a></li><li class="sub"><a href="#exemples-avant--après">Exemples avant / après</a></li><li class="sub"><a href="#conseils">Conseils</a></li><li><a href="#réglages">Réglages</a></li><li><a href="#confidentialité">Confidentialité</a></li><li><a href="#dépannage-et-faq">Dépannage et FAQ</a></li><li class="sub"><a href="#rien-ne-se-colle-après-la-dictée">Rien ne se colle après la dictée</a></li><li class="sub"><a href="#la-touche-control-ne-déclenche-rien">La touche Control ne déclenche rien</a></li><li class="sub"><a href="#-apple-ne-peut-pas-vérifier-que-cbw-ai-ne-contient-pas-de-logiciel-malveillant-">« Apple ne peut pas vérifier que CBW AI ne contient pas de logiciel malveillant »</a></li><li class="sub"><a href="#la-transcription-est-lente">La transcription est lente</a></li><li class="sub"><a href="#le-texte-est-collé-mais-pas-nettoyé--quota-atteint-">Le texte est collé mais pas nettoyé (« quota atteint »)</a></li><li class="sub"><a href="#désinstaller-proprement">Désinstaller proprement</a></li><li class="sub"><a href="#autres-questions">Autres questions</a></li></ol>
+    </aside>
+    <div>
+      <details class="toc-m">
+        <summary><span class="label"><i class="b"></i>Sommaire</span><span aria-hidden="true">+</span></summary>
+        <ol><li><a href="#configuration-requise">Configuration requise</a></li><li><a href="#installation-pas-à-pas">Installation pas à pas</a></li><li><a href="#premier-lancement">Premier lancement</a></li><li><a href="#autorisations">Autorisations</a></li><li><a href="#obtenir-une-clé-gratuite">Obtenir une clé gratuite</a></li><li><a href="#utilisation-au-quotidien">Utilisation au quotidien</a></li><li><a href="#réglages">Réglages</a></li><li><a href="#confidentialité">Confidentialité</a></li><li><a href="#dépannage-et-faq">Dépannage et FAQ</a></li></ol>
+      </details>
+      <article class="prose">
+<h2 id="configuration-requise">Configuration requise</h2>
+<ul><li>Un Mac avec une puce <strong>Apple Silicon</strong> (M1, M2, M3, M4 ou plus récent). Les Mac à processeur Intel ne sont pas pris en charge.</li><li><strong>macOS 14 (Sonoma)</strong> ou plus récent.</li><li>Environ <strong>1 Go d'espace libre</strong> (l'app + le modèle de transcription d'environ 560 Mo).</li><li>Une connexion internet pour l'installation et pour le nettoyage du texte par un moteur IA en ligne. La transcription de ta voix, elle, se fait sans internet.</li><li>Facultatif : pour un nettoyage 100 % local avec Ollama, il faut environ <strong>10 Go de mémoire vive libre</strong>. C'est déconseillé sur un Mac de 8 ou 16 Go.</li></ul>
+<p>Pour vérifier ton Mac : menu  › <strong>À propos de ce Mac</strong>. La ligne « Puce » doit indiquer « Apple M… », et la ligne « macOS » une version 14 ou plus.</p>
+<h2 id="installation-pas-à-pas">Installation pas à pas</h2>
+<ol><li>Télécharge le fichier <strong>CBW-AI-arm64.dmg</strong> depuis le site.</li><li>Ouvre ce fichier (double-clic dans ton dossier Téléchargements). Une fenêtre s'ouvre avec l'icône CBW AI et un raccourci vers le dossier Applications.</li><li><strong>Glisse l'icône CBW AI sur le dossier Applications.</strong></li><li>Éjecte le disque « CBW AI » (clic droit sur son icône dans le Finder › Éjecter). Tu peux ensuite supprimer le fichier .dmg.</li><li>Ouvre ton dossier <strong>Applications</strong> et double-clique sur <strong>CBW AI</strong>.</li></ol>
+<h3 id="premier-lancement--le-message--apple-ne-peut-pas-vérifier-">Premier lancement : le message « Apple ne peut pas vérifier »</h3>
+<p>CBW AI n'est pas encore « notarisé » par Apple (une démarche payante que CBW Studio fera plus tard). Au premier lancement, macOS affiche donc un message du type : <em>« CBW AI » ne peut pas être ouvert, car Apple ne peut pas vérifier qu'il ne contient pas de logiciel malveillant.</em> C'est normal, et il suffit de le faire une seule fois.</p>
+<p><strong>Méthode qui marche sur toutes les versions de macOS :</strong></p>
+<ol><li>Clique sur <strong>OK</strong> (ou <strong>Terminé</strong>) pour fermer le message.</li><li>Ouvre <strong>Réglages Système</strong> (menu  › Réglages Système).</li><li>Va dans <strong>Confidentialité et sécurité</strong>.</li><li>Descends jusqu'à la rubrique <strong>Sécurité</strong>. Tu y vois la ligne <em>« CBW AI » a été bloqué…</em></li><li>Clique sur <strong>Ouvrir quand même</strong>, puis confirme avec ton mot de passe ou Touch ID.</li><li>Dans la fenêtre qui suit, clique sur <strong>Ouvrir</strong>.</li></ol>
+<p><strong>Raccourci sur macOS 14 (Sonoma) :</strong> dans le dossier Applications, fais un <strong>clic droit</strong> (ou Contrôle + clic) sur CBW AI › <strong>Ouvrir</strong>, puis <strong>Ouvrir</strong> dans la fenêtre de confirmation.</p>
+<p>Ensuite, CBW AI s'ouvre normalement, comme n'importe quelle app.</p>
+<h2 id="premier-lancement">Premier lancement</h2>
+<p>Au premier lancement, CBW AI te guide en quelques écrans :</p>
+<ol><li><strong>Bienvenue.</strong> Clique sur Commencer.</li><li><strong>Micro.</strong> Clique sur « Autoriser le micro », puis <strong>Autoriser</strong> dans la fenêtre de macOS.</li><li><strong>Accessibilité.</strong> Clique sur « Ouvrir les Réglages », puis active l'interrupteur à côté de <strong>CBW AI</strong>. L'écran passe au vert tout seul (voir <a href="#autorisations">Autorisations</a>).</li><li><strong>Raccourci.</strong> On te montre le geste : deux appuis sur la touche <strong>Control de gauche</strong>.</li><li><strong>Moteur IA.</strong> Colle ta clé gratuite (Groq conseillé, voir <a href="#obtenir-une-clé-gratuite">Obtenir une clé gratuite</a>), puis clique sur <strong>Tester</strong>. Tu peux passer cette étape et y revenir plus tard.</li><li><strong>Essai.</strong> Dicte une phrase pour voir le résultat, avant et après nettoyage.</li></ol>
+<p>Pendant ce temps, CBW AI <strong>télécharge le modèle de transcription</strong> (environ 560 Mo). Ce téléchargement n'a lieu qu'une seule fois. Selon ta connexion, il prend de quelques secondes à quelques minutes.</p>
+<p>Ensuite, CBW AI reste discrètement dans la <strong>barre de menus</strong> (en haut à droite de l'écran, une petite icône à barres) et dans le Dock. Fermer sa fenêtre ne le quitte pas : la dictée reste disponible partout.</p>
+<h2 id="autorisations">Autorisations</h2>
+<p>macOS protège ton micro et ton clavier. CBW AI a besoin de deux autorisations, parfois trois.</p>
+<div class="tbl"><table><thead><tr><th>Autorisation</th><th>Pourquoi CBW AI en a besoin</th></tr></thead><tbody><tr><td><strong>Micro</strong></td><td>Pour entendre ta voix pendant que tu dictes. Le micro n'est actif que lorsque tu lances une dictée.</td></tr><tr><td><strong>Accessibilité</strong></td><td>Pour repérer la touche Control (deux appuis, ou touche maintenue) et pour <strong>coller le texte</strong> à l'endroit où se trouve ton curseur.</td></tr><tr><td><strong>Surveillance de l'entrée</strong> (seulement si macOS la demande)</td><td>Sur certains Mac, macOS demande cette autorisation en plus pour que CBW AI puisse lire la touche du raccourci.</td></tr></tbody></table></div>
+<p><strong>Où les activer :</strong> Réglages Système › <strong>Confidentialité et sécurité</strong> › <strong>Micro</strong> / <strong>Accessibilité</strong> / <strong>Surveillance de l'entrée</strong>, puis active l'interrupteur à côté de <strong>CBW AI</strong>.</p>
+<p><strong>Sans Accessibilité</strong>, CBW AI fonctionne quand même, en mode réduit : le texte est copié dans le presse-papiers et tu le colles toi-même avec <strong>⌘ V</strong>.</p>
+<p>CBW AI ne lit pas ce que tu tapes au clavier : il surveille seulement la touche du raccourci et la touche Échap.</p>
+<h2 id="obtenir-une-clé-gratuite">Obtenir une clé gratuite</h2>
+<h3 id="pourquoi-une-clé-">Pourquoi une clé ?</h3>
+<p>CBW AI fonctionne en deux temps :</p>
+<ol><li><strong>La transcription</strong> : ta voix devient du texte, directement sur ton Mac. Pas besoin de clé.</li><li><strong>Le nettoyage</strong> : un moteur IA enlève les « euh », les répétitions et les hésitations, et ajoute la ponctuation. Ce moteur tourne chez un fournisseur en ligne qui offre un accès gratuit.</li></ol>
+<p>Chaque personne crée <strong>sa propre clé gratuite</strong> (une sorte de mot de passe qui relie CBW AI à ton compte chez le fournisseur). Ça prend 2 minutes.</p>
+<p><strong>Combien ça coûte ? 0 €.</strong> Tant que tu n'ajoutes <strong>aucun moyen de paiement</strong> (carte bancaire) sur ces comptes, ils ne peuvent rien te facturer. Si un jour tu atteins la limite gratuite, le service refuse simplement les demandes jusqu'au lendemain, et CBW AI passe au moteur suivant.</p>
+<p>Sans aucune clé, CBW AI colle quand même ta dictée, mais sans le nettoyage (texte brut).</p>
+<h3 id="groq-conseillé-à-faire-en-premier">Groq (conseillé, à faire en premier)</h3>
+<p>Groq est le plus rapide (environ une demi-seconde) et son quota gratuit suffit largement pour un usage quotidien.</p>
+<ol><li>Va sur <strong><a href="https://console.groq.com" target="_blank" rel="noopener">console.groq.com</a></strong>.</li><li>Clique sur <strong>Sign in</strong> (ou <strong>Sign up</strong>), puis choisis <strong>Continue with Google</strong>, ou entre ton adresse e-mail et clique sur le lien de connexion que Groq t'envoie.</li><li>Si Groq te pose quelques questions (nom, usage), réponds simplement et valide.</li><li>Ouvre la page des clés : <strong><a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a></strong> (ou, dans le menu, <strong>API Keys</strong>).</li><li>Clique sur <strong>Create API Key</strong>.</li><li>Dans le champ du nom, écris <strong>CBW AI</strong>, puis clique sur <strong>Submit</strong>.</li><li>Ta clé s'affiche (elle commence par <code>gsk_</code>). Clique sur <strong>Copy</strong>. Attention : elle ne s'affiche <strong>qu'une seule fois</strong>. Si tu la perds, supprime-la et crée-en une nouvelle.</li><li>Dans CBW AI, ouvre <strong>Réglages</strong> › <strong>Moteur IA</strong> › <strong>Groq</strong>, colle la clé dans le champ, puis clique sur <strong>Tester</strong>. Un badge vert « OK » confirme que tout marche.</li></ol>
+<p>N'ajoute pas de carte bancaire dans la rubrique <em>Billing</em> : ce n'est pas nécessaire.</p>
+<p>Option confidentialité : dans Groq, <strong>Settings › Data Controls</strong>, tu peux activer <strong>Zero Data Retention</strong> pour que Groq ne garde aucune trace de tes textes.</p>
+<h3 id="les-autres-moteurs-facultatifs-en-secours">Les autres moteurs (facultatifs, en secours)</h3>
+<p>Tu peux ajouter d'autres clés. Si un moteur est indisponible ou a atteint sa limite du jour, CBW AI passe automatiquement au suivant. La méthode est toujours la même : créer un compte, créer une clé, la coller dans <strong>Réglages › Moteur IA</strong>, cliquer sur <strong>Tester</strong>.</p>
+<div class="tbl"><table><thead><tr><th>Moteur</th><th>Où créer la clé</th><th>Bon à savoir</th></tr></thead><tbody><tr><td><strong>Mistral</strong></td><td><a href="https://console.mistral.ai/api-keys" target="_blank" rel="noopener">console.mistral.ai/api-keys</a></td><td>Entreprise française, serveurs <strong>en Europe</strong>. Choisis le plan gratuit (« Experiment ») ; ton numéro de téléphone est demandé. Sur ce plan gratuit, Mistral peut utiliser tes textes pour améliorer ses modèles.</td></tr><tr><td><strong>Cloudflare</strong></td><td><a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener">dash.cloudflare.com/profile/api-tokens</a></td><td>Clique sur <strong>Create Token</strong> et choisis le modèle <strong>Workers AI</strong>. CBW AI te demande aussi ton <strong>Account ID</strong> (affiché sur l'accueil de ton tableau de bord Cloudflare). Environ 450 dictées par jour.</td></tr><tr><td><strong>Gemini</strong> (Google)</td><td><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a></td><td>Connexion avec ton compte Google, puis <strong>Create API key</strong>. N'active pas la facturation (« Set up billing »). Parfois lent.</td></tr><tr><td><strong>Z.ai</strong></td><td><a href="https://z.ai/manage-apikey/apikey-list" target="_blank" rel="noopener">z.ai/manage-apikey/apikey-list</a></td><td>Modèle gratuit GLM Flash. <strong>Serveurs hors de l'Union européenne.</strong></td></tr><tr><td><strong>OpenRouter</strong></td><td><a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a></td><td>Environ 50 dictées gratuites par jour seulement : à garder en tout dernier secours.</td></tr></tbody></table></div>
+<p><strong>Une seule clé par fournisseur.</strong> Créer plusieurs comptes pour avoir plus de quota est interdit par ces services et peut faire bloquer ton compte.</p>
+<p><strong>Ne partage jamais tes clés</strong> (ni en capture d'écran, ni par mail). Si une clé a fuité, supprime-la sur le site du fournisseur et crées-en une nouvelle.</p>
+<h3 id="option-100--locale--ollama">Option 100 % locale : Ollama</h3>
+<p>Si tu ne veux <strong>rien</strong> envoyer sur internet, CBW AI peut nettoyer ton texte avec Ollama, un moteur IA qui tourne directement sur ton Mac.</p>
+<ul><li>C'est <strong>facultatif</strong> et un peu plus technique.</li><li>Il faut environ <strong>10 Go de mémoire vive libre</strong>. <strong>Déconseillé sur un Mac de 8 ou 16 Go</strong> : ton Mac risque de ralentir fortement.</li><li>Installation : télécharge Ollama sur <a href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a>, glisse-le dans Applications et lance-le une fois. Ensuite, dans CBW AI, va dans <strong>Réglages › Moteur IA › Ollama</strong> et clique sur <strong>Télécharger le modèle</strong> (plusieurs Go, une seule fois).</li><li>Pour qu'Ollama passe avant les moteurs en ligne, active <strong>Local d'abord</strong> dans Réglages › Moteur IA.</li></ul>
+<h2 id="utilisation-au-quotidien">Utilisation au quotidien</h2>
+<h3 id="les-gestes">Les gestes</h3>
+<div class="tbl"><table><thead><tr><th>Tu veux…</th><th>Geste</th></tr></thead><tbody><tr><td><strong>Dicter les mains libres</strong></td><td>Appuie <strong>deux fois</strong> sur la touche <strong>Control de gauche</strong> (⌃), parle, puis appuie <strong>une fois</strong> sur Control pour arrêter. Le texte se colle tout seul.</td></tr><tr><td><strong>Dicter une phrase courte</strong></td><td><strong>Maintiens</strong> la touche Control de gauche pendant que tu parles, puis relâche-la : le texte se colle.</td></tr><tr><td><strong>Annuler</strong></td><td>Appuie sur <strong>Échap</strong> pendant la dictée : rien n'est collé.</td></tr></tbody></table></div>
+<p>La touche <strong>fn / 🌐</strong> reste libre : tu peux toujours l'utiliser pour les emoji.</p>
+<h3 id="pas-à-pas">Pas à pas</h3>
+<ol><li><strong>Clique</strong> là où le texte doit aller (un mail, un message, un document…).</li><li><strong>Appuie deux fois</strong> sur Control (à gauche). Une petite pastille apparaît en bas de l'écran avec des barres <strong>orange</strong> : CBW AI t'écoute.</li><li><strong>Parle normalement</strong>, comme si tu parlais à quelqu'un. Pas besoin de dicter la ponctuation.</li><li><strong>Appuie une fois</strong> sur Control. Les barres passent au <strong>bleu</strong> (transcription et nettoyage), puis au <strong>vert</strong> : le texte est collé.</li></ol>
+<p>Ton presse-papiers d'origine est remis en place juste après le collage : tu ne perds pas ce que tu avais copié.</p>
+<h3 id="exemples-avant--après">Exemples avant / après</h3>
+<div class="tbl"><table><thead><tr><th>Tu dis</th><th>CBW AI écrit</th></tr></thead><tbody><tr><td>« Euh bonjour Claire, alors je voulais savoir si si on peut décaler le rendez-vous à jeudi, enfin non vendredi »</td><td>Bonjour Claire, je voulais savoir si on peut décaler le rendez-vous à vendredi.</td></tr><tr><td>« Alors le devis c'est euh trois cents euros, non pardon, trois cent cinquante euros hors taxes »</td><td>Le devis est de trois cent cinquante euros hors taxes.</td></tr><tr><td>« Est-ce que tu peux m'envoyer le le fichier avant midi s'il te plaît »</td><td>Est-ce que tu peux m'envoyer le fichier avant midi, s'il te plaît ?</td></tr></tbody></table></div>
+<p>Si tu dictes une question (« Est-ce que tu peux m'écrire un mail de relance ? »), CBW AI écrit la question telle quelle : il n'y répond pas.</p>
+<h3 id="conseils">Conseils</h3>
+<ul><li>Parle à un rythme normal, à 20 à 50 cm du Mac. Le micro intégré suffit.</li><li>Les noms propres mal compris (clients, marques, logiciels) s'ajoutent dans le <strong>Dictionnaire</strong> de CBW AI : il les écrira correctement ensuite.</li><li>Le niveau de nettoyage se choisit dans <strong>Style</strong> : <strong>Léger</strong> (enlève les « euh » et répétitions) ou <strong>Standard</strong> (ajoute aussi la ponctuation et applique tes corrections du type « jeudi, non vendredi »).</li></ul>
+<h2 id="réglages">Réglages</h2>
+<p>Ouvre CBW AI (icône du Dock ou de la barre de menus › Ouvrir CBW AI), puis <strong>Réglages</strong> dans la barre latérale.</p>
+<div class="tbl"><table><thead><tr><th>Réglage</th><th>À quoi il sert</th></tr></thead><tbody><tr><td><strong>Autorisations</strong></td><td>Voir d'un coup d'œil si Micro et Accessibilité sont bien activés.</td></tr><tr><td><strong>Raccourci</strong></td><td>Par défaut : <strong>Control gauche ×2</strong>. Autres choix : <strong>Control droite ×2</strong>, <strong>fn ×2</strong>, ou <strong>⌥ Espace</strong> (Option + Espace). Si tu choisis fn, règle « Appuyer sur 🌐 pour » sur « Ne rien faire » (CBW AI propose de le faire pour toi).</td></tr><tr><td><strong>Insertion</strong></td><td>« Coller automatiquement » (par défaut) ou « Presse-papiers seulement » (tu colles toi-même avec ⌘ V).</td></tr><tr><td><strong>Langue de dictée</strong></td><td>Français, anglais ou détection automatique.</td></tr><tr><td><strong>Lancer au démarrage</strong></td><td>CBW AI s'ouvre tout seul quand tu allumes ton Mac.</td></tr><tr><td><strong>Moteur IA</strong></td><td>Tes clés gratuites, le bouton <strong>Tester</strong>, l'option <strong>Local d'abord</strong>, et les <strong>quotas du jour</strong>.</td></tr><tr><td><strong>Transcription</strong></td><td>Le modèle de transcription. Celui installé par défaut est le bon choix : n'y touche que si ton Mac est lent.</td></tr><tr><td><strong>Nettoyage</strong></td><td>Le niveau (Léger / Standard) et l'option « Garder le brut en cas d'échec ».</td></tr><tr><td><strong>Thème</strong></td><td>Clair par défaut ; un thème sombre est disponible.</td></tr><tr><td><strong>Confidentialité</strong></td><td>Effacer l'historique des 20 dernières dictées.</td></tr><tr><td><strong>À propos</strong></td><td>Version de l'app et « Revoir l'onboarding ».</td></tr></tbody></table></div>
+<h2 id="confidentialité">Confidentialité</h2>
+<ul><li><strong>Ta voix ne quitte jamais ton Mac.</strong> La transcription est faite sur ton Mac, par le modèle Whisper. Aucun enregistrement audio n'est envoyé ni conservé.</li><li><strong>Seul le texte transcrit</strong> est envoyé au moteur IA que tu as choisi, pour être nettoyé. Il revient aussitôt et est collé.</li><li>Avec <strong>Ollama</strong>, même le texte reste sur ton Mac : rien ne sort.</li><li><strong>Mistral</strong> héberge ses serveurs en <strong>Europe</strong>. <strong>Z.ai</strong> utilise des serveurs <strong>hors de l'Union européenne</strong>. Groq, Cloudflare, Gemini et OpenRouter sont des services américains ou mondiaux.</li><li>Tes clés et tes réglages sont enregistrés uniquement sur ton Mac, dans le dossier caché <code>~/.dicta-ai</code>.</li><li>L'historique (20 dernières dictées) est stocké sur ton Mac seulement, et tu peux l'effacer à tout moment dans Réglages › Confidentialité.</li><li>CBW Studio ne reçoit rien : ni ta voix, ni tes textes, ni tes clés.</li></ul>
+<p>Bon réflexe : évite de dicter des informations très sensibles (mots de passe, numéros de carte, données de santé) si tu utilises un moteur en ligne.</p>
+<h2 id="dépannage-et-faq">Dépannage et FAQ</h2>
+<h3 id="rien-ne-se-colle-après-la-dictée">Rien ne se colle après la dictée</h3>
+<p>C'est presque toujours l'autorisation <strong>Accessibilité</strong>.</p>
+<ol><li>Ouvre Réglages Système › Confidentialité et sécurité › <strong>Accessibilité</strong>.</li><li>Vérifie que l'interrupteur à côté de <strong>CBW AI</strong> est activé.</li><li>S'il l'est déjà mais que ça ne marche pas (par exemple après une mise à jour) : sélectionne CBW AI dans la liste, clique sur <strong>−</strong> pour le retirer, puis relance CBW AI et réactive l'autorisation.</li></ol>
+<p>En attendant, ton texte est dans le presse-papiers : colle-le avec <strong>⌘ V</strong>.</p>
+<p>Vérifie aussi, dans Réglages › Insertion, que « Coller automatiquement » est choisi.</p>
+<h3 id="la-touche-control-ne-déclenche-rien">La touche Control ne déclenche rien</h3>
+<ul><li>Vérifie que tu appuies deux fois <strong>rapidement</strong> sur la touche Control <strong>de gauche</strong> (ou celle choisie dans Réglages › Raccourci).</li><li>Vérifie que CBW AI tourne : son icône doit être dans la barre de menus, en haut à droite.</li><li>Vérifie les autorisations <strong>Accessibilité</strong> et, si macOS l'a demandée, <strong>Surveillance de l'entrée</strong> (Réglages Système › Confidentialité et sécurité).</li><li>Après avoir activé une autorisation, quitte CBW AI (icône de la barre de menus › Quitter) et relance-le.</li><li>Si une autre app utilise déjà la touche Control (certains outils de clavier), choisis un autre raccourci dans Réglages, par exemple <strong>⌥ Espace</strong>.</li></ul>
+<h3 id="-apple-ne-peut-pas-vérifier-que-cbw-ai-ne-contient-pas-de-logiciel-malveillant-">« Apple ne peut pas vérifier que CBW AI ne contient pas de logiciel malveillant »</h3>
+<p>C'est normal pour l'instant : l'app n'est pas encore notarisée par Apple. Suis la méthode décrite dans <a href="#installation-pas-à-pas">Installation pas à pas</a> : Réglages Système › Confidentialité et sécurité › <strong>Ouvrir quand même</strong>.</p>
+<p>Si macOS dit que l'app « est endommagée », supprime-la, retélécharge le .dmg et réessaie. Si le message persiste, ouvre l'app <strong>Terminal</strong> et colle cette ligne, puis appuie sur Entrée :</p>
+<pre><code>xattr -dr com.apple.quarantine "/Applications/CBW AI.app"</code></pre>
+<h3 id="la-transcription-est-lente">La transcription est lente</h3>
+<ul><li><strong>Juste après le démarrage</strong>, la première dictée peut prendre quelques secondes, le temps que le modèle se charge. Les suivantes sont rapides (environ une seconde).</li><li><strong>Au tout premier lancement</strong>, le modèle (environ 560 Mo) doit d'abord finir de se télécharger.</li><li>Si tu utilises <strong>Ollama</strong>, il occupe beaucoup de mémoire et peut ralentir la transcription : désactive « Local d'abord » ou quitte Ollama.</li><li>Ferme les apps très gourmandes (montage vidéo, nombreux onglets) si ton Mac a 8 Go de mémoire.</li><li>En dernier recours, choisis un modèle plus petit dans Réglages › Transcription (« small » par exemple) : plus rapide, un peu moins précis.</li></ul>
+<h3 id="le-texte-est-collé-mais-pas-nettoyé--quota-atteint-">Le texte est collé mais pas nettoyé (« quota atteint »)</h3>
+<p>Chaque moteur gratuit a une limite par minute et par jour. Quand elle est atteinte, CBW AI passe au moteur suivant. Si aucun moteur n'est disponible, il colle la <strong>transcription brute</strong> pour que tu ne perdes rien.</p>
+<ul><li>Regarde <strong>Réglages › Moteur IA › Quotas du jour</strong> pour voir où tu en es.</li><li>Ajoute une deuxième clé gratuite (Mistral ou Cloudflare par exemple) en secours.</li><li>Les quotas se remettent à zéro chaque jour. Tu n'as rien à payer et rien à faire.</li><li>Si le badge d'un moteur est rouge, clique sur <strong>Tester</strong> : la clé a peut-être été supprimée ou mal collée.</li></ul>
+<h3 id="désinstaller-proprement">Désinstaller proprement</h3>
+<ol><li>Quitte CBW AI : icône de la barre de menus › <strong>Quitter</strong>.</li><li>Glisse <strong>CBW AI</strong> du dossier Applications vers la <strong>Corbeille</strong>.</li><li>Supprime ses données (réglages, clés, historique et modèle de transcription d'environ 560 Mo). Dans le Finder, menu <strong>Aller › Aller au dossier…</strong>, tape <code>~/.dicta-ai</code> puis Entrée, et mets ce dossier à la Corbeille. Ou, dans le Terminal :<pre><code>rm -rf ~/.dicta-ai</code></pre></li></ol>
+<ol><li>Retire ses autorisations (Micro, Accessibilité, Surveillance de l'entrée). Dans le Terminal :<pre><code>tccutil reset All com.dicta-ai.app</code></pre><p>Tu peux aussi le faire à la main dans Réglages Système › Confidentialité et sécurité, rubrique par rubrique (bouton <strong>−</strong>).</p></li><li>Si tu avais activé « Lancer au démarrage » : Réglages Système › Général › <strong>Ouverture</strong> et retire CBW AI de la liste s'il y figure encore.</li><li>Si tu avais installé Ollama et ne t'en sers plus, glisse aussi <strong>Ollama</strong> à la Corbeille.</li></ol>
+<p>Pense enfin à supprimer tes clés sur les sites des fournisseurs (Groq, Mistral…) si tu n'en as plus besoin.</p>
+<h3 id="autres-questions">Autres questions</h3>
+<p><strong>CBW AI est-il vraiment gratuit ?</strong> Oui. L'app est gratuite, et les moteurs IA utilisés ont des offres gratuites. Sans carte bancaire enregistrée chez eux, tu ne peux rien payer.</p>
+<p><strong>Est-ce que ça marche sans internet ?</strong> La transcription, oui. Le nettoyage, seulement avec Ollama. Sans internet et sans Ollama, CBW AI colle la transcription brute.</p>
+<p><strong>Dans quelles apps puis-je dicter ?</strong> Partout où tu peux taper du texte : Mail, Gmail, Word, Pages, Notion, Slack, WhatsApp, ChatGPT, ton navigateur…</p>
+<p><strong>Ma Dictée Apple ou les emoji (touche fn) marchent-ils encore ?</strong> Oui : le raccourci par défaut utilise la touche Control, la touche fn reste libre.</p>
+<p><strong>Et sur un Mac Intel, sur Windows ou sur iPhone ?</strong> Pas pour l'instant : CBW AI fonctionne uniquement sur Mac Apple Silicon (M1 ou plus récent).</p>
+        <div class="doc-cta">
+          <div><h3 style="margin:0">Pas encore installé ?</h3><p style="margin:4px 0 0;color:var(--texte-sec)">Gratuit, pour Mac Apple Silicon, macOS 14 ou plus récent.</p></div>
+          <a class="btn cta download-link" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">Télécharger pour Mac (Apple Silicon)</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</main>
+
+<footer style="border-top:2px solid var(--trait)">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="CBW AI">
+      <svg viewBox="0 0 664 560" aria-hidden="true"><rect x="0" y="160" width="88" height="240" fill="currentColor"/><rect x="144" y="80" width="88" height="400" fill="currentColor"/><rect x="288" y="0" width="88" height="560" fill="#FF5A1F"/><rect x="432" y="80" width="88" height="400" fill="currentColor"/><rect x="576" y="160" width="88" height="240" fill="currentColor"/></svg>
+      <span>CBW <small>AI</small></span>
+    </a>
+    <p>Une app gratuite de CBW Studio. <a href="/">Accueil</a></p>
+  </div>
+</footer>
+<script>
+// Surligne la section en cours dans le sommaire.
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  if (!('IntersectionObserver' in window) || !links.length) return;
+  var map = {};
+  links.forEach(function (a) { map[decodeURIComponent(a.getAttribute('href').slice(1))] = a; });
+  var heads = Array.prototype.slice.call(document.querySelectorAll('.prose h2, .prose h3'));
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting && map[e.target.id]) {
+        links.forEach(function (a) { a.classList.remove('on'); });
+        map[e.target.id].classList.add('on');
+      }
+    });
+  }, { rootMargin: '-90px 0px -70% 0px' });
+  heads.forEach(function (h) { obs.observe(h); });
+  document.querySelectorAll('.toc-m a').forEach(function (a) {
+    a.addEventListener('click', function () { a.closest('details').open = false; });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><title>Dicta overlay</title>
+<style>
+html,body{margin:0;height:100%;background:transparent;overflow:hidden;font:500 13px -apple-system,sans-serif}
+body{display:flex;align-items:center;justify-content:center}
+#p{background:rgba(20,20,22,.85);color:#fff;border-radius:18px;padding:9px 16px;display:flex;gap:8px;align-items:center;transition:opacity .2s}
+#p.idle{opacity:.0}#dot{width:8px;height:8px;border-radius:50%;background:#FF5A36}
+</style></head><body><div id="p" class="idle"><span id="dot"></span><span id="t"></span></div>
+<script>
+var L={idle:'',recording:'J’écoute…',transcribing:'Transcription…',cleaning:'Mise au propre…',inserting:'Insertion…',done:'Inséré',error:'Erreur'};
+window.setStatus=function(s){var p=document.getElementById('p');p.className=s.state;document.getElementById('t').textContent=(s.state==='error'&&s.message)?s.message:L[s.state]||'';
+document.getElementById('dot').style.transform='scale('+(1+(s.level||0)*1.5)+')';};
+window.setIdleMode=function(){};
+if(window.dicta&&window.dicta.onStatus)window.dicta.onStatus(window.setStatus);
+</script></body></html>

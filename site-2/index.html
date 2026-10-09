@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="fr" data-theme="light" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CBW AI — Parle. CBW écrit.</title>
+<meta name="description" content="Dictée vocale gratuite pour Mac : tu parles, CBW AI écrit un texte propre dans toutes tes apps. Comptes rendus de réunion et brainstorm vers prompt. Transcription sur ton Mac. Par CBW Studio.">
+<meta name="theme-color" content="#FFFFFF">
+<meta property="og:title" content="CBW AI — Parle. CBW écrit.">
+<meta property="og:description" content="La dictée vocale gratuite pour Mac qui écrit à ta place, sans les « euh ».">
+<meta property="og:image" content="img/icon.png">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="img/icon.png">
+<link rel="preload" href="fonts/Archivo-latin.var.woff2" as="font" type="font/woff2" crossorigin>
+<script>(function(){var d=document.documentElement;d.classList.remove('no-js');try{var t=localStorage.getItem('cbw-theme');if(t==='dark'||t==='light')d.setAttribute('data-theme',t)}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="evitement" href="#contenu">Aller au contenu</a>
+
+<header class="entete">
+  <div class="cadre">
+    <a class="marque" href="./" aria-label="CBW AI, accueil">
+      <span class="lt lt-c" aria-hidden="true">C</span><span class="lt lt-b" aria-hidden="true">B</span><span class="lt lt-w" aria-hidden="true">W</span><span class="marque-ai" aria-hidden="true">AI</span>
+    </a>
+    <nav class="nav" aria-label="Navigation principale">
+      <a class="lien-nav" href="#fonctions">Fonctions</a>
+      <a class="lien-nav" href="#confidentialite">Confidentialité</a>
+      <a class="lien-nav" href="#installer">Installer</a>
+      <a class="lien-nav" href="#faq">FAQ</a>
+      <a class="lien-nav" href="aide.html">Aide</a>
+      <button class="theme-btn" type="button" aria-label="Passer au thème sombre" data-theme-toggle>
+        <svg class="soleil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="8" width="8" height="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+        <svg class="lune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>
+      </button>
+      <a class="btn btn-primaire btn-s btn-nav dl" href="/download"><span class="dl-txt">Télécharger</span> <span class="fleche" aria-hidden="true">↓</span></a>
+    </nav>
+  </div>
+</header>
+
+<main id="contenu">
+
+<!-- ═══ HÉROS (pas plein écran : la bande suivante dépasse) ═══ -->
+<section class="hero" aria-labelledby="titre-hero">
+  <div class="cadre">
+    <div class="hero-texte">
+      <div class="hero-meta entree" style="--d:.05s">
+        <span class="badge b-v">Gratuit</span>
+        <span class="label sec">Dictée vocale · macOS</span>
+      </div>
+      <h1 class="titre-hero" id="titre-hero">
+        <span class="ligne"><span>Parle<span class="o">.</span></span></span>
+        <span class="ligne"><span>CBW écrit<span class="o">.</span></span></span>
+      </h1>
+      <div class="barres" aria-hidden="true"><i></i><i></i><i></i></div>
+      <p class="hero-sous entree" style="--d:.35s">Tu parles, c'est écrit proprement, <strong>dans toutes tes apps</strong>. Sans les «&nbsp;euh&nbsp;».</p>
+      <div class="hero-actions entree" style="--d:.45s">
+        <div class="cta-bloc">
+          <a class="btn btn-primaire btn-l dl" href="/download"><!-- lien unique : redirection /download dans vercel.json -->
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.8ZM14.1 5.8c.6-.8 1.1-1.8 1-2.8-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.7-1 2.7 1 .1 2-.5 2.7-1.3Z"/></svg>
+            <span class="dl-txt">Télécharger pour macOS</span> <span class="fleche" aria-hidden="true">↓</span>
+          </a>
+          <p class="cta-note"><b>Gratuit</b> · macOS 14+ · Apple Silicon (M1 et +) · 126 Mo</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Démo interactive avant / après -->
+    <div class="essai entree" style="--d:.25s" id="essai" aria-labelledby="essai-titre">
+      <div class="essai-tete">
+        <span class="label" id="essai-titre"><span class="pastille p-o"></span>Essai · clique sur les défauts</span>
+        <span class="geste" aria-label="Raccourci : deux appuis sur Control"><span class="kbd">⌃</span><span class="kbd">⌃</span></span>
+      </div>
+      <div class="onglets" role="tablist" aria-label="Exemples">
+        <button role="tab" aria-selected="true" aria-controls="essai-zone" data-ex="0">Mail</button>
+        <button role="tab" aria-selected="false" aria-controls="essai-zone" data-ex="1" tabindex="-1">Slack</button>
+        <button role="tab" aria-selected="false" aria-controls="essai-zone" data-ex="2" tabindex="-1">Prompt Claude</button>
+      </div>
+      <div class="essai-zone" id="essai-zone" role="tabpanel">
+        <span class="label sec">Tu dis</span>
+        <p class="dit" id="dit">« Euh bonjour Claire, alors je voulais savoir si si on peut décaler le rendez-vous à jeudi, enfin non vendredi »</p>
+        <p class="indice" id="indice" aria-live="polite">Clique sur chaque passage surligné.</p>
+      </div>
+      <div class="sortie">
+        <span class="label sec">CBW AI écrit</span>
+        <p class="ecrit" id="ecrit">Bonjour Claire, je voulais savoir si on peut décaler le rendez-vous à vendredi.</p>
+        <div class="sortie-pied">
+          <span class="etat label" id="etat" data-s="attente"><span class="pastille"></span><span id="etat-txt">En attente</span></span>
+          <span style="display:flex;gap:8px">
+            <button class="btn btn-secondaire btn-s" type="button" id="tout">Tout nettoyer</button>
+            <button class="btn btn-secondaire btn-s" type="button" id="reset" aria-label="Recommencer l'exemple">↺</button>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CHIFFRES ═══ -->
+<section class="chiffres" aria-label="En chiffres">
+  <div class="cadre">
+    <div class="chiffre rv"><p class="nombre"><span data-count="0">0</span><span class="u u-o">&nbsp;€</span></p><span class="label"><span class="pastille p-o"></span>Prix</span><p>Sans abonnement ni compte.</p></div>
+    <div class="chiffre rv"><p class="nombre"><span data-count="100">100</span><span class="u u-v">&nbsp;%</span></p><span class="label"><span class="pastille p-v"></span>Voix locale</span><p>Ta voix ne quitte pas ton Mac.</p></div>
+    <div class="chiffre rv"><p class="nombre">&lt;&nbsp;<span data-count="1">1</span><span class="u u-b">&nbsp;s</span></p><span class="label"><span class="pastille p-b"></span>Nettoyage</span><p>De ta phrase au texte collé.</p></div>
+    <div class="chiffre rv"><p class="nombre geste-n" aria-label="Control, Control">⌃⌃</p><span class="label"><span class="pastille p-n"></span>Le geste</span><p>Deux appuis, tu parles.</p></div>
+  </div>
+</section>
+
+<!-- ═══ FONCTIONS ═══ -->
+<section class="section" id="fonctions" aria-labelledby="fonctions-titre">
+  <div class="cadre section-tete">
+    <h2 class="h2 rv" id="fonctions-titre">Trois usages. <br>Une couleur chacun.</h2>
+    <p class="chapeau rv">Orange pour dicter, vert pour noter, bleu pour brainstormer. Comme dans l'app.</p>
+  </div>
+
+  <!-- 01 Dictée -->
+  <article class="chapitre c-o pin" id="p-dictee" aria-labelledby="ch1">
+    <div class="pin-scene">
+    <div class="cadre">
+      <div class="chap-texte rv">
+        <div class="chap-num"><span class="n" aria-hidden="true">01</span><span class="bar"></span></div>
+        <span class="label"><span class="pastille p-o"></span>Dictée</span>
+        <h3 class="h3" id="ch1">Dicte partout. <br>C'est collé, propre.</h3>
+        <p>Deux appuis sur Control, tu parles&nbsp;: le texte propre arrive sous ton curseur.</p>
+        <ul class="points">
+          <li>Mail, Slack, Notion, ChatGPT, Cursor…</li>
+          <li>Hésitations et répétitions retirées.</li>
+          <li>Rien d'inventé&nbsp;: ta parole, en propre.</li>
+        </ul>
+        <p class="geste"><span class="kbd">⌃</span><span class="kbd">⌃</span> mains libres · <span class="kbd">Échap</span> annule</p>
+      </div>
+      <div class="scene rv" aria-label="Aperçu : dictée dans un mail">
+        <div class="fen">
+          <div class="fen-tete"><span class="feux" aria-hidden="true"><i></i><i></i><i></i></span><span class="label sec">Nouveau message</span><span class="label sec">Mail</span></div>
+          <div class="mail-ligne"><span>À</span><span>claire@atelier.fr</span></div>
+          <div class="mail-ligne"><span>Objet</span><span>Rendez-vous</span></div>
+          <div class="mail-corps" id="mail-corps" aria-live="off">Bonjour Claire, on peut décaler le rendez-vous à vendredi&nbsp;?<span class="curseur" aria-hidden="true"></span></div>
+        </div>
+        <div class="pilule" id="pilule" data-s="ok" aria-hidden="true">
+          <span class="onde"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="label" id="pilule-txt">Collé</span>
+          <span class="kbd" style="border-color:#fff;color:#fff">⌃</span>
+        </div>
+        <div class="etapes" id="etapes" aria-hidden="true">
+          <div class="e1 on"><i></i><span class="label">Écoute</span></div>
+          <div class="e2 on"><i></i><span class="label">Nettoyage</span></div>
+          <div class="e3 on"><i></i><span class="label">Collé</span></div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </article>
+
+  <!-- 02 Notes -->
+  <article class="chapitre c-v inverse pin" id="p-notes" aria-labelledby="ch2">
+    <div class="pin-scene">
+    <div class="cadre">
+      <div class="chap-texte rv">
+        <div class="chap-num"><span class="n" aria-hidden="true">02</span><span class="bar"></span></div>
+        <span class="label"><span class="pastille p-v"></span>Notes</span>
+        <h3 class="h3" id="ch2">Une réunion. <br>Un compte rendu.</h3>
+        <p>Trois appuis sur Control, tu parles aussi longtemps que tu veux&nbsp;: tout est noté, par personne.</p>
+        <ul class="points">
+          <li>Décisions, actions, échéances.</li>
+          <li>Qui a dit quoi, et quand.</li>
+          <li>Des fichiers texte, sur ton Mac.</li>
+        </ul>
+        <p class="geste"><span class="kbd">⌃</span><span class="kbd">⌃</span><span class="kbd">⌃</span> démarre · <span class="kbd">⌃</span> arrête</p>
+      </div>
+      <div class="scene rv">
+        <div class="fen" aria-label="Aperçu : compte rendu de réunion">
+          <div class="fen-tete"><span class="label"><span class="pastille p-v"></span>Note prête</span><span class="label sec">point-chantier.md</span></div>
+          <div class="cr-grille">
+            <div class="cr-cote">
+              <div>
+                <span class="label sec">Durée</span>
+                <p class="minuteur">47:12</p>
+              </div>
+              <div class="cr-stats"><span><b>3</b> personnes</span><span><b>5</b> sujets</span></div>
+              <div class="seg" role="tablist" aria-label="Vue du compte rendu" id="seg">
+                <span class="pouce" aria-hidden="true"></span>
+                <button role="tab" aria-selected="true" aria-controls="v1" id="t1">Résumé</button>
+                <button role="tab" aria-selected="false" aria-controls="v2" id="t2" tabindex="-1">Qui</button>
+                <button role="tab" aria-selected="false" aria-controls="v3" id="t3" tabindex="-1">Fil</button>
+              </div>
+            </div>
+            <div class="cr-doc">
+              <h4>Point chantier</h4>
+              <div class="vue" id="v1" role="tabpanel" aria-labelledby="t1">
+                <h5><span class="pastille p-v"></span>Décision</h5>
+                <ul><li>Livraison décalée au mardi 14.</li></ul>
+                <h5 style="margin-top:14px"><span class="pastille p-n"></span>Actions</h5>
+                <ul>
+                  <li><span class="qui q1">Claire</span>Relance le fournisseur.</li>
+                  <li><span class="qui q2">Marc</span>Envoie le planning.</li>
+                </ul>
+              </div>
+              <div class="vue" id="v2" role="tabpanel" aria-labelledby="t2" hidden>
+                <h5>Par personne</h5>
+                <ul>
+                  <li><span class="qui q1">Claire</span>Craint un nouveau retard.</li>
+                  <li><span class="qui q2">Marc</span>Avance sur la salle de bain.</li>
+                  <li><span class="qui q3">Inès</span>Qui valide les finitions&nbsp;?</li>
+                </ul>
+              </div>
+              <div class="vue" id="v3" role="tabpanel" aria-labelledby="t3" hidden>
+                <h5>Chronologie</h5>
+                <ul>
+                  <li><span class="heure">00:02</span>Tour de table.</li>
+                  <li><span class="heure">08:40</span>Retard des menuiseries.</li>
+                  <li><span class="heure">39:50</span>Finitions&nbsp;: question ouverte.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </article>
+
+  <!-- 03 Brainstorm -->
+  <article class="chapitre c-b pin" id="p-brainstorm" aria-labelledby="ch3">
+    <div class="pin-scene">
+    <div class="cadre">
+      <div class="chap-texte rv">
+        <div class="chap-num"><span class="n" aria-hidden="true">03</span><span class="bar"></span></div>
+        <span class="label"><span class="pastille p-b"></span>Brainstorm</span>
+        <h3 class="h3" id="ch3">Parle en vrac. <br>Repars avec un prompt.</h3>
+        <p>Raconte ton idée&nbsp;: CBW AI la range, te pose les questions qui manquent, puis écrit le prompt.</p>
+        <ul class="points">
+          <li>Des réponses à cliquer.</li>
+          <li>Ce qui manque reste «&nbsp;à préciser&nbsp;».</li>
+          <li>Prêt pour Claude Code ou Cursor.</li>
+        </ul>
+      </div>
+      <div class="scene rv">
+        <div class="fen" aria-label="Aperçu interactif : brainstorm vers prompt">
+          <div class="fen-tete"><span class="label"><span class="pastille p-b"></span>Brainstorm</span><span class="label sec" id="bs-score">3 / 4 cases</span></div>
+          <div class="bs">
+            <div class="craft" id="craft">
+              <div class="case" data-st="ok"><span class="label"><span class="st"></span>Contexte</span><p>App de dictée, déjà en place.</p></div>
+              <div class="case" data-st="ok"><span class="label"><span class="st"></span>Tâche</span><p>Exporter les notes en PDF.</p></div>
+              <div class="case" data-st="vide" id="case-format"><span class="label"><span class="st"></span>Format</span><p class="vide">à préciser</p></div>
+              <div class="case" data-st="ok"><span class="label"><span class="st"></span>Limite</span><p>Ne pas toucher à la dictée.</p></div>
+            </div>
+            <div class="bs-q">
+              <span class="label sec">Question 1 sur 2</span>
+              <p class="question">Tu veux que l'agent livre quoi&nbsp;?</p>
+              <div class="puces" id="puces">
+                <button class="puce" type="button" aria-pressed="false">Un plan d'abord</button>
+                <button class="puce" type="button" aria-pressed="false">Code + tests</button>
+                <button class="puce" type="button" aria-pressed="false">Juste le code</button>
+              </div>
+            </div>
+            <div class="prompt">
+              <div class="prompt-tete">
+                <span class="label sec">Prompt</span>
+                <span style="display:flex;gap:8px;align-items:center">
+                  <span class="cible" id="cible"><button type="button" aria-pressed="true" data-c="Claude Code">Claude Code</button><button type="button" aria-pressed="false" data-c="Cursor">Cursor</button></span>
+                  <button class="btn btn-secondaire btn-s" type="button" id="copier">Copier</button>
+                </span>
+              </div>
+<pre id="prompt-txt"><span class="h"># Rôle</span> Dev senior, dans Claude Code.
+<span class="h"># Contexte</span> App de dictée, déjà en place.
+<span class="h"># Tâche</span> Exporter les notes en PDF.
+<span class="h"># Format</span> À préciser.
+<span class="h"># Limite</span> Ne pas toucher à la dictée.</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </article>
+</section>
+
+<!-- ═══ CONFIDENTIALITÉ ═══ -->
+<section class="section page" id="confidentialite" aria-labelledby="conf-titre">
+  <div class="cadre">
+    <div class="section-tete">
+      <h2 class="h2 rv" id="conf-titre">Ta voix reste <br>sur ton Mac.</h2>
+      <p class="chapeau rv">Seul le texte part, pour être nettoyé, vers le moteur IA gratuit que tu choisis.</p>
+    </div>
+    <ol class="flux" style="list-style:none">
+      <li class="flux-etape rv" style="--accent:var(--orange)"><span class="k">01 · Micro</span><h3>Ta voix</h3><p>Micro ouvert pendant la dictée seulement.</p><span class="zone badge b-n">Sur ton Mac</span></li>
+      <li class="flux-etape rv" style="--accent:var(--orange)"><span class="k">02 · Local</span><h3>Transcription</h3><p>Sur ta puce Apple, sans internet.</p><span class="zone badge b-n">Sur ton Mac</span></li>
+      <li class="flux-etape rv" style="--accent:var(--bleu)"><span class="k">03 · Moteur IA</span><h3>Nettoyage</h3><p>Le texte seul, avec ta clé gratuite.</p><span class="zone badge b-b">Texte seulement</span></li>
+      <li class="flux-etape rv" style="--accent:var(--vert)"><span class="k">04 · Curseur</span><h3>Collé</h3><p>Là où tu écrivais.</p><span class="zone badge b-v">CBW Studio ne reçoit rien</span></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ═══ INSTALLATION ═══ -->
+<section class="section page" id="installer" aria-labelledby="inst-titre">
+  <div class="cadre">
+    <div class="section-tete">
+      <h2 class="h2 rv" id="inst-titre">Installer <br>en une minute.</h2>
+      <p class="chapeau rv">Au premier lancement, macOS demande une confirmation&nbsp;: c'est normal, et c'est une seule fois.</p>
+    </div>
+    <ol class="flux" style="list-style:none">
+      <li class="flux-etape rv" style="--accent:var(--orange)"><span class="k">01</span><h3>Télécharge</h3><p>CBW-AI-arm64.dmg, 126 Mo.</p></li>
+      <li class="flux-etape rv" style="--accent:var(--orange)"><span class="k">02</span><h3>Glisse</h3><p>Dans le dossier Applications.</p></li>
+      <li class="flux-etape rv" style="--accent:var(--bleu)"><span class="k">03</span><h3>Confirme</h3><p>Réglages Système › Confidentialité et sécurité › <b>Ouvrir quand même</b>.</p></li>
+      <li class="flux-etape rv" style="--accent:var(--vert)"><span class="k">04</span><h3>Autorise</h3><p>Micro et Accessibilité&nbsp;: l'app te guide.</p></li>
+    </ol>
+    <p class="note-comp rv"><a href="aide.html#installation">Le pas à pas complet →</a> · <a href="aide.html#prompt">Installer avec un agent →</a></p>
+  </div>
+</section>
+
+<!-- ═══ COMPARATIF ═══ -->
+<section class="section" id="comparatif" aria-labelledby="comp-titre">
+  <div class="cadre">
+    <div class="section-tete">
+      <h2 class="h2 rv" id="comp-titre">Ce que tu <br>as, à 0 €.</h2>
+      <p class="chapeau rv">Gratuit, sur ton Mac, sans compte.</p>
+    </div>
+    <div class="tableau-wrap rv" tabindex="0" role="region" aria-label="Tableau comparatif, défilable horizontalement">
+      <table class="comp">
+        <caption class="sr">Comparatif indicatif entre CBW AI, les apps de dictée IA sur abonnement et la dictée de macOS</caption>
+        <thead><tr><th scope="col"><span class="sr">Critère</span></th><th scope="col" class="nous">CBW AI</th><th scope="col">Apps sur abonnement</th><th scope="col">Dictée de macOS</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Prix</th><td class="nous"><span class="oui"></span>0 €</td><td>Abonnement</td><td>Inclus</td></tr>
+          <tr><th scope="row">Retire les « euh »</th><td class="nous"><span class="oui"></span>Oui</td><td>Oui</td><td>Non</td></tr>
+          <tr><th scope="row">Comptes rendus par personne</th><td class="nous"><span class="oui"></span>Oui</td><td>Parfois</td><td>Non</td></tr>
+          <tr><th scope="row">Compte à créer</th><td class="nous"><span class="oui"></span>Aucun</td><td>En général</td><td>Identifiant Apple</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note-comp">Indicatif, octobre 2026. Les offres évoluent.</p>
+  </div>
+</section>
+
+<!-- ═══ FAQ ═══ -->
+<section class="section" id="faq" aria-labelledby="faq-titre">
+  <div class="cadre faq-grille">
+    <h2 class="h2" id="faq-titre">Questions.</h2>
+    <div class="faq">
+      <details><summary>Mon Mac est-il compatible&nbsp;?<span class="plus" aria-hidden="true"></span></summary><div class="rep">Puce <strong>Apple Silicon</strong> (M1 et +) et <strong>macOS 14</strong> ou plus. Les Mac Intel ne sont pas pris en charge.</div></details>
+      <details><summary>C'est vraiment gratuit&nbsp;?<span class="plus" aria-hidden="true"></span></summary><div class="rep">Oui, <strong>0 €</strong>. Les moteurs IA utilisés ont un accès gratuit&nbsp;; sans carte bancaire chez eux, tu ne peux rien payer.</div></details>
+      <details><summary>Pourquoi une clé&nbsp;?<span class="plus" aria-hidden="true"></span></summary><div class="rep">Elle relie l'app à ton compte gratuit chez un moteur IA. Deux minutes, l'app te guide. <a href="aide.html#cle">Pas à pas</a></div></details>
+      <details><summary>Ma voix part-elle sur internet&nbsp;?<span class="plus" aria-hidden="true"></span></summary><div class="rep">Non. Elle est transcrite <strong>sur ton Mac</strong>. Seul le texte part, pour être nettoyé.</div></details>
+      <details><summary>Quelles apps, quelles langues&nbsp;?<span class="plus" aria-hidden="true"></span></summary><div class="rep">Partout où tu peux taper. En français, en anglais ou en détection automatique.</div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ CTA FINAL ═══ -->
+<section class="final" aria-labelledby="final-titre">
+  <div class="cadre">
+    <div>
+      <h2 class="titre rv" id="final-titre">Prêt à arrêter <br>de taper<span class="o">&#8239;?</span></h2>
+    </div>
+    <div class="cta-bloc rv">
+      <div class="barres" aria-hidden="true" style="width:100%"><i></i><i></i><i></i></div>
+      <a class="btn btn-primaire btn-l dl" href="/download">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7c1.3 0 2.1-1.1 2.8-2.3.9-1.3 1.3-2.6 1.3-2.6s-2.5-1-2.5-3.8ZM14.1 5.8c.6-.8 1.1-1.8 1-2.8-.9 0-2 .6-2.7 1.4-.6.7-1.1 1.7-1 2.7 1 .1 2-.5 2.7-1.3Z"/></svg>
+        <span class="dl-txt">Télécharger pour macOS</span> <span class="fleche" aria-hidden="true">↓</span>
+      </a>
+      <p class="cta-note"><b>Gratuit</b> · macOS 14+ · Apple Silicon (M1 et +) · 126 Mo</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer class="pied">
+  <div class="cadre">
+    <span>CBW AI, une app de <strong>CBW Studio</strong>. Camille Breton, Bordeaux.</span>
+    <nav aria-label="Pied de page"><a href="aide.html">Aide</a><a href="aide.html#confidentialite">Confidentialité</a><a href="fonts/OFL-Archivo.txt">Licences des polices</a><span class="mono">v1.0.0 · octobre 2026</span></nav>
+  </div>
+</footer>
+<script src="app.js" defer></script>
+</body>
+</html>

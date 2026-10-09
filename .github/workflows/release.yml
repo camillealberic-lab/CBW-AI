@@ -1,0 +1,145 @@
+# CBW AI — build + release automatique (macOS Apple Silicon).
+# Chaque push sur main (hors docs/sites/captures/markdown) publie une nouvelle version :
+#   version = <majeur>.<mineur> de package.json + numéro de build (github.run_number) → ex. 1.0.42
+# Rien n'est commité par la CI (pas de boucle) ; le tag vX.Y.Z est créé par `gh release create`.
+# Un tag v* poussé à la main publie exactement cette version.
+# Secrets : GITHUB_TOKEN (fourni) + UPDATE_SIGNING_KEY (clé privée Ed25519 qui signe latest.json, docs/RELEASE.md).
+# Sans UPDATE_SIGNING_KEY la release échoue : les apps installées refusent tout latest.json non signé.
+name: release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths-ignore:
+      - 'docs/**'
+      - 'site/**'
+      - 'site-*/**'
+      - 'design/**/shots/**'
+      - '**/*.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  WHISPER_REF: v1.9.5 # même version que vendor/whisper.cpp en local
+  CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+jobs:
+  release:
+    runs-on: macos-14
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # historique + tags pour les notes de version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Version
+        id: v
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          else
+            BASE=$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')")
+            V="$BASE.${GITHUB_RUN_NUMBER}"
+          fi
+          [[ "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version invalide : $V"; exit 1; }
+          if gh release view "v$V" >/dev/null 2>&1 && [[ "$GITHUB_RUN_ATTEMPT" == 1 ]]; then
+            echo "::error::la release v$V existe déjà"; exit 1
+          fi
+          npm version "$V" --no-git-tag-version --allow-same-version
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "→ CBW AI $V"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Secret de signature présent
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          if [ -z "$UPDATE_SIGNING_KEY" ]; then
+            echo "::error::secret UPDATE_SIGNING_KEY absent (Settings › Secrets and variables › Actions) — voir docs/RELEASE.md"; exit 1
+          fi
+
+      - run: npm ci
+
+      # Garde-fou : rien n'est publié si le typecheck ou le build échoue (les étapes suivantes ne tournent pas).
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Cache whisper.cpp (binaires macOS 14 arm64)
+        id: whisper-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor/bin/whisper-cli
+            vendor/bin/whisper-server
+          key: whisper-${{ env.WHISPER_REF }}-macos14-arm64-${{ hashFiles('scripts/setup-whisper.sh') }}
+
+      - name: Build whisper.cpp (Metal, deployment target 14.0)
+        if: steps.whisper-cache.outputs.cache-hit != 'true'
+        run: SDKROOT="$(xcrun --show-sdk-path)" WHISPER_NO_MODEL=1 bash scripts/setup-whisper.sh
+
+      - name: Build helper fnwatch (Swift)
+        run: bash scripts/build-fnwatch.sh
+
+      - name: Build app (TS + icône)
+        run: |
+          npm run build
+          npm run icon
+
+      - name: Cache Electron
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/electron
+            ~/Library/Caches/electron-builder
+          key: electron-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      # electron-builder dmg (after-pack.cjs : minos + signature ad hoc + DR identifier "com.dicta-ai.app"),
+      # zip via ditto, vérifications (codesign, DR, bundle id, version, minos) et latest.json.
+      - name: Package DMG + ZIP + latest.json
+        run: |
+          bash scripts/release-notes.sh "v${{ steps.v.outputs.version }}" > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+          for i in 1 2; do
+            NOTES_FILE="$RUNNER_TEMP/notes.md" TAG="v${{ steps.v.outputs.version }}" bash scripts/package-release.sh && break
+            [ "$i" = 2 ] && exit 1
+            echo "nouvel essai (hdiutil parfois capricieux sur les runners)"; sleep 10
+          done
+
+      # Signature Ed25519 de latest.json (vérifiée par l'app : src/main/updateVerify.ts). La clé n'est jamais affichée.
+      - name: Signer latest.json
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+        run: |
+          [ -n "$UPDATE_SIGNING_KEY" ] || { echo "::error::secret UPDATE_SIGNING_KEY absent"; exit 1; }
+          node scripts/sign-update.mjs sign dist-app/release/latest.json
+          PUB=$(node -p "require('fs').readFileSync('src/main/updateVerify.ts','utf8').match(/UPDATE_PUBLIC_KEY_B64 = '([^']+)'/)[1]")
+          node scripts/sign-update.mjs verify dist-app/release/latest.json "$PUB"
+
+      - name: Publier la release GitHub
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ steps.v.outputs.version }}
+        run: |
+          cd dist-app/release
+          ASSETS=(CBW-AI-arm64.dmg "CBW-AI-$V-arm64.dmg" "CBW-AI-$V-arm64.zip" latest.json SHA256SUMS.txt)
+          { cat "$RUNNER_TEMP/notes.md"; echo; echo '### SHA-256'; echo '```'; cat SHA256SUMS.txt; echo '```'; } > "$RUNNER_TEMP/body.md"
+          if gh release view "v$V" >/dev/null 2>&1; then
+            gh release upload "v$V" "${ASSETS[@]}" --clobber
+          else
+            gh release create "v$V" "${ASSETS[@]}" --target "$GITHUB_SHA" --title "CBW AI $V" --notes-file "$RUNNER_TEMP/body.md" --latest
+          fi
+          echo "### CBW AI $V publié" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://github.com/$GITHUB_REPOSITORY/releases/tag/v$V" >> "$GITHUB_STEP_SUMMARY"

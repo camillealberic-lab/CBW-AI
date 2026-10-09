@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 664 560" width="664" height="560">
+  <title>Dicta AI — symbole</title>
+  <g fill="#4B3CF0">
+    <rect x="0"   y="160" width="88" height="240" rx="44"/>
+    <rect x="144" y="80"  width="88" height="400" rx="44"/>
+    <rect x="288" y="0"   width="88" height="560" rx="44"/>
+    <rect x="432" y="80"  width="88" height="400" rx="44"/>
+    <rect x="576" y="160" width="88" height="240" rx="44"/>
+  </g>
+</svg>

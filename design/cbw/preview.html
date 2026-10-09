@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CBW AI — identité</title>
+<link rel="stylesheet" href="../../assets/fonts/fonts.css">
+<link rel="stylesheet" href="tokens.css">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--fond);color:var(--texte);font-family:var(--police);font-size:var(--t-corps);line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3,p{margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px}
+.label{font-family:var(--mono);font-size:var(--t-label);font-weight:500;text-transform:uppercase;letter-spacing:.06em;display:inline-flex;align-items:center;gap:8px}
+.pastille{width:var(--pastille);height:var(--pastille);display:inline-block;flex:none}
+.note{font-size:var(--t-petit);color:var(--texte-sec)}
+header{border-bottom:var(--trait-l) solid var(--trait);position:sticky;top:0;background:var(--fond);z-index:5}
+header .wrap{display:flex;justify-content:space-between;align-items:center;padding-block:12px;gap:12px}
+.wordmark{display:flex;align-items:center;gap:10px;font-weight:900;font-stretch:85%;font-size:24px;letter-spacing:-.04em}
+.wordmark img{width:32px;height:32px}
+.wordmark small{font-family:var(--mono);font-weight:500;font-size:13px;letter-spacing:0;font-stretch:100%}
+section{border-bottom:var(--trait-l) solid var(--trait);padding-block:56px}
+section.alt{background:var(--fond-2)}
+h2{font-weight:900;font-stretch:85%;font-size:var(--t-h2);line-height:.95;letter-spacing:-.035em;margin:10px 0 28px;max-width:760px}
+h3{font-weight:800;font-size:var(--t-h3);letter-spacing:-.01em}
+.hero{display:flex;flex-wrap:wrap;gap:32px 48px;align-items:flex-end}
+.display{font-weight:900;font-stretch:70%;font-size:var(--t-display);line-height:.78;letter-spacing:-.055em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.display .u{color:var(--orange)}
+.h1{font-weight:800;font-size:clamp(28px,3vw,44px);line-height:1.04;letter-spacing:-.03em;max-width:520px}
+.barres{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:24px}
+.barres i{height:var(--barre-h);transform-origin:left;animation:barre .9s var(--ease-barre) forwards;transform:scaleX(0)}
+.barres i:nth-child(2){animation-delay:.12s}.barres i:nth-child(3){animation-delay:.24s}
+@keyframes barre{to{transform:none}}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.card{border:var(--trait-l) solid var(--trait);background:var(--surface);padding:22px;display:flex;flex-direction:column;gap:10px;transition:transform .25s var(--ease),box-shadow .25s var(--ease)}
+.card:hover{transform:translateY(-2px);box-shadow:0 6px 0 var(--trait)}
+.card .bar{height:10px;width:44px;transition:width .35s var(--ease)}
+.card:hover .bar{width:100%}
+.icons{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.icon-cell{border:var(--trait-l) solid var(--trait);background:var(--surface);display:flex;flex-direction:column}
+.icon-cell .stage{aspect-ratio:1;display:grid;place-items:center;background:var(--fond-2);border-bottom:var(--fil-l) solid var(--fil)}
+.icon-cell .stage img{width:70%}
+.icon-cell .meta{padding:12px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.icon-cell.choisi{box-shadow:var(--ombre-dure)}
+.badge{font-family:var(--mono);font-size:12px;font-weight:700;padding:3px 8px;text-transform:uppercase}
+.dock{display:flex;gap:18px;align-items:flex-end;padding:18px 22px;border:var(--trait-l) solid var(--trait);background:var(--fond-2);flex-wrap:wrap}
+.dock figure{margin:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.menubar{display:flex;gap:24px;align-items:center;padding:6px 14px;border:var(--trait-l) solid var(--trait);flex-wrap:wrap}
+.menubar .on-light{background:#ECECEC;padding:4px 8px}.menubar .on-dark{background:#2A2A2A;padding:4px 8px}
+.menubar .on-dark img{filter:invert(1)}
+.swatches{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;border:var(--trait-l) solid var(--trait)}
+.sw{min-height:120px;padding:12px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;border-right:var(--fil-l) solid var(--fil)}
+.sw b{font-weight:800}
+.typo-row{display:grid;grid-template-columns:180px 1fr;gap:16px;align-items:baseline;padding-block:14px;border-top:var(--fil-l) solid var(--fil)}
+@media (max-width:620px){.typo-row{grid-template-columns:1fr}}
+.btns{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:8px;min-height:var(--btn-h);padding:0 16px;border:none;font:inherit;font-weight:800;cursor:pointer;transition:transform var(--d-rapide) ease}
+.btn:hover{transform:translateY(-1px)}.btn:active{transform:translateY(1px)}
+.btn-noir{background:var(--inverse-fond);color:var(--inverse-texte)}
+.btn-orange{background:var(--orange);color:var(--sur-orange)}
+.btn-vert{background:var(--vert);color:var(--sur-vert)}
+.btn-contour{background:var(--surface);color:var(--texte);border:var(--trait-l) solid var(--trait)}
+.btn-discret{min-height:var(--btn-h-s);padding:0 10px;background:none;color:var(--texte);border:1px solid var(--trait);font-weight:700;font-size:13px}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-top:24px}
+.champ{display:flex;flex-direction:column;gap:6px}
+.champ label{font-size:13px;font-weight:700}
+.champ input,.champ select{min-height:var(--champ-h);padding:0 10px;border:var(--trait-l) solid var(--trait);border-radius:0;background:var(--surface);color:var(--texte);font:inherit;font-size:15px;appearance:none}
+.toggle{display:inline-flex;align-items:center;gap:10px;font-weight:600}
+.toggle span{width:40px;height:22px;border:2px solid var(--trait);position:relative;display:inline-block}
+.toggle span::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;background:var(--trait);transition:transform .2s var(--ease)}
+.toggle.on span{background:var(--bleu);border-color:var(--bleu)}
+.toggle.on span::after{transform:translateX(18px);background:var(--blanc)}
+kbd{font-family:var(--mono);font-size:12px;border:1px solid var(--trait);padding:2px 6px}
+kbd.live{background:var(--orange);color:var(--noir);border-color:var(--orange)}
+.erreur{color:var(--erreur);font-weight:700;font-size:13px}
+/* overlay pills */
+.ov{display:inline-flex;align-items:center;gap:12px;height:44px;padding:0 14px;background:var(--noir);color:var(--blanc);border:2px solid var(--trait)}
+.ov .lvl{display:flex;gap:3px;align-items:center;height:20px}
+.ov .lvl i{width:4px;background:currentColor}
+.ov .t{font-family:var(--mono);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.ov.rec .lvl{color:var(--orange)}
+.ov.ia{background:var(--bleu);border-color:var(--bleu)}
+.ov.ok{background:var(--vert);border-color:var(--vert);color:var(--noir)}
+.ov.err{background:var(--blanc);color:var(--erreur);border-color:var(--erreur)}
+.ov.ia .lvl i{animation:pulse 1s infinite var(--ease)}
+.ov.ia .lvl i:nth-child(2){animation-delay:.1s}.ov.ia .lvl i:nth-child(3){animation-delay:.2s}.ov.ia .lvl i:nth-child(4){animation-delay:.3s}.ov.ia .lvl i:nth-child(5){animation-delay:.4s}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+.states{display:flex;flex-wrap:wrap;gap:12px}
+footer{background:var(--inverse-fond);color:var(--inverse-texte);padding-block:22px;font-size:13px}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}.barres i{transform:none}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="wordmark"><img src="../../assets/icon.png" alt=""><span>CBW AI</span><small>dictée</small></div>
+  <div class="btns">
+    <span class="label"><i class="pastille" style="background:var(--orange)"></i>Identité v1</span>
+    <button class="btn-discret btn" id="theme">Clair / sombre</button>
+  </div>
+</div></header>
+
+<section><div class="wrap">
+  <div class="hero">
+    <div class="display" aria-label="2,4 secondes">2,4<span class="u">s</span></div>
+    <div>
+      <span class="label">Parole → texte</span>
+      <p class="h1" style="margin-top:10px">Vous parlez. Le texte arrive là où se trouve le curseur.</p>
+      <p class="note" style="margin-top:12px">Utilisez le style d'affichage pour un seul chiffre fort par écran : un minuteur, un nombre de mots, une latence.</p>
+    </div>
+  </div>
+  <div class="barres"><i style="background:var(--orange)"></i><i style="background:var(--bleu)"></i><i style="background:var(--vert)"></i></div>
+</div></section>
+
+<section class="alt"><div class="wrap">
+  <span class="label"><i class="pastille" style="background:var(--noir)"></i>01 · Icône</span>
+  <h2>Cinq barres. Une voix.</h2>
+  <div class="icons">
+    <div class="icon-cell choisi"><div class="stage"><img src="icon-a-noir.png" alt="Variante A"></div><div class="meta"><b>A · Noir, barre orange</b><span class="badge" style="background:var(--vert);color:var(--noir)">Retenue</span></div></div>
+    <div class="icon-cell"><div class="stage"><img src="icon-b-orange.png" alt="Variante B"></div><div class="meta"><b>B · Tuile orange</b><span class="label note">Trop présente</span></div></div>
+    <div class="icon-cell"><div class="stage"><img src="icon-c-familles.png" alt="Variante C"></div><div class="meta"><b>C · Trois familles</b><span class="label note">Floue à 32 px</span></div></div>
+  </div>
+  <p class="note" style="margin:14px 0 22px">Grille macOS : tuile squircle de 824 px, marge transparente de 100 px, toile de 1024 px. Les barres ont des extrémités carrées, dans le style du site.</p>
+  <div class="dock">
+    <figure><img src="../../assets/icon.png" width="128" height="128" alt=""><span class="label note">128</span></figure>
+    <figure><img src="../../assets/icon.png" width="64" height="64" alt=""><span class="label note">64</span></figure>
+    <figure><img src="../../assets/icon.png" width="32" height="32" alt=""><span class="label note">32</span></figure>
+    <figure><img src="../../assets/icon.png" width="16" height="16" alt=""><span class="label note">16</span></figure>
+    <figure style="margin-left:auto"><img src="../../assets/logo-mark.svg" height="64" alt=""><span class="label note">Symbole</span></figure>
+  </div>
+  <div class="menubar" style="margin-top:14px">
+    <span class="label">Barre de menus</span>
+    <span class="on-light"><img src="../../assets/tray/trayTemplate@2x.png" width="16" height="16" alt=""> <img src="../../assets/tray/trayRecordingTemplate@2x.png" width="16" height="16" alt=""> <img src="../../assets/tray/trayBusyTemplate@2x.png" width="16" height="16" alt=""></span>
+    <span class="on-dark"><img src="../../assets/tray/trayTemplate@2x.png" width="16" height="16" alt=""> <img src="../../assets/tray/trayRecordingTemplate@2x.png" width="16" height="16" alt=""> <img src="../../assets/tray/trayBusyTemplate@2x.png" width="16" height="16" alt=""></span>
+    <span class="note">Au repos · enregistrement · traitement</span>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <span class="label"><i class="pastille" style="background:var(--orange)"></i>02 · Couleur</span>
+  <h2>Trois états. Une couleur chacun.</h2>
+  <div class="grid">
+    <div class="card"><i class="bar" style="background:var(--orange)"></i><span class="label">--etat-enregistre</span><h3>Enregistrement</h3><p class="note">Micro ouvert, niveau en direct, touche de raccourci maintenue.</p></div>
+    <div class="card"><i class="bar" style="background:var(--bleu)"></i><span class="label">--etat-traite</span><h3>Traitement IA</h3><p class="note">Transcription, nettoyage LLM, téléchargement, focus, liens.</p></div>
+    <div class="card"><i class="bar" style="background:var(--vert)"></i><span class="label">--etat-termine</span><h3>Terminé</h3><p class="note">Texte collé, réglage enregistré, test réussi.</p></div>
+  </div>
+  <div class="states" style="margin-top:24px">
+    <span class="ov rec"><span class="lvl"><i style="height:8px"></i><i style="height:16px"></i><i style="height:20px"></i><i style="height:12px"></i><i style="height:6px"></i></span><span class="t">0:07</span></span>
+    <span class="ov ia"><span class="lvl"><i style="height:4px"></i><i style="height:4px"></i><i style="height:4px"></i><i style="height:4px"></i><i style="height:4px"></i></span><span class="t">Transcription</span></span>
+    <span class="ov ok"><span class="t">✓ Collé · 42 mots</span></span>
+    <span class="ov err"><span class="t">Micro indisponible</span></span>
+  </div>
+  <div class="swatches" style="margin-top:24px">
+    <div class="sw" style="background:#111;color:#fff"><b>Noir</b><span class="label">#111111</span></div>
+    <div class="sw" style="background:#F4F4F2;color:#111"><b>Gris</b><span class="label">#F4F4F2</span></div>
+    <div class="sw" style="background:#fff;color:#111"><b>Blanc</b><span class="label">#FFFFFF</span></div>
+    <div class="sw" style="background:#FF5A1F;color:#111"><b>Orange</b><span class="label">#FF5A1F</span></div>
+    <div class="sw" style="background:#2B3BFF;color:#fff"><b>Bleu</b><span class="label">#2B3BFF</span></div>
+    <div class="sw" style="background:#1FD26A;color:#111"><b>Vert</b><span class="label">#1FD26A</span></div>
+    <div class="sw" style="background:#B3261E;color:#fff;border:0"><b>Erreur</b><span class="label">#B3261E</span></div>
+  </div>
+</div></section>
+
+<section class="alt"><div class="wrap">
+  <span class="label"><i class="pastille" style="background:var(--bleu)"></i>03 · Typographie</span>
+  <h2>Archivo pour la voix, mono pour les données.</h2>
+  <div class="typo-row"><span class="label">Display · 900 / 70 %</span><span class="display" style="font-size:96px">128<span class="u">m</span></span></div>
+  <div class="typo-row"><span class="label">H1 · 800</span><span class="h1">Dictez partout sur votre Mac.</span></div>
+  <div class="typo-row"><span class="label">H2 · 900 / 85 %</span><span style="font-weight:900;font-stretch:85%;font-size:40px;line-height:.95;letter-spacing:-.035em">Modèles et fournisseurs</span></div>
+  <div class="typo-row"><span class="label">H3 · 800</span><h3>Raccourci clavier</h3></div>
+  <div class="typo-row"><span class="label">Corps · 400</span><p>La transcription tourne en local. Le nettoyage par IA retire les hésitations et corrige la ponctuation avant de coller le texte.</p></div>
+  <div class="typo-row"><span class="label">Note · 13</span><p class="note">Dernière dictée il y a 3 min · 1,8 s de traitement</p></div>
+  <div class="typo-row"><span class="label">Label · mono 12</span><span class="label"><i class="pastille" style="background:var(--vert)"></i>Modèle prêt · gemma4:e4b</span></div>
+</div></section>
+
+<section><div class="wrap">
+  <span class="label"><i class="pastille" style="background:var(--vert)"></i>04 · Composants</span>
+  <h2>Angles droits. Traits nets.</h2>
+  <div class="btns">
+    <button class="btn btn-noir">Enregistrer</button>
+    <button class="btn btn-orange">Démarrer la dictée →</button>
+    <button class="btn btn-vert">Tester le micro</button>
+    <button class="btn btn-contour">Annuler</button>
+    <button class="btn btn-discret">Réinitialiser</button>
+  </div>
+  <div class="form">
+    <div class="champ"><label for="f1">Clé API</label><input id="f1" value="sk-••••••••••••3f9a"></div>
+    <div class="champ"><label for="f2">Langue</label><select id="f2"><option>Français</option><option>English</option></select></div>
+    <div class="champ"><span class="label">Raccourci</span><div style="display:flex;gap:6px;align-items:center;min-height:46px"><kbd>⌥</kbd><kbd class="live">Espace</kbd><span class="note">maintenir pour parler</span></div></div>
+  </div>
+  <div class="btns" style="margin-top:20px">
+    <span class="toggle on"><span></span>Nettoyage IA</span>
+    <span class="toggle"><span></span>Sons</span>
+    <span class="badge" style="background:var(--vert);color:var(--noir)">OK</span>
+    <span class="badge" style="background:var(--orange);color:var(--noir)">Live</span>
+    <span class="badge" style="background:var(--bleu);color:var(--blanc)">IA</span>
+    <span class="erreur">Clé refusée par le fournisseur.</span>
+  </div>
+  <div class="card" style="margin-top:28px;box-shadow:var(--ombre-dure);max-width:520px">
+    <span class="label">Panneau principal · ombre dure</span>
+    <h3>Une seule par écran</h3>
+    <p class="note">Les blocs se structurent avec des traits de 2 px, sans ombre floue.</p>
+  </div>
+</div></section>
+
+<footer><div class="wrap"><span>CBW AI · identité inspirée de CBW Studio</span><span class="label">tokens.css · fonts.css · DESIGN.md</span></div></footer>
+<script>
+document.getElementById('theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+</script>
+</body>
+</html>

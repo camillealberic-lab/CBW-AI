@@ -1,0 +1,74 @@
+# ── Dépendances
+node_modules/
+bench/node_modules/
+
+# ── Sorties de build (régénérées : npm run build / dist / CI)
+dist/
+dist-app/
+out/
+*.tsbuildinfo
+# build/ = ressources electron-builder : icon.icns est régénéré (npm run icon),
+# background.tiff (fond du DMG) est gardé car sa génération exige le SDK Swift local.
+build/*
+!build/background.tiff
+
+# ── Binaires natifs : compilés en CI (scripts/setup-whisper.sh, scripts/build-fnwatch.sh)
+vendor/whisper.cpp/
+vendor/bin/
+*.node
+*.dylib
+*.o
+
+# ── Artefacts de distribution / mises à jour
+*.dmg
+*.zip
+*.blockmap
+latest.json
+latest-mac.yml
+*.app/
+
+# ── Données utilisateur, secrets (rien de ~/.dicta-ai ne doit atterrir ici)
+.dicta-ai/
+config.json
+!**/package.json
+history.json
+usage.json
+secrets.json
+.cbw-ai-signing/
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.p8
+*.key
+*.cer
+*.mobileprovision
+AuthKey_*
+
+# ── Audio / modèles (sauf les sons embarqués dans l'app)
+*.wav
+!assets/sounds/*.wav
+*.bin
+*.onnx
+*.gguf
+
+# ── Captures d'écran (régénérables) et résultats de benchmark
+**/shots/
+design/preloader/frames/
+design/preloader/frames-app/
+bench/results/
+
+# ── Divers / brouillons
+*.log
+*.tmp
+*.bak
+*.orig
+*.swp
+*~
+.DS_Store
+.vscode/
+.idea/
+.vercel/
+scratch/
+tmp/

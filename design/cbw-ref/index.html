@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CBW Studio — Automatisations pour entreprises du bâtiment en Gironde</title>
+<meta name="description" content="Relances de devis, attestations des sous-traitants, avis clients : votre administratif automatisé en 48 heures, avec vos outils actuels. Bordeaux et Gironde.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<header class="entete">
+  <div class="conteneur entete-ligne">
+    <a href="#haut" class="logo" aria-label="CBW Studio, accueil">
+      <span class="logo-lettres" aria-hidden="true"><span class="l-c">C</span><span class="l-b">B</span><span class="l-w">W</span></span>
+      <span class="logo-studio">Studio</span>
+    </a>
+    <nav aria-label="Navigation principale" class="nav">
+      <a href="#demo" class="nav-sec">Démo</a>
+      <a href="#tarifs" class="nav-sec">Tarifs</a>
+      <a href="#faq" class="nav-sec">Questions</a>
+      <a href="tel:+33600000000" class="nav-sec nav-tel">06 [XX XX XX XX]</a>
+      <a href="#assistant" class="btn btn-orange">Diagnostic express</a>
+    </nav>
+  </div>
+</header>
+
+<main id="haut">
+
+<section class="hero">
+  <div class="conteneur hero-grille">
+    <div class="hero-texte">
+      <p class="hero-meta entree" style="--d:.1s">
+        <span>Entreprises du bâtiment, Gironde</span>
+        <span class="badge-route" id="badge-route" hidden>En route</span>
+      </p>
+      <div class="chrono" aria-hidden="true">
+        <span class="masque"><span class="monte" style="--d:.15s" id="chrono-heures">48</span></span><span class="masque"><span class="monte chrono-h" style="--d:.3s">H</span></span>
+      </div>
+      <div class="barres" aria-hidden="true"><span class="barre b-o" style="--d:.5s"></span><span class="barre b-b" style="--d:.62s"></span><span class="barre b-v" style="--d:.74s"></span></div>
+      <h1 class="entree" style="--d:.6s">Votre administratif automatisé. En route en 48 heures.</h1>
+      <p class="entree hero-sous" style="--d:.7s">Relances de devis, documents des sous-traitants, avis clients. Répondez à quatre questions : l'assistant vous dit ce qu'on peut faire chez vous.</p>
+    </div>
+
+    <div id="assistant" class="assistant entree" style="--d:.45s">
+      <div class="assistant-tete">
+        <div><strong>Votre diagnostic express</strong><span class="mono petit" id="assistant-etape">Question 1 sur 4</span></div>
+        <button type="button" class="btn-discret" id="assistant-reset">Recommencer</button>
+      </div>
+      <div class="progress"><span id="assistant-progress"></span></div>
+      <div class="assistant-fil" id="assistant-fil" aria-live="polite"></div>
+      <div class="assistant-pied">
+        <div class="choix" id="assistant-choix"></div>
+        <form class="form-rappel" id="form-rappel" hidden>
+          <div class="champ"><label for="f-prenom">Prénom</label><input id="f-prenom" name="prenom" type="text" autocomplete="given-name" required></div>
+          <div class="champ"><label for="f-tel">Téléphone</label><input id="f-tel" name="telephone" type="tel" inputmode="tel" autocomplete="tel" required pattern="[0-9 +.\-]{10,}"></div>
+          <button type="submit" class="btn btn-orange">Être rappelé</button>
+          <p class="erreur" id="form-erreur" hidden></p>
+        </form>
+        <p class="mention">Réponses anonymes, utilisées pour améliorer le service. Votre numéro sert uniquement à vous rappeler. <a href="/confidentialite">Confidentialité</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="bande">
+  <div class="conteneur bande-grille">
+    <p><span class="pastille p-o"></span>Aucun logiciel à changer</p>
+    <p><span class="pastille p-b"></span>Vos données restent chez vous</p>
+    <p><span class="pastille p-v"></span>Un interlocuteur à Bordeaux</p>
+    <p><span class="pastille p-blanc"></span>Prix fixes</p>
+  </div>
+</section>
+
+<section id="demo" class="section section-gris">
+  <div class="conteneur pile">
+    <div class="titre-ligne">
+      <h2>Essayez : envoyez un devis, regardez-le se relancer.</h2>
+      <p class="etiquette"><span class="pastille p-o"></span>Démo, relance de devis</p>
+    </div>
+    <div class="demo-actions">
+      <button type="button" class="btn btn-orange" id="demo-envoyer">1. Envoyer un devis</button>
+      <button type="button" class="btn btn-noir" id="demo-avancer">2. Avancer de 3 jours</button>
+      <button type="button" class="btn btn-vert" id="demo-accepter">3. Le client accepte</button>
+    </div>
+    <div class="demo-grille">
+      <div class="pipeline">
+        <div class="colonne"><div class="colonne-tete"><span>Envoyés</span><span class="pastille p-noir"></span></div><div class="colonne-corps" id="col-envoyes"></div></div>
+        <div class="colonne"><div class="colonne-tete"><span>Relancés</span><span class="pastille p-o"></span></div><div class="colonne-corps" id="col-relances"></div></div>
+        <div class="colonne"><div class="colonne-tete"><span>Signés</span><span class="pastille p-v"></span></div><div class="colonne-corps" id="col-signes"></div></div>
+      </div>
+      <div class="demo-cote">
+        <div class="explication" aria-live="polite"><span class="mono petit">Ce qui vient de se passer</span><p id="demo-msg">Rien encore. Commencez par envoyer un devis.</p></div>
+        <div class="mail-apercu" id="demo-mail" hidden>
+          <span class="mono petit">Reçu par le client, envoyé depuis votre adresse</span>
+          <strong>Votre devis : avez-vous pu le consulter ?</strong>
+          <p>Bonjour, je reviens vers vous au sujet du devis envoyé. Je reste disponible pour en parler. [Votre nom]</p>
+        </div>
+      </div>
+    </div>
+    <p class="note">Démonstration. C'est l'offre « Une automatisation » : 390 € + 49 €/mois pendant 6 mois.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="conteneur pile">
+    <h2>Trois familles. Une couleur chacune.</h2>
+    <div class="grille-cartes">
+      <article class="carte"><span class="carte-barre p-o"></span><h3>Devis</h3><p>Relances à J+3 et J+7, arrêt dès que le client répond.</p></article>
+      <article class="carte"><span class="carte-barre p-b"></span><h3>Documents</h3><p>Attestations relancées avant échéance, factures triées.</p></article>
+      <article class="carte"><span class="carte-barre p-v"></span><h3>Clients</h3><p>Demande d'avis Google en fin de chantier.</p></article>
+    </div>
+  </div>
+</section>
+
+<section id="tarifs" class="section">
+  <div class="conteneur pile">
+    <h2>Deux formules. Prix fixes.</h2>
+    <div class="grille-tarifs">
+      <article class="tarif">
+        <h3>Une automatisation</h3>
+        <p class="prix">390 €</p>
+        <p class="mono petit">+ 49 €/mois pendant 6 mois, puis 19 €/mois</p>
+        <p>Diagnostic offert, mise en route en 48 h, corrections incluses.</p>
+      </article>
+      <article class="tarif tarif-noir">
+        <div class="tarif-tete"><h3>Suivi continu</h3><span class="badge-vert">Recommandé</span></div>
+        <p class="prix">129 €<span>/mois</span></p>
+        <p class="mono petit">+ 190 € de mise en place, engagement 6 mois</p>
+        <p>Toutes vos automatisations suivies, une nouvelle par trimestre.</p>
+      </article>
+    </div>
+    <p class="note">Prix hors taxes. Un mois offert pour chaque entreprise que vous recommandez.</p>
+  </div>
+</section>
+
+<section id="faq" class="section">
+  <div class="conteneur pile">
+    <h2>Questions</h2>
+    <div class="faq" id="faq-liste">
+      <div class="faq-item">
+        <h3><button type="button" aria-expanded="true" aria-controls="faq-1" data-couleur="#FF5A1F">Dois-je changer de logiciel ?<span class="faq-plus" aria-hidden="true">+</span></button></h3>
+        <div class="faq-corps" id="faq-1"><div><p>Non. Je me branche sur vos outils actuels : messagerie, logiciel de devis, agenda.</p></div></div>
+      </div>
+      <div class="faq-item">
+        <h3><button type="button" aria-expanded="false" aria-controls="faq-2" data-couleur="#2B3BFF">Où sont mes données ?<span class="faq-plus" aria-hidden="true">+</span></button></h3>
+        <div class="faq-corps" id="faq-2"><div><p>Dans vos propres comptes. Vous pouvez couper mes accès à tout moment.</p></div></div>
+      </div>
+      <div class="faq-item">
+        <h3><button type="button" aria-expanded="false" aria-controls="faq-3" data-couleur="#1FD26A">Pourquoi 48 h, vraiment ?<span class="faq-plus" aria-hidden="true">+</span></button></h3>
+        <div class="faq-corps" id="faq-3"><div><p>Une tâche à la fois, des scénarios éprouvés. Le délai part de la validation du besoin et de la réception de vos accès.</p></div></div>
+      </div>
+      <div class="faq-item">
+        <h3><button type="button" aria-expanded="false" aria-controls="faq-4" data-couleur="#FF5A1F">Et si quelque chose casse ?<span class="faq-plus" aria-hidden="true">+</span></button></h3>
+        <div class="faq-corps" id="faq-4"><div><p>Le suivi couvre la surveillance et les corrections. Vous avez un numéro direct.</p></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section section-bleu">
+  <div class="conteneur final">
+    <h2>Quatre questions. Puis 48 h pour que ça tourne.</h2>
+    <div class="final-actions">
+      <a href="#assistant" class="btn btn-orange btn-large">Faire mon diagnostic express</a>
+      <a href="tel:+33600000000" class="btn btn-contour-blanc btn-large">06 [XX XX XX XX]</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="pied">
+  <div class="conteneur pied-ligne">
+    <p><strong>CBW Studio</strong>, automatisations pour entreprises du bâtiment. Camille Breton, Bordeaux.</p>
+    <p><a href="/mentions-legales">Mentions légales</a> <a href="/confidentialite">Confidentialité</a></p>
+  </div>
+</footer>
+
+<div class="barre-mobile">
+  <a href="tel:+33600000000" class="btn btn-contour">Appeler</a>
+  <a href="#assistant" class="btn btn-orange">Diagnostic express</a>
+</div>
+
+<script src="/app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline' file:; font-src 'self' file: data:; script-src 'self' 'unsafe-inline'; img-src data:">
+<title>CBW AI — Notes C (démo)</title>
+<link rel="stylesheet" href="../../assets/fonts/fonts.css">
+<link rel="stylesheet" href="../cbw/tokens.css">
+<style>
+  :root{--encre:#1C1C1E;--fond-3:#ECECE8}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--encre:#F4F4F2;--fond-3:#2C2D31}}
+  :root[data-theme="dark"]{--encre:#F4F4F2;--fond-3:#2C2D31}
+  html,body{margin:0;height:100%;background:var(--fond)}
+  #demo-badge{position:fixed;top:10px;right:12px;z-index:40;font:500 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;background:var(--fond-2);color:var(--texte-sec)}
+</style>
+</head>
+<body>
+<div id="demo-badge">Mode démo</div>
+<main id="app"></main>
+<script src="notes-c.js"></script>
+<script>
+(function () {
+  var qs = new URLSearchParams(location.search);
+  if (qs.get('theme')) document.documentElement.dataset.theme = qs.get('theme');
+  var view = qs.get('view') || '';
+
+  var now = Date.now(), D = 864e5;
+  function iso(t) { return new Date(t).toISOString(); }
+  var MD1 = [
+    '# Réunion produit — refonte onboarding',
+    '',
+    '## En bref',
+    'On passe l’onboarding de 7 à 4 étapes. Micro et Accessibilité fusionnent, le moteur IA devient facultatif et le thème clair reste par défaut. Reste à réécrire les erreurs et tester sur Intel.',
+    '',
+    'Point rapide avec l’équipe sur la **refonte de l’onboarding** : passer de 7 à 4 étapes sans perdre la vérification des autorisations.',
+    '',
+    '## Décisions',
+    '- Fusionner **Micro** et **Accessibilité** en un seul écran',
+    '- Le moteur IA sort du parcours obligatoire',
+    '  - proposé après le premier essai',
+    '  - un seul fournisseur recommandé (`groq`)',
+    '- Thème clair par défaut',
+    '',
+    '## À faire',
+    '- [x] Valider les maquettes avec Camille',
+    '- [ ] Réécrire les textes d’erreur (401, quota)',
+    '- [ ] Tester sur un Mac Intel',
+    '',
+    '### Questions ouvertes',
+    'Faut-il garder l’étape **Raccourci** séparée ? Les tests montrent que 3 personnes sur 5 la sautent.',
+    '',
+    '## Idées en vrac',
+    '1. Un préchargeur « jeu de couleur »',
+    '2. Les toasts en bas à droite',
+    '3. Un mode <b>sans</b> HTML injecté'
+  ].join('\n');
+  var notes = [
+    { meta: { id: 'n3', title: 'Réunion produit — refonte onboarding', createdAt: iso(now - 2 * 36e5), durationMs: 14 * 6e4 + 12e3, words: 2140, path: '~/Documents/CBW AI/Notes/2026-10-08 12h32 — Réunion produit.md', provider: 'groq' }, markdown: MD1,
+      transcript: 'Bon alors on fait le point sur la refonte de l’onboarding, l’idée c’est de passer de sept à quatre étapes euh sans perdre la vérification des autorisations… <scr' + 'ipt>alert(1)</scr' + 'ipt> on fusionne micro et accessibilité.' },
+    { meta: { id: 'n2', title: 'Idées article « dicter plutôt qu’écrire »', createdAt: iso(now - 1 * D - 5 * 36e5), durationMs: 9 * 6e4 + 41e3, words: 1312, path: '~/Documents/CBW AI/Notes/2026-10-07 09h14 — Idées article.md', provider: 'ollama' },
+      markdown: '# Idées article « dicter plutôt qu’écrire »\n\n## En bref\nOn pense plus vite qu’on ne tape : l’article part de la page blanche, chiffre le coût caché du clavier et finit sur une démo.\n\n## Angle\nOn pense plus vite qu’on ne tape : **3× plus vite** à l’oral.\n\n## Plan\n- Accroche : la page blanche\n- Le coût caché du clavier\n- Démo CBW\n', transcript: 'Alors pour l’article, l’angle principal…' },
+    { meta: { id: 'n1', title: 'Note récupérée du 2 oct.', createdAt: iso(now - 6 * D), durationMs: 31 * 6e4 + 5e3, words: 4518, path: '~/Documents/CBW AI/Notes/2026-10-02 16h05 — Note récupérée.md', provider: 'passthrough' },
+      markdown: 'Bon on reprend la liste des fournisseurs, groq marche bien, mistral un peu plus lent, il faudrait tester cloudflare demain…', transcript: 'Bon on reprend la liste des fournisseurs, groq marche bien, mistral un peu plus lent, il faudrait tester cloudflare demain…' }
+  ];
+
+  [
+    ['n4', 'Appel client — Atelier Lumen', 3 * 36e5, 22 * 6e4 + 8e3, 3020, 'groq', 'Lumen veut une V1 avant le **15 novembre**. Budget validé à 12 k€, deux allers-retours de maquettes maximum. Contact technique : Hugo.'],
+    ['n5', 'Rétro sprint 41', 1 * D - 2 * 36e5, 18 * 6e4 + 30e3, 2410, 'mistral', 'Sprint tenu à 80 %. Les tests e2e ralentissent la CI ; on les parallélise. Moins de réunions le jeudi.'],
+    ['n6', 'Brainstorm nom de la fonction « Notes »', 2 * D, 6 * 6e4 + 2e3, 820, 'ollama', 'Trois pistes retenues : Notes, Carnet, Compte rendu. Préférence pour Notes, plus court dans la barre de menus.'],
+    ['n7', 'Point budget T4', 3 * D + 4 * 36e5, 11 * 6e4 + 45e3, 1590, 'groq', 'Marge de 4 k€ sur le T4. On décale l’achat des micros à janvier et on garde la réserve pour les tests utilisateurs.'],
+    ['n8', 'Entretien utilisateur — Sarah, juriste', 4 * D, 27 * 6e4 + 15e3, 3870, 'gemini', 'Dicte surtout des courriels longs. Veut que les noms propres soient respectés et que rien ne parte dans le cloud sans accord.']
+  ].forEach(function (a) {
+    notes.push({ meta: { id: a[0], title: a[1], createdAt: iso(now - a[2]), durationMs: a[3], words: a[4], path: '~/Documents/CBW AI/Notes/' + a[1] + '.md', provider: a[5] },
+      markdown: '# ' + a[1] + '\n\n## En bref\n' + a[6] + '\n\n## Détails\n- point un\n- point deux\n', transcript: 'Transcription brute de « ' + a[1] + ' ».' });
+  });
+  notes.sort(function (a, b) { return b.meta.createdAt.localeCompare(a.meta.createdAt); });
+  if (view === 'empty') notes = [];
+
+  try { if (view === 'note' || view === 'grid') localStorage.setItem('cbnc.extras', JSON.stringify({ n3: { title: '', marks: [{ t: 132000, text: 'Fusion Micro + Accessibilité' }, { t: 501000, text: 'Demander à Camille pour l’étape Raccourci' }] } })); } catch (e) {}
+  var cbs = [], sim = null;
+  function emit(p) { cbs.forEach(function (cb) { cb(p); }); }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function find(id) { return notes.filter(function (n) { return n.meta.id === id; })[0]; }
+
+  function runSession(startMs) {
+    sim = { elapsed: startMs || 0, words: Math.round((startMs || 0) / 1000 * 2.4), paused: false, last: Date.now() };
+    sim.timer = setInterval(function () {
+      var t = Date.now(), dt = t - sim.last; sim.last = t;
+      if (!sim.paused) { sim.elapsed += dt; if (Math.random() < .5) sim.words += Math.round(Math.random() * 3); }
+      var talk = Math.sin(t / 700) > -.3;
+      emit({ state: sim.paused ? 'paused' : 'recording', elapsedMs: sim.elapsed, words: sim.words, level: sim.paused ? 0 : (talk ? .35 + Math.random() * .6 : Math.random() * .08) });
+    }, 120);
+  }
+  function process(base, id) {
+    emit({ state: 'transcribing', elapsedMs: base.elapsedMs, words: base.words });
+    return wait(1600).then(function () {
+      var s = 0;
+      return (function step() {
+        s++; emit({ state: 'organizing', step: s, total: 3, elapsedMs: base.elapsedMs, words: base.words });
+        return wait(900).then(function () { if (s < 3) return step(); });
+      })();
+    }).then(function () {
+      if (!id) {
+        id = 'n' + (notes.length + 10);
+        notes.unshift({ meta: { id: id, title: 'Note du ' + new Date().getDate() + ' oct. — démo', createdAt: iso(Date.now()), durationMs: base.elapsedMs, words: base.words, path: '~/Documents/CBW AI/Notes/démo.md', provider: 'groq' },
+          markdown: '# Note démo\n\n## Résumé\nSession simulée de **' + Math.round(base.elapsedMs / 1000) + ' s**.\n\n## À faire\n- [ ] Brancher le vrai pont\n- [x] Simuler la session\n', transcript: 'Transcription simulée de la session.' });
+      }
+      emit({ state: 'done', elapsedMs: base.elapsedMs, words: base.words, noteId: id });
+    });
+  }
+
+  var api = {
+    onNoteProgress: function (cb) { cbs.push(cb); },
+    listNotes: function () { return wait(120).then(function () { return notes.map(function (n) { return n.meta; }); }); },
+    getNote: function (id) { return wait(80).then(function () { var n = find(id); if (!n) throw new Error('Note introuvable'); return n; }); },
+    startNote: function () { runSession(0); return Promise.resolve(); },
+    pauseNote: function () { if (sim) sim.paused = true; return Promise.resolve(); },
+    resumeNote: function () { if (sim) { sim.paused = false; sim.last = Date.now(); } return Promise.resolve(); },
+    stopNote: function () { if (!sim) return Promise.resolve(); clearInterval(sim.timer); var b = { elapsedMs: sim.elapsed, words: sim.words }; sim = null; process(b); return Promise.resolve(); },
+    cancelNote: function () { if (sim) clearInterval(sim.timer); sim = null; return Promise.resolve(); },
+    reorganizeNote: function (id) { var n = find(id); return process({ elapsedMs: n.meta.durationMs, words: n.meta.words }, id).then(function () { n.meta.provider = 'groq'; }); },
+    deleteNote: function (id) { notes = notes.filter(function (n) { return n.meta.id !== id; }); return Promise.resolve(); },
+    revealNote: function () { return Promise.resolve(); },
+    copyNote: function () { return Promise.resolve(); }
+  };
+  if (view === 'off') api = {};
+  window.__notesDemo = { api: api, emit: emit, runSession: runSession };
+
+  var noteId = (/^#notes:(.+)$/.exec(location.hash) || [])[1] || ((view === 'note' || view === 'delete') ? (qs.get('id') || 'n3') : null);
+  var inst = window.CBWNotes.mount(document.getElementById('app'), {
+    api: api, noteId: noteId,
+    navigate: function (h) { history.replaceState(null, '', location.pathname + location.search + h); }
+  });
+
+  // Review shortcuts (screenshots): ?view=session|paused|processing|organizing|modal|delete
+  if (view === 'session' || view === 'paused' || view === 'modal') {
+    runSession(qs.get('ms') ? +qs.get('ms') : 754e3);
+    if (view === 'paused') sim.paused = true;
+    if (view === 'session') setTimeout(function () {
+      var ms = [['Budget validé à 12 k€', 1500], ['Hugo = contact technique', 5200]];
+      ms.forEach(function (m) { setTimeout(function () { var i = document.querySelector('[data-act="mark"]'); if (!i) return; i.value = m[0]; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }, m[1]); });
+      var t = document.querySelector('[data-act="title"]'); if (t) { t.value = 'Appel Lumen — cadrage V1'; t.dispatchEvent(new Event('input', { bubbles: true })); }
+    }, 300);
+    if (view === 'modal') setTimeout(function () { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); }, 400);
+  } else if (view === 'processing') {
+    emit({ state: 'transcribing', elapsedMs: 754e3, words: 1820 });
+  } else if (view === 'organizing') {
+    emit({ state: 'organizing', step: 2, total: 3, elapsedMs: 754e3, words: 1820 });
+  } else if (view === 'delete') {
+    setTimeout(function () { var b = document.querySelector('[data-act="del"]'); if (b) b.click(); }, 400);
+  }
+})();
+</script>
+</body>
+</html>

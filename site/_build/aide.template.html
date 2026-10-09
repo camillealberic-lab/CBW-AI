@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aide CBW AI — Installation, réglages, dépannage</title>
+<meta name="description" content="Aide complète de CBW AI : installation sur Mac, autorisations, clé IA gratuite, utilisation, confidentialité et dépannage.">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="preload" href="fonts/Archivo-latin.var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- Fichier généré par site/_build/build-aide.mjs depuis docs/aide/AIDE.md : modifier AIDE.md puis relancer le script. -->
+<a class="skip" href="#contenu">Aller au contenu</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="CBW AI, accueil">
+      <svg viewBox="0 0 664 560" aria-hidden="true"><rect x="0" y="160" width="88" height="240" fill="currentColor"/><rect x="144" y="80" width="88" height="400" fill="currentColor"/><rect x="288" y="0" width="88" height="560" fill="#FF5A1F"/><rect x="432" y="80" width="88" height="400" fill="currentColor"/><rect x="576" y="160" width="88" height="240" fill="currentColor"/></svg>
+      <span>CBW <small>AI</small></span>
+    </a>
+    <nav class="nav" aria-label="Navigation principale">
+      <a href="/">Accueil</a>
+      <a href="/#faq">FAQ</a>
+      <!-- TODO: remplacer OWNER/REPO par le dépôt GitHub des releases. -->
+      <a class="btn s download-link" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">Télécharger</a>
+    </nav>
+  </div>
+</header>
+
+<main id="contenu">
+  <div class="doc-hero">
+    <div class="wrap">
+      <span class="label"><i class="b"></i>Centre d'aide</span>
+      <h1>{{TITLE}}</h1>
+      {{INTRO}}
+    </div>
+  </div>
+  <div class="wrap doc">
+    <aside class="toc" aria-label="Sommaire">
+      <span class="label"><i class="b"></i>Sommaire</span>
+      <ol>{{TOC}}</ol>
+    </aside>
+    <div>
+      <details class="toc-m">
+        <summary><span class="label"><i class="b"></i>Sommaire</span><span aria-hidden="true">+</span></summary>
+        <ol>{{TOC_MOBILE}}</ol>
+      </details>
+      <article class="prose">
+{{CONTENT}}
+        <div class="doc-cta">
+          <div><h3 style="margin:0">Pas encore installé ?</h3><p style="margin:4px 0 0;color:var(--texte-sec)">Gratuit, pour Mac Apple Silicon, macOS 14 ou plus récent.</p></div>
+          <a class="btn cta download-link" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">Télécharger pour Mac (Apple Silicon)</a>
+        </div>
+      </article>
+    </div>
+  </div>
+</main>
+
+<footer style="border-top:2px solid var(--trait)">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="CBW AI">
+      <svg viewBox="0 0 664 560" aria-hidden="true"><rect x="0" y="160" width="88" height="240" fill="currentColor"/><rect x="144" y="80" width="88" height="400" fill="currentColor"/><rect x="288" y="0" width="88" height="560" fill="#FF5A1F"/><rect x="432" y="80" width="88" height="400" fill="currentColor"/><rect x="576" y="160" width="88" height="240" fill="currentColor"/></svg>
+      <span>CBW <small>AI</small></span>
+    </a>
+    <p>Une app gratuite de CBW Studio. <a href="/">Accueil</a></p>
+  </div>
+</footer>
+<script>
+// Surligne la section en cours dans le sommaire.
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  if (!('IntersectionObserver' in window) || !links.length) return;
+  var map = {};
+  links.forEach(function (a) { map[decodeURIComponent(a.getAttribute('href').slice(1))] = a; });
+  var heads = Array.prototype.slice.call(document.querySelectorAll('.prose h2, .prose h3'));
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting && map[e.target.id]) {
+        links.forEach(function (a) { a.classList.remove('on'); });
+        map[e.target.id].classList.add('on');
+      }
+    });
+  }, { rootMargin: '-90px 0px -70% 0px' });
+  heads.forEach(function (h) { obs.observe(h); });
+  document.querySelectorAll('.toc-m a').forEach(function (a) {
+    a.addEventListener('click', function () { a.closest('details').open = false; });
+  });
+})();
+</script>
+</body>
+</html>

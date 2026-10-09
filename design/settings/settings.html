@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Réglages Dicta AI</title>
+<style>
+:root {
+  /* Tokens de marque — design/brand/BRAND.md */
+  --accent: #4B3CF0;          /* primary */
+  --accent-hover: #3A2BD6;    /* primary-hover */
+  --accent-soft: #EEECFF;     /* primary-soft */
+  --bg: #FFFFFF;
+  --surface: #F6F6F9;
+  --border: #E4E4EC;
+  --text: #14141F;
+  --text-muted: #6B6B7B;
+  --success: #1FAF6B;
+  --busy: #E8930C;
+  --error: #D92D20;
+  /* Dérivés (UI uniquement) */
+  --desk: #E9E9EF;            /* fond derrière la fenêtre, maquette seulement */
+  --window: var(--bg);
+  --sidebar: color-mix(in srgb, var(--surface) 82%, transparent);
+  --field: var(--bg);
+  --border-strong: color-mix(in srgb, var(--text) 18%, transparent);
+  --text-3: color-mix(in srgb, var(--text-muted) 65%, transparent);
+  --sel: color-mix(in srgb, var(--text) 7%, transparent);
+  --track: color-mix(in srgb, var(--text) 10%, transparent);
+  --off: var(--text-muted);
+  --shadow: 0 20px 60px rgba(0,0,0,.18), 0 0 0 0.5px rgba(0,0,0,.2);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --accent: #8579FF; --accent-hover: #9C92FF; --accent-soft: #24203F;
+    --bg: #0E0E14; --surface: #1A1A24; --border: #2A2A38;
+    --text: #F2F2F7; --text-muted: #9A9AAB;
+    --success: #3DD68C; --busy: #FFB740; --error: #FF6B5E;
+    --desk: #050508;
+    --shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 0 0.5px rgba(255,255,255,.12);
+  }
+}
+:root[data-theme="dark"] {
+  --accent: #8579FF; --accent-hover: #9C92FF; --accent-soft: #24203F;
+  --bg: #0E0E14; --surface: #1A1A24; --border: #2A2A38;
+  --text: #F2F2F7; --text-muted: #9A9AAB;
+  --success: #3DD68C; --busy: #FFB740; --error: #FF6B5E;
+  --desk: #050508;
+  --shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 0 0.5px rgba(255,255,255,.12);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  background: var(--desk);
+  color: var(--text);
+  font: 13px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  display: grid; place-items: center;
+  padding: 16px;
+}
+/* In Electron, the window IS the page: add class "embedded" on <html> to drop the fake frame. */
+.window {
+  width: 100%; max-width: 720px; height: min(520px, calc(100vh - 32px));
+  display: grid; grid-template-columns: 188px 1fr;
+  background: var(--window);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: var(--shadow);
+}
+html.embedded body { padding: 0; background: transparent; }
+html.embedded .window { max-width: none; height: 100vh; border-radius: 0; box-shadow: none; }
+
+/* Sidebar */
+.sidebar {
+  background: var(--sidebar);
+  border-right: 0.5px solid var(--border);
+  padding: 12px 10px;
+  display: flex; flex-direction: column; gap: 2px;
+  -webkit-app-region: drag;
+}
+.traffic { display: flex; gap: 8px; padding: 2px 6px 18px; }
+.traffic span { width: 12px; height: 12px; border-radius: 50%; background: #FF5F57; }
+.traffic span:nth-child(2) { background: #FEBC2E; }
+.traffic span:nth-child(3) { background: #28C840; }
+html.embedded .traffic { visibility: hidden; }
+.brand { display: flex; align-items: center; gap: 8px; padding: 0 8px 12px; font-weight: 600; }
+.brand svg { height: 16px; width: auto; color: var(--accent); }
+.brand .ai { font-weight: 400; color: var(--text-muted); }
+.nav-btn {
+  -webkit-app-region: no-drag;
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 5px 8px; border: 0; border-radius: 6px;
+  background: transparent; color: var(--text); font: inherit; text-align: left; cursor: default;
+}
+.nav-btn:hover { background: var(--sel); }
+.nav-btn[aria-selected="true"] { background: var(--accent); color: #fff; }
+.nav-btn[aria-selected="true"] .ico { color: #fff; }
+.nav-btn .ico { width: 16px; height: 16px; color: var(--text-muted); flex: none; }
+.nav-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Content */
+.content { overflow-y: auto; padding: 22px 26px 28px; }
+.pane { display: none; }
+.pane.active { display: block; }
+h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; margin: 0 0 4px; }
+.lede { color: var(--text-muted); margin: 0 0 16px; }
+.group {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+.group-title { font-size: 11px; font-weight: 600; color: var(--text-muted); margin: 0 0 6px 4px; text-transform: none; }
+.row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 10px 14px; min-height: 42px;
+}
+.row + .row { border-top: 0.5px solid var(--border); }
+.row .label { display: flex; flex-direction: column; }
+.row .hint { color: var(--text-muted); font-size: 11.5px; }
+
+/* Controls */
+select, input[type="text"], input[type="password"] {
+  font: inherit; color: var(--text);
+  background: var(--field);
+  border: 0.5px solid var(--border-strong);
+  border-radius: 6px; padding: 4px 8px; height: 26px;
+  box-shadow: 0 0.5px 1px rgba(0,0,0,.06);
+}
+select { padding-right: 22px; appearance: none; -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-muted) 50%), linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position: calc(100% - 11px) 11px, calc(100% - 7px) 11px; background-size: 4px 4px; background-repeat: no-repeat; }
+.vocab { flex-direction: column; align-items: stretch; gap: 8px; }
+textarea {
+  font: 12px/1.5 ui-monospace, "SF Mono", Menlo, monospace; color: var(--text);
+  background: var(--field); border: 0.5px solid var(--border-strong); border-radius: 6px;
+  padding: 6px 8px; resize: vertical; min-height: 84px; width: 100%;
+}
+select:focus, input:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.btn {
+  font: inherit; color: var(--text); background: var(--bg);
+  border: 0.5px solid var(--border-strong); border-radius: 6px;
+  padding: 3px 10px; height: 26px; cursor: default;
+  box-shadow: 0 0.5px 1px rgba(0,0,0,.08);
+}
+.btn:hover { background: var(--sel); }
+.btn:active { filter: brightness(.95); }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+.btn:focus-visible, .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.icon-btn {
+  width: 22px; height: 22px; border: 0; border-radius: 5px; background: transparent;
+  color: var(--text-muted); display: grid; place-items: center; padding: 0; cursor: default;
+}
+.icon-btn:hover { background: var(--sel); color: var(--text); }
+.icon-btn:disabled { opacity: .3; }
+
+/* Toggle */
+.switch { position: relative; width: 32px; height: 19px; flex: none; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: default; }
+.switch span {
+  position: absolute; inset: 0; border-radius: 999px; background: var(--track);
+  transition: background .18s;
+  pointer-events: none;
+}
+.switch span::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .18s;
+}
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(13px); }
+.switch input:focus-visible + span { box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Segmented */
+.seg { display: inline-flex; background: var(--track); border-radius: 7px; padding: 2px; }
+.seg label { position: relative; }
+.seg input { position: absolute; opacity: 0; }
+.seg span { display: block; padding: 3px 12px; border-radius: 5px; color: var(--text); }
+.seg input:checked + span { background: var(--bg); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); }
+
+/* Shortcut recorder */
+.kbd-rec {
+  min-width: 120px; height: 26px; padding: 0 10px; border-radius: 6px;
+  border: 0.5px solid var(--border-strong); background: var(--field);
+  font: inherit; color: var(--text); display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+}
+.kbd-rec kbd { font: 12px ui-monospace, "SF Mono", Menlo, monospace; background: var(--bg); border: 0.5px solid var(--border-strong); border-radius: 4px; padding: 1px 6px; }
+.kbd-rec.recording { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); color: var(--accent); }
+
+/* Providers */
+.prov { padding: 12px 14px; display: grid; grid-template-columns: 18px 1fr; gap: 4px 10px; background: var(--surface); }
+.prov + .prov { border-top: 0.5px solid var(--border); }
+.prov.dragging { opacity: .45; }
+.prov.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+.prov.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
+.grip { color: var(--text-3); cursor: grab; display: grid; place-items: center; height: 22px; }
+.prov-head { display: flex; align-items: center; gap: 8px; height: 22px; }
+.prov-rank { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; width: 12px; }
+.prov-name { font-weight: 600; }
+.prov-sub { color: var(--text-muted); font-size: 11.5px; }
+.prov-head .spacer { flex: 1; }
+.status { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--text-muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--off); }
+.status[data-status="available"] .dot { background: var(--success); }
+.status[data-status="missing_key"] .dot { background: var(--busy); }
+.status[data-status="quota"] .dot { background: var(--error); }
+.status[data-status="offline"] .dot { background: var(--off); }
+.status[data-status="testing"] .dot { background: var(--accent); animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
+.prov-body { grid-column: 2; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.keywrap { position: relative; flex: 1; min-width: 180px; }
+.keywrap input { width: 100%; padding-right: 28px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+.keywrap .icon-btn { position: absolute; right: 2px; top: 2px; }
+.link { color: var(--accent); text-decoration: none; font-size: 12px; white-space: nowrap; }
+.link:hover { text-decoration: underline; }
+.test-msg { grid-column: 2; font-size: 11.5px; color: var(--text-muted); min-height: 0; }
+.test-msg:empty { display: none; }
+
+/* Meters */
+.meter-row { padding: 12px 14px; }
+.meter-row + .meter-row { border-top: 0.5px solid var(--border); }
+.meter-top { display: flex; justify-content: space-between; margin-bottom: 6px; }
+.meter-val { color: var(--text-muted); font: 12px ui-monospace, "SF Mono", Menlo, monospace; }
+.meter { height: 6px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--success); border-radius: inherit; transition: width .3s; }
+.meter[data-level="warn"] i { background: var(--busy); }
+.meter[data-level="full"] i { background: var(--error); }
+.footnote { color: var(--text-muted); font-size: 11.5px; margin: -6px 4px 0; }
+
+/* Whisper */
+.wstat { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 12px; }
+.wstat[data-state="downloaded"] .dot { background: var(--success); }
+.wstat[data-state="missing"] .dot { background: var(--busy); }
+.wstat[data-state="downloading"] .dot { background: var(--accent); animation: pulse 1s infinite; }
+
+/* Last dictation */
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.card { background: var(--surface); border: 0.5px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; min-height: 170px; }
+.card h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; }
+.card p { margin: 0; flex: 1; white-space: pre-wrap; user-select: text; }
+.card.raw p { color: var(--text-muted); }
+.card.clean { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+.meta { margin-top: 10px; color: var(--text-3); font-size: 11.5px; }
+.empty { color: var(--text-3); font-style: italic; }
+@media (max-width: 560px) {
+  .window { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: auto; min-height: calc(100vh - 32px); }
+  .sidebar { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 0.5px solid var(--border); }
+  .traffic, .brand { display: none; }
+  .nav-btn { white-space: nowrap; width: auto; }
+  .compare { grid-template-columns: 1fr; }
+  .row { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+<div class="window">
+  <nav class="sidebar" role="tablist" aria-label="Sections">
+    <div class="traffic" aria-hidden="true"><span></span><span></span><span></span></div>
+    <div class="brand">
+      <!-- assets/logo-mark.svg (inline, fill → currentColor = --accent) -->
+      <svg viewBox="0 0 664 560" aria-hidden="true" fill="currentColor">
+        <rect x="0" y="160" width="88" height="240" rx="44"/><rect x="144" y="80" width="88" height="400" rx="44"/>
+        <rect x="288" y="0" width="88" height="560" rx="44"/><rect x="432" y="80" width="88" height="400" rx="44"/>
+        <rect x="576" y="160" width="88" height="240" rx="44"/>
+      </svg>
+      <span>Dicta <span class="ai">AI</span></span>
+    </div>
+    <button class="nav-btn" role="tab" aria-selected="true" data-tab="general">
+      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="2.3"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/></svg>Général</button>
+    <button class="nav-btn" role="tab" aria-selected="false" data-tab="providers">
+      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 4h10M3 8h10M3 12h10"/><circle cx="5" cy="4" r="1" fill="currentColor"/><circle cx="5" cy="8" r="1" fill="currentColor"/><circle cx="5" cy="12" r="1" fill="currentColor"/></svg>Fournisseurs IA</button>
+    <button class="nav-btn" role="tab" aria-selected="false" data-tab="quotas">
+      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 13.5h11M4 11V8M8 11V4M12 11V6.5"/></svg>Quotas</button>
+    <button class="nav-btn" role="tab" aria-selected="false" data-tab="whisper">
+      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 6.5v3M6 4v8M9 2.5v11M12 5.5v5"/></svg>Whisper</button>
+    <button class="nav-btn" role="tab" aria-selected="false" data-tab="cleaning">
+      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 2l1.3 3.2L12.5 6.5 9.3 7.8 8 11 6.7 7.8 3.5 6.5l3.2-1.3zM12.5 11l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/></svg>Nettoyage</button>
+    <button class="nav-btn" role="tab" aria-selected="false" data-tab="last">
+      <svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="3" width="5" height="10" rx="1.2"/><rect x="9" y="3" width="5" height="10" rx="1.2"/></svg>Dernière dictée</button>
+  </nav>
+
+  <main class="content">
+    <!-- GÉNÉRAL -->
+    <section class="pane active" id="pane-general" role="tabpanel">
+      <h1>Général</h1>
+      <p class="lede">Maintenez le raccourci, parlez, relâchez : le texte propre est inséré dans l'app active.</p>
+      <div class="group">
+        <div class="row">
+          <div class="label">Raccourci<span class="hint">Maintenir pour parler, relâcher pour insérer</span></div>
+          <button class="kbd-rec" id="shortcutBtn" type="button" data-setting="general.shortcut" data-value="Alt+Space" aria-label="Modifier le raccourci"><kbd>⌥</kbd><kbd>Espace</kbd></button>
+        </div>
+        <div class="row">
+          <div class="label">Insertion<span class="hint">Que faire du texte nettoyé</span></div>
+          <select data-setting="general.insertMode">
+            <option value="paste" selected>Coller automatiquement</option>
+            <option value="clipboard">Presse-papiers seulement</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="label">Langue de dictée</div>
+          <select data-setting="general.language">
+            <option value="fr" selected>Français</option>
+            <option value="en">Anglais</option>
+            <option value="auto">Détection automatique</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="label">Lancer au démarrage<span class="hint">Dicta AI reste discret dans la barre de menus</span></div>
+          <label class="switch"><input type="checkbox" data-setting="general.launchAtLogin" checked><span></span></label>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOURNISSEURS -->
+    <section class="pane" id="pane-providers" role="tabpanel">
+      <h1>Fournisseurs IA</h1>
+      <p class="lede">Ordre d'essai pour le nettoyage. Si tout échoue, le texte brut est inséré tel quel.</p>
+      <div class="group">
+        <div class="row">
+          <div class="label">Local d'abord (0 €)<span class="hint">Essayer Ollama avant les services cloud</span></div>
+          <label class="switch"><input type="checkbox" data-setting="providers.localFirst"><span></span></label>
+        </div>
+      </div>
+      <p class="group-title">Ordre de fallback — glisser ou utiliser les flèches</p>
+      <div class="group" id="provList" data-setting="providers.order" style="overflow:hidden"></div>
+    </section>
+
+    <!-- QUOTAS -->
+    <section class="pane" id="pane-quotas" role="tabpanel">
+      <h1>Quotas</h1>
+      <p class="lede">Requêtes du jour sur les offres gratuites. Remise à zéro chaque jour.</p>
+      <div class="group" id="quotaList"></div>
+      <p class="footnote">Ollama tourne en local : pas de quota.</p>
+    </section>
+
+    <!-- WHISPER -->
+    <section class="pane" id="pane-whisper" role="tabpanel">
+      <h1>Whisper</h1>
+      <p class="lede">Transcription 100 % locale, sur votre Mac.</p>
+      <div class="group">
+        <div class="row">
+          <div class="label">Modèle<span class="hint">Plus grand = plus précis, plus lent</span></div>
+          <select data-setting="whisper.model" id="whisperModel">
+            <option value="tiny">tiny — 75 Mo</option>
+            <option value="base">base — 142 Mo</option>
+            <option value="small">small — 466 Mo</option>
+            <option value="medium">medium — 1,5 Go</option>
+            <option value="large-v3-turbo" selected>large-v3-turbo — 1,6 Go (recommandé)</option>
+          </select>
+        </div>
+        <div class="row">
+          <div class="label">État</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <span class="wstat" id="whisperStatus" data-state="downloaded"><i class="dot"></i><span>Téléchargé</span></span>
+            <button class="btn" id="whisperDl" type="button" hidden>Télécharger</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NETTOYAGE -->
+    <section class="pane" id="pane-cleaning" role="tabpanel">
+      <h1>Nettoyage</h1>
+      <p class="lede">Un correcteur de parole, pas un co-auteur : rien n'est inventé ni reformulé.</p>
+      <div class="group">
+        <div class="row">
+          <div class="label">Niveau<span class="hint" id="levelHint">Retire les « euh », hésitations et répétitions</span></div>
+          <div class="seg" role="radiogroup">
+            <label><input type="radio" name="cleaning.level" value="light" data-setting="cleaning.level" checked><span>Léger</span></label>
+            <label><input type="radio" name="cleaning.level" value="standard" data-setting="cleaning.level"><span>Standard</span></label>
+          </div>
+        </div>
+        <div class="row">
+          <div class="label">Conserver le texte brut en cas d'échec<span class="hint">Copie la transcription brute dans le presse-papiers si le nettoyage échoue</span></div>
+          <label class="switch"><input type="checkbox" data-setting="cleaning.keepRawOnFailure" checked><span></span></label>
+        </div>
+        <div class="row vocab">
+          <label class="label" for="vocab">Vocabulaire personnel<span class="hint">Un terme par ligne. Orthographe respectée au nettoyage (noms propres, marques, jargon).</span></label>
+          <textarea id="vocab" rows="5" spellcheck="false" data-setting="cleaning.vocabulary" placeholder="Claude&#10;Cursor&#10;Supabase"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- DERNIÈRE DICTÉE -->
+    <section class="pane" id="pane-last" role="tabpanel">
+      <h1>Dernière dictée</h1>
+      <p class="lede">Seule la dernière dictée est gardée, en mémoire uniquement.</p>
+      <div class="compare">
+        <div class="card raw"><h3>Brut (Whisper) <button class="icon-btn" data-copy="raw" title="Copier" aria-label="Copier le texte brut"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg></button></h3><p id="lastRaw"></p></div>
+        <div class="card clean"><h3>Nettoyé <button class="icon-btn" data-copy="clean" title="Copier" aria-label="Copier le texte nettoyé"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="5" width="9" height="9" rx="1.5"/><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"/></svg></button></h3><p id="lastClean"></p></div>
+      </div>
+      <p class="meta" id="lastMeta"></p>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+
+  var changeCbs = [], actionCbs = [];
+  function emit(key, value) { changeCbs.forEach(function (cb) { try { cb(key, value); } catch (e) { console.error(e); } }); }
+  function action(name, payload) { actionCbs.forEach(function (cb) { try { cb(name, payload); } catch (e) { console.error(e); } }); }
+
+  /* ---------- Tabs ---------- */
+  $$('.nav-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      $$('.nav-btn').forEach(function (x) { x.setAttribute('aria-selected', String(x === b)); });
+      $$('.pane').forEach(function (p) { p.classList.toggle('active', p.id === 'pane-' + b.dataset.tab); });
+    });
+  });
+  function openTab(name) { var b = $('.nav-btn[data-tab="' + name + '"]'); if (b) b.click(); }
+  // settings.html#providers ouvre directement un onglet (utile depuis le menu de la barre).
+  if (location.hash) openTab(location.hash.slice(1));
+
+  /* ---------- Providers ---------- */
+  var PROVIDERS = {
+    gemini:     { name: 'Gemini Flash-Lite', sub: 'Google AI Studio', keyUrl: 'https://aistudio.google.com/apikey', cloud: true },
+    groq:       { name: 'Groq', sub: 'Llama, très rapide', keyUrl: 'https://console.groq.com/keys', cloud: true },
+    openrouter: { name: 'OpenRouter', sub: 'Modèles gratuits « :free »', keyUrl: 'https://openrouter.ai/keys', cloud: true },
+    ollama:     { name: 'Ollama', sub: 'Local, hors-ligne, 0 €', keyUrl: 'https://ollama.com/download', cloud: false }
+  };
+  var STATUS_LABEL = { available: 'Disponible', missing_key: 'Clé manquante', quota: 'Quota atteint', offline: 'Hors-ligne', testing: 'Test…' };
+  var order = ['gemini', 'groq', 'openrouter', 'ollama'];
+  var statuses = { gemini: 'available', groq: 'missing_key', openrouter: 'quota', ollama: 'offline' };
+
+  var ICON = {
+    up: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 6.5 5 3.5l3 3"/></svg>',
+    down: '<svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3.5 5 6.5l3-3"/></svg>',
+    grip: '<svg width="10" height="14" viewBox="0 0 10 14" fill="currentColor"><circle cx="3" cy="3" r="1.2"/><circle cx="7" cy="3" r="1.2"/><circle cx="3" cy="7" r="1.2"/><circle cx="7" cy="7" r="1.2"/><circle cx="3" cy="11" r="1.2"/><circle cx="7" cy="11" r="1.2"/></svg>',
+    eye: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>'
+  };
+
+  function buildProvider(id) {
+    var p = PROVIDERS[id];
+    var el = document.createElement('div');
+    el.className = 'prov'; el.dataset.provider = id;
+    var field = p.cloud
+      ? '<div class="keywrap"><input type="password" placeholder="Clé API" autocomplete="off" spellcheck="false" data-setting="providers.' + id + '.apiKey" aria-label="Clé API ' + p.name + '">' +
+        '<button class="icon-btn" type="button" data-reveal title="Afficher / masquer" aria-label="Afficher la clé">' + ICON.eye + '</button></div>'
+      : '<div class="keywrap"><input type="text" placeholder="gemma4:e4b" spellcheck="false" data-setting="providers.ollama.model" aria-label="Modèle Ollama" value="gemma4:e4b" style="font-family:inherit"></div>';
+    el.innerHTML =
+      '<div class="grip" title="Glisser pour réordonner">' + ICON.grip + '</div>' +
+      '<div class="prov-head"><span class="prov-rank"></span><span class="prov-name">' + p.name + '</span><span class="prov-sub">' + p.sub + '</span>' +
+      '<span class="spacer"></span><span class="status" data-status="' + (statuses[id] || 'offline') + '"><i class="dot"></i><span></span></span>' +
+      '<button class="icon-btn" type="button" data-move="-1" aria-label="Monter">' + ICON.up + '</button>' +
+      '<button class="icon-btn" type="button" data-move="1" aria-label="Descendre">' + ICON.down + '</button></div>' +
+      '<div class="prov-body">' + field +
+      '<button class="btn" type="button" data-test>Tester</button>' +
+      '<a class="link" href="' + p.keyUrl + '" target="_blank" rel="noopener" data-keylink>' + (p.cloud ? 'Obtenir une clé' : 'Installer Ollama') + '</a></div>' +
+      '<div class="test-msg" aria-live="polite"></div>';
+    return el;
+  }
+
+  var list = $('#provList');
+  var rows = {};
+  order.forEach(function (id) { rows[id] = buildProvider(id); });
+
+  function renderOrder() {
+    order.forEach(function (id, i) {
+      var r = rows[id];
+      list.appendChild(r);
+      $('.prov-rank', r).textContent = String(i + 1);
+      $('[data-move="-1"]', r).disabled = i === 0;
+      $('[data-move="1"]', r).disabled = i === order.length - 1;
+      var st = $('.status', r);
+      $('span', st).textContent = STATUS_LABEL[st.dataset.status] || '';
+    });
+  }
+  function setOrder(next, silent) {
+    order = next.filter(function (id) { return PROVIDERS[id]; });
+    renderOrder();
+    if (!silent) emit('providers.order', order.slice());
+  }
+  renderOrder();
+
+  list.addEventListener('click', function (e) {
+    var row = e.target.closest('.prov'); if (!row) return;
+    var id = row.dataset.provider;
+    var mv = e.target.closest('[data-move]');
+    if (mv) {
+      var i = order.indexOf(id), j = i + Number(mv.dataset.move);
+      if (j < 0 || j >= order.length) return;
+      var n = order.slice(); n.splice(i, 1); n.splice(j, 0, id); setOrder(n);
+      $('[data-move="' + mv.dataset.move + '"]', row).focus();
+      return;
+    }
+    var rv = e.target.closest('[data-reveal]');
+    if (rv) { var inp = $('input', row); inp.type = inp.type === 'password' ? 'text' : 'password'; return; }
+    if (e.target.closest('[data-test]')) {
+      window.dicta.setProviderStatus(id, 'testing');
+      $('.test-msg', row).textContent = '';
+      action('testProvider', { id: id });
+      if (!window.__DICTA_WIRED__) { // mock: fake result
+        setTimeout(function () {
+          var v = $('input', row).value.trim();
+          var ok = v.length > 0;
+          window.dicta.setProviderStatus(id, ok ? 'available' : (PROVIDERS[id].cloud ? 'missing_key' : 'offline'));
+          window.dicta.setTestResult(id, ok, ok ? 'Connexion réussie (212 ms)' : (PROVIDERS[id].cloud ? 'Aucune clé saisie' : 'Ollama ne répond pas sur localhost:11434'));
+        }, 700);
+      }
+      return;
+    }
+    var kl = e.target.closest('[data-keylink]');
+    if (kl && window.__DICTA_WIRED__) { e.preventDefault(); action('openExternal', { url: kl.href }); }
+  });
+
+  // Drag & drop reorder
+  var dragId = null;
+  // Seule la poignée active le drag, pour garder la sélection de texte dans les champs.
+  list.addEventListener('mousedown', function (e) { var g = e.target.closest('.grip'); if (g) g.parentNode.draggable = true; });
+  list.addEventListener('mouseup', function () { $$('.prov', list).forEach(function (r) { r.draggable = false; }); });
+  list.addEventListener('dragstart', function (e) {
+    var row = e.target.closest('.prov');
+    if (!row || e.target.closest('input')) { e.preventDefault(); return; }
+    dragId = row.dataset.provider; row.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragId);
+  });
+  function clearDrop() { $$('.prov', list).forEach(function (r) { r.classList.remove('drop-before', 'drop-after'); }); }
+  list.addEventListener('dragover', function (e) {
+    if (!dragId) return; e.preventDefault();
+    var row = e.target.closest('.prov'); clearDrop();
+    if (!row || row.dataset.provider === dragId) return;
+    var rect = row.getBoundingClientRect();
+    row.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drop-before' : 'drop-after');
+  });
+  list.addEventListener('drop', function (e) {
+    e.preventDefault();
+    var row = e.target.closest('.prov');
+    if (row && dragId && row.dataset.provider !== dragId) {
+      var before = row.classList.contains('drop-before');
+      var n = order.filter(function (x) { return x !== dragId; });
+      var idx = n.indexOf(row.dataset.provider) + (before ? 0 : 1);
+      n.splice(idx, 0, dragId); setOrder(n);
+    }
+    clearDrop();
+  });
+  list.addEventListener('dragend', function () { $$('.prov', list).forEach(function (r) { r.classList.remove('dragging'); r.draggable = false; }); clearDrop(); dragId = null; });
+
+  /* ---------- Quotas ---------- */
+  var quotaList = $('#quotaList');
+  var quotaRows = {};
+  ['gemini', 'groq', 'openrouter'].forEach(function (id) {
+    var el = document.createElement('div');
+    el.className = 'meter-row';
+    el.innerHTML = '<div class="meter-top"><span>' + PROVIDERS[id].name + '</span><span class="meter-val"></span></div>' +
+      '<div class="meter" role="progressbar" aria-label="Quota ' + PROVIDERS[id].name + '" aria-valuemin="0"><i></i></div>';
+    quotaList.appendChild(el); quotaRows[id] = el;
+  });
+  function fmt(n) { return Number(n).toLocaleString('fr-FR'); }
+
+  /* ---------- Whisper ---------- */
+  var WSTATE = { downloaded: 'Téléchargé', missing: 'Non téléchargé', downloading: 'Téléchargement…' };
+  var wDl = $('#whisperDl');
+  wDl.addEventListener('click', function () {
+    var model = $('#whisperModel').value;
+    action('downloadWhisper', { model: model });
+    window.dicta.setWhisperStatus('downloading', 0);
+    if (!window.__DICTA_WIRED__) {
+      var p = 0, t = setInterval(function () { p += 20; window.dicta.setWhisperStatus(p >= 100 ? 'downloaded' : 'downloading', p); if (p >= 100) clearInterval(t); }, 300);
+    }
+  });
+
+  /* ---------- Cleaning hint ---------- */
+  var LEVEL_HINT = { light: 'Retire les « euh », hésitations et répétitions', standard: 'Léger + ponctuation, auto-corrections (« trois, enfin non quatre » → « quatre »)' };
+
+  /* ---------- Shortcut recorder ---------- */
+  var sBtn = $('#shortcutBtn'), recording = false;
+  var KEYNAME = { Alt: '⌥', Meta: '⌘', Control: '⌃', Shift: '⇧', Space: 'Espace' };
+  function renderShortcut(acc) {
+    sBtn.dataset.value = acc;
+    sBtn.innerHTML = acc.split('+').map(function (k) { return '<kbd>' + (KEYNAME[k] || k) + '</kbd>'; }).join('');
+  }
+  sBtn.addEventListener('click', function () {
+    recording = !recording; sBtn.classList.toggle('recording', recording);
+    if (recording) sBtn.textContent = 'Tapez le raccourci…'; else renderShortcut(sBtn.dataset.value);
+  });
+  sBtn.addEventListener('keydown', function (e) {
+    if (!recording) return;
+    e.preventDefault();
+    if (e.key === 'Escape') { recording = false; sBtn.classList.remove('recording'); renderShortcut(sBtn.dataset.value); return; }
+    if (['Alt', 'Meta', 'Control', 'Shift'].indexOf(e.key) >= 0) return;
+    var mods = [];
+    if (e.ctrlKey) mods.push('Control'); if (e.altKey) mods.push('Alt'); if (e.shiftKey) mods.push('Shift'); if (e.metaKey) mods.push('Meta');
+    if (!mods.length) return; // un modificateur est requis
+    var key = e.code === 'Space' ? 'Space' : (e.code.replace(/^Key|^Digit/, '') || e.key.toUpperCase());
+    recording = false; sBtn.classList.remove('recording');
+    var acc = mods.concat(key).join('+');
+    renderShortcut(acc); emit('general.shortcut', acc);
+  });
+  sBtn.addEventListener('blur', function () { if (recording) { recording = false; sBtn.classList.remove('recording'); renderShortcut(sBtn.dataset.value); } });
+
+  /* ---------- Generic data-setting binding ---------- */
+  function readValue(el) {
+    if (el.dataset.setting === 'cleaning.vocabulary') return el.value.split('\n').map(function (t) { return t.trim(); }).filter(Boolean);
+    if (el.type === 'checkbox') return el.checked;
+    if (el.type === 'radio') return el.value;
+    return el.value;
+  }
+  document.addEventListener('change', function (e) {
+    var el = e.target; var key = el.dataset && el.dataset.setting; if (!key) return;
+    if (el.type === 'radio' && !el.checked) return;
+    if (key === 'cleaning.level') $('#levelHint').textContent = LEVEL_HINT[el.value];
+    if (key === 'whisper.model') action('whisperModelChanged', { model: el.value });
+    if (key === 'providers.localFirst') applyLocalFirst(el.checked);
+    emit(key, readValue(el));
+  });
+  function applyLocalFirst(on) {
+    // Visuel : Ollama remonte en tête quand "Local d'abord" est activé (le router applique la même règle).
+    if (on && order[0] !== 'ollama') setOrder(['ollama'].concat(order.filter(function (x) { return x !== 'ollama'; })));
+  }
+
+  /* ---------- Copy ---------- */
+  $$('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var t = $(b.dataset.copy === 'raw' ? '#lastRaw' : '#lastClean').textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(t).catch(function () {});
+    });
+  });
+
+  /* ---------- Public bridge ---------- */
+  window.dicta = {
+    /** Ouvre un onglet : general | providers | quotas | whisper | cleaning | last */
+    openTab: openTab,
+    /** cb(key, value) — appelé à chaque modification utilisateur. */
+    onChange: function (cb) { changeCbs.push(cb); return function () { changeCbs = changeCbs.filter(function (c) { return c !== cb; }); }; },
+    /** cb(name, payload) — actions : testProvider {id}, downloadWhisper {model}, whisperModelChanged {model}, openExternal {url}. */
+    onAction: function (cb) { actionCbs.push(cb); return function () { actionCbs = actionCbs.filter(function (c) { return c !== cb; }); }; },
+    /** Applique des valeurs sans déclencher onChange. Clés plates "a.b.c". */
+    setValues: function (obj) {
+      Object.keys(obj || {}).forEach(function (key) {
+        var v = obj[key];
+        if (key === 'providers.order') { setOrder(v, true); return; }
+        if (key === 'general.shortcut') { renderShortcut(v); return; }
+        $$('[data-setting="' + key + '"]').forEach(function (el) {
+          if (el.type === 'checkbox') el.checked = !!v;
+          else if (el.type === 'radio') el.checked = el.value === v;
+          else if (Array.isArray(v)) el.value = v.join('\n');
+          else el.value = v == null ? '' : v;
+        });
+        if (key === 'cleaning.level') $('#levelHint').textContent = LEVEL_HINT[v] || '';
+      });
+    },
+    /** status : 'available' | 'missing_key' | 'quota' | 'offline' | 'testing' */
+    setProviderStatus: function (id, status) {
+      var r = rows[id]; if (!r) return;
+      var st = $('.status', r); st.dataset.status = status; $('span', st).textContent = STATUS_LABEL[status] || status;
+    },
+    setTestResult: function (id, ok, message) {
+      var r = rows[id]; if (!r) return;
+      var m = $('.test-msg', r); m.textContent = message || ''; m.style.color = ok ? 'var(--success)' : 'var(--error)';
+    },
+    setQuota: function (id, used, limit) {
+      var r = quotaRows[id]; if (!r) return;
+      var pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+      $('.meter-val', r).textContent = fmt(used) + ' / ' + fmt(limit) + ' aujourd’hui';
+      var m = $('.meter', r);
+      m.dataset.level = pct >= 100 ? 'full' : pct >= 80 ? 'warn' : 'ok';
+      m.setAttribute('aria-valuemax', String(limit)); m.setAttribute('aria-valuenow', String(used));
+      $('i', m).style.width = pct + '%';
+    },
+    /** state : 'downloaded' | 'missing' | 'downloading' ; progress 0..100 */
+    setWhisperStatus: function (state, progress) {
+      var el = $('#whisperStatus'); el.dataset.state = state;
+      $('span', el).textContent = state === 'downloading' && progress != null ? 'Téléchargement… ' + Math.round(progress) + ' %' : WSTATE[state];
+      wDl.hidden = state !== 'missing';
+    },
+    setLastDictation: function (raw, clean, meta) {
+      var r = $('#lastRaw'), c = $('#lastClean');
+      r.textContent = raw || ''; c.textContent = clean || '';
+      r.classList.toggle('empty', !raw); c.classList.toggle('empty', !clean);
+      if (!raw) r.textContent = 'Aucune dictée pour l’instant.';
+      if (!clean) c.textContent = raw ? 'Nettoyage indisponible : texte brut inséré.' : '—';
+      // meta optionnel : { provider, model, latencyMs } (cf. CleanResult)
+      $('#lastMeta').textContent = meta ? 'Nettoyé par ' + meta.provider + (meta.model ? ' · ' + meta.model : '') + (meta.latencyMs != null ? ' · ' + meta.latencyMs + ' ms' : '') : '';
+    }
+  };
+
+  /* ---------- Mock data (ignoré si l'app définit window.__DICTA_WIRED__ = true avant ce script) ---------- */
+  if (!window.__DICTA_WIRED__) {
+    window.dicta.setValues({ 'providers.gemini.apiKey': 'AIzaSyD-demo-key-123456', 'cleaning.vocabulary': ['Claude', 'Cursor', 'Supabase'] });
+    window.dicta.setQuota('gemini', 312, 1000);
+    window.dicta.setQuota('groq', 0, 14400);
+    window.dicta.setQuota('openrouter', 50, 50);
+    window.dicta.setLastDictation(
+      "euh donc je voulais dire que la réunion de demain elle est à trois heures, enfin non quatre heures, et euh faut que tout le monde amène amène son ordi",
+      "Donc je voulais dire que la réunion de demain est à quatre heures, et il faut que tout le monde amène son ordi.",
+      { provider: 'gemini', model: 'gemini-2.5-flash-lite', latencyMs: 412 }
+    );
+    window.dicta.onChange(function (k, v) { console.log('[dicta] change', k, v); });
+  } else {
+    window.dicta.setLastDictation('', '');
+  }
+})();
+</script>
+</body>
+</html>

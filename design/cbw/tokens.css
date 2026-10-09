@@ -1,0 +1,125 @@
+/* CBW AI — design tokens (CBW Studio visual language)
+   Thème clair par défaut : <html data-theme="light">. Sombre « graphite » via data-theme="dark" ; sans attribut = suit le système.
+   Import order in a page:  ../../assets/fonts/fonts.css  then this file. */
+:root{
+  /* Palette — brand (constant across themes) */
+  --noir:#1E1E1C;      /* texte : noir adouci (16,7:1 sur blanc) — l'ancien #111 était trop dur */
+  --encre:#1C1C1E;     /* grandes surfaces sombres : bouton principal, pastille, bandes */
+  --blanc:#FFFFFF;     /* fond de base de l'app (thème clair par défaut) */
+  --gris:#F4F4F2;
+  --gris-fil:#DDDDDD;
+  --texte-2:#5F5F5A;   /* secondaire, plus calme (6,4:1) */
+  --orange:#FF5A1F;   /* ENREGISTREMENT — recording / live mic */
+  --bleu:#2B3BFF;     /* TRAITEMENT IA — transcribing / LLM / focus */
+  --vert:#1FD26A;     /* TERMINÉ — done / pasted / success */
+  --erreur:#B3261E;   /* error */
+
+  /* Semantic (theme-aware) */
+  --fond:var(--blanc);          /* page / window background */
+  --fond-2:var(--gris);         /* alt sections, sidebar, wells */
+  --fond-3:#ECECE8;             /* selected row (nav active), hover of secondary buttons */
+  --surface:var(--blanc);       /* cards, inputs */
+  --texte:var(--noir);          /* primary text */
+  --texte-sec:var(--texte-2);   /* secondary text */
+  --texte-3:#6E6E6A;            /* tertiary text, placeholders (5,1:1 — AA) */
+  --trait:var(--noir);          /* structural rule (2px) */
+  --fil:var(--gris-fil);        /* hairline separator (1px) */
+  --fil-fort:#C4C4BF;           /* outline of secondary buttons, segmented controls */
+  --champ:#949490;              /* input borders (3:1, WCAG 1.4.11) */
+  --vert-pt:#15803D;            /* green for small dots ≤ 10px on white (5:1) */
+  --inverse-fond:var(--encre);  /* primary button / dark band */
+  --inverse-texte:var(--blanc);
+  --sur-orange:var(--noir);     /* text on orange */
+  --sur-vert:var(--noir);       /* text on green */
+  --sur-bleu:var(--blanc);      /* text on blue */
+  --focus:var(--bleu);
+
+  /* State aliases */
+  --etat-enregistre:var(--orange);
+  --etat-traite:var(--bleu);
+  --etat-termine:var(--vert);
+  --etat-erreur:var(--erreur);
+  --etat-repos:var(--texte);
+
+  /* Type */
+  --police:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  --t-display:clamp(96px,16vw,240px); /* weight 900, stretch 70%, lh .78, ls -.055em */
+  --t-h1:44px;     /* 800, lh 1.04, ls -.03em */
+  --t-h2:40px;     /* 900, stretch 85%, lh .95, ls -.035em */
+  --t-h3:22px;     /* 800 */
+  --t-corps:15px;  /* 400/500, lh 1.55 */
+  --t-petit:13px;
+  --t-label:12px;  /* mono 500, UPPERCASE, ls .06em */
+  --t-micro:11px;
+
+  /* Space (4px base) */
+  --e-1:4px; --e-2:8px; --e-3:12px; --e-4:16px; --e-5:24px; --e-6:32px; --e-7:48px; --e-8:64px;
+
+  /* Shape & rules */
+  --rayon:0;
+  --trait-l:2px;          /* structural borders: cards, inputs, buttons, section ends */
+  --fil-l:1px;            /* internal separators */
+  --ombre-dure:8px 8px 0 var(--trait);  /* the only "shadow": hard offset, used once per screen max */
+  --ombre-dure-s:4px 4px 0 var(--trait);
+  --barre-h:8px;          /* colour bars */
+  --pastille:10px;        /* square status dot */
+
+  /* Controls */
+  --btn-h:46px; --btn-h-l:56px; --btn-h-s:36px;
+  --champ-h:46px;
+
+  /* Motion */
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --ease-rideau:cubic-bezier(.7,0,.15,1);   /* reveal / mask-up */
+  --ease-barre:cubic-bezier(.7,0,.2,1);     /* bar growth */
+  --ease-sortie:cubic-bezier(.16,1,.3,1);   /* entrées, indicateurs glissants */
+  --ease-ressort:cubic-bezier(.3,1.35,.5,1); /* interrupteurs / segments : léger dépassement */
+  --d-rapide:.15s; --d-moyen:.35s; --d-lent:.6s;
+  --d-1:120ms; --d-2:200ms; --d-3:320ms;    /* interface : 120–320 ms */
+
+  color-scheme:light dark;
+}
+
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fond:#1A1B1D;
+    --fond-2:#202124;
+    --fond-3:#2C2D31;
+    --surface:#25262A;
+    --texte:#ECECEA;
+    --texte-sec:#A3A3A0;
+    --texte-3:#8C8C88;
+    --trait:#D9D9D6;
+    --fil:#3A3B3E;
+    --fil-fort:#55565B;
+    --champ:#808186;
+    --vert-pt:var(--vert);
+    --inverse-fond:#ECECEA;
+    --inverse-texte:#1C1C1E;
+    --etat-repos:#ECECEA;
+    --erreur:#FF6B5E;
+    --etat-erreur:#FF6B5E;
+    --focus:#7C86FF;
+  }
+}
+:root[data-theme="dark"]{
+  --fond:#1A1B1D;
+  --fond-2:#202124;
+  --fond-3:#2C2D31;
+  --surface:#25262A;
+  --texte:#ECECEA;
+  --texte-sec:#A3A3A0;
+  --texte-3:#8C8C88;
+  --trait:#D9D9D6;
+  --fil:#3A3B3E;
+  --fil-fort:#55565B;
+  --champ:#808186;
+  --vert-pt:var(--vert);
+  --inverse-fond:#ECECEA;
+  --inverse-texte:#1C1C1E;
+  --etat-repos:#ECECEA;
+  --erreur:#FF6B5E;
+  --etat-erreur:#FF6B5E;
+  --focus:#7C86FF;
+}

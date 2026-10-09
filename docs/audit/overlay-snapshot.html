@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'unsafe-inline'; img-src data:">
+<title>CBW AI — Overlay</title>
+<!--
+  CBW AI — overlay d'état flottant (identité CBW Studio).
+  Fenêtre Electron recommandée : 520 x 64, transparente, sans cadre, alwaysOnTop,
+  focusable:false, setIgnoreMouseEvents(true). L'étiquette est centrée dans la fenêtre.
+
+  API :
+    window.setStatus({ state, message?, partialText?, level? })   // DictaStatus
+    window.setIdleMode('dim' | 'hidden')                          // défaut 'dim'
+  Aussi accepté : window.postMessage({ type: 'dicta-status', status }, '*')
+                  window.postMessage({ type: 'dicta-idle-mode', mode }, '*')
+                  window.postMessage({ type: 'dicta-accent', color }, '*')
+  Si un preload expose window.dicta.onStatus(cb), l'abonnement est automatique.
+  Paramètres d'URL : ?idle=hidden  ?accent=%23FF5A1F  (couleur d'enregistrement)
+-->
+<link rel="stylesheet" href="../../assets/fonts/fonts.css">
+<style>
+  :root {
+    /* Tokens CBW Studio */
+    --noir: #111111;
+    --gris: #F4F4F2;
+    --blanc: #FFFFFF;
+    --gris-fil: #DDDDDD;
+    --orange: #FF5A1F;
+    --bleu: #2B3BFF;
+    --vert: #1FD26A;
+    --erreur: #B3261E;
+    --accent: var(--orange);          /* enregistrement ; surchargeable par ?accent= */
+    --bleu-vif: #5A67FF;              /* bleu éclairci pour les barres sur fond noir */
+    --fil: rgba(255, 255, 255, 0.133);/* #ffffff22 */
+    --text: #FFFFFF;
+    --text-dim: rgba(255, 255, 255, 0.62);
+    --tag-h: 30px;
+    --ease: cubic-bezier(.2, .7, .2, 1);
+    --police: 'Archivo', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 500 13px/1 var(--police);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Étiquette ---------- */
+  #pill {
+    position: relative;
+    box-sizing: border-box;
+    height: var(--tag-h);
+    width: 40px;
+    border-radius: 0;
+    background: var(--noir);
+    border: 1px solid var(--fil);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.22);
+    overflow: hidden;
+    color: var(--text);
+    transition:
+      width 280ms var(--ease),
+      height 220ms var(--ease),
+      opacity 200ms var(--ease),
+      transform 240ms var(--ease),
+      border-color 200ms var(--ease);
+    will-change: width, transform, opacity;
+  }
+  .inner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: max-content;
+    display: flex;
+    align-items: center;
+    padding: 0 12px 0 11px;
+    transition: opacity 160ms var(--ease);
+  }
+
+  /* ---------- Idle : petite étiquette noire, trois carrés CBW ---------- */
+  .idle-mark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 160ms var(--ease);
+  }
+  .idle-mark i { display: block; width: 4px; height: 4px; }
+  .idle-mark i:nth-child(1) { background: var(--accent); }
+  .idle-mark i:nth-child(2) { background: var(--bleu-vif); }
+  .idle-mark i:nth-child(3) { background: var(--vert); }
+
+  #pill[data-state="idle"] {
+    width: 26px !important;
+    height: 12px;
+    opacity: 1;
+  }
+  #pill[data-state="idle"] .inner { opacity: 0; }
+  #pill[data-state="idle"] .idle-mark { opacity: 1; transition-delay: 120ms; }
+  html[data-idle="hidden"] #pill[data-state="idle"] {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  /* ---------- Barres (concept du logo) ---------- */
+  .bars {
+    width: 23px;               /* 5 barres de 3 px + 4 écarts de 2 px */
+    height: 16px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: transform 220ms var(--ease);
+  }
+  .bars i {
+    display: block;
+    width: 3px;
+    height: 3px;
+    background: var(--accent);
+    flex: none;
+    transition: background-color 200ms var(--ease), height 220ms var(--ease);
+  }
+  #pill[data-state="recording"] .bars i { transition: background-color 200ms var(--ease); } /* hauteur pilotée par rAF */
+
+  /* filet vertical 1px */
+  .rule {
+    width: 1px;
+    height: 14px;
+    margin: 0 10px;
+    background: var(--fil);
+    flex: none;
+  }
+
+  /* pastille carrée + libellé */
+  .mark {
+    width: 6px;
+    height: 6px;
+    margin-right: 8px;
+    flex: none;
+    background: var(--accent);
+    transition: background-color 200ms var(--ease);
+  }
+
+  .label {
+    display: flex;
+    justify-content: flex-end;     /* le débordement est rogné à gauche */
+    max-width: 380px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .label.overflow {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px);
+    mask-image: linear-gradient(to right, transparent 0, #000 28px);
+  }
+  .text {
+    display: inline-block;
+    white-space: nowrap;
+    color: var(--text);
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding-top: 1px;
+  }
+  /* texte live (partialText) : Archivo, casse normale */
+  .text.live {
+    font: 500 13px/1 var(--police);
+    letter-spacing: -0.005em;
+    text-transform: none;
+    padding-top: 0;
+  }
+  .text.dim { color: var(--text-dim); }
+  .text.swap { animation: swap 180ms var(--ease); }
+  @keyframes swap {
+    from { opacity: 0; transform: translateY(3px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ---------- Couleurs d'état ---------- */
+  #pill[data-state="transcribing"] .bars i,
+  #pill[data-state="cleaning"] .bars i,
+  #pill[data-state="inserting"] .bars i { background: var(--bleu-vif); }
+  #pill[data-state="transcribing"] .mark,
+  #pill[data-state="cleaning"] .mark,
+  #pill[data-state="inserting"] .mark { background: var(--bleu); box-shadow: 0 0 0 1px var(--bleu-vif) inset; }
+  #pill[data-state="done"] .bars i,
+  #pill[data-state="done"] .mark { background: var(--vert); }
+  #pill[data-state="error"] .bars i,
+  #pill[data-state="error"] .mark { background: var(--erreur); }
+  #pill[data-state="error"] { border-color: var(--erreur); }
+  #pill[data-state="error"] .mark { box-shadow: 0 0 0 1px #E0574D inset; }
+
+  /* ---------- Recording : hauteurs pilotées par JS ---------- */
+  #pill[data-state="recording"] .mark { animation: rec 1100ms steps(1, end) infinite; }
+  @keyframes rec { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  /* ---------- Transcribing : vague gauche → droite ---------- */
+  #pill[data-state="transcribing"] .bars i { animation: wave 960ms var(--ease) infinite; }
+  @keyframes wave {
+    0%, 100% { height: 3px;  opacity: 0.5; }
+    35%      { height: 13px; opacity: 1; }
+    70%      { height: 3px;  opacity: 0.5; }
+  }
+
+  /* ---------- Cleaning : respiration depuis le centre + reflet ---------- */
+  #pill[data-state="cleaning"] .bars i { animation: think 1400ms cubic-bezier(.45, 0, .55, 1) infinite; }
+  @keyframes think {
+    0%, 100% { height: 4px;  opacity: 0.55; }
+    50%      { height: 15px; opacity: 1; }
+  }
+  #pill[data-state="cleaning"] .text {
+    background: linear-gradient(90deg,
+      var(--text-dim) 0%, var(--text-dim) 35%,
+      #fff 50%,
+      var(--text-dim) 65%, var(--text-dim) 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 1600ms linear infinite;
+  }
+  @keyframes shimmer {
+    from { background-position: 100% 0; }
+    to   { background-position: -150% 0; }
+  }
+
+  /* ---------- Inserting : barres resserrées qui clignotent ---------- */
+  #pill[data-state="inserting"] .bars { transform: scaleX(0.6); }
+  #pill[data-state="inserting"] .bars i { height: 8px; animation: blink 500ms ease-in-out infinite alternate; }
+  @keyframes blink { from { opacity: 0.35; } to { opacity: 1; } }
+
+  /* ---------- Done : silhouette du logo, montée en cascade ---------- */
+  #pill[data-state="done"] .bars i { animation: rise 340ms var(--ease) both; }
+  #pill[data-state="done"] .bars i:nth-child(1),
+  #pill[data-state="done"] .bars i:nth-child(5) { height: 6px; }
+  #pill[data-state="done"] .bars i:nth-child(2),
+  #pill[data-state="done"] .bars i:nth-child(4) { height: 10px; }
+  #pill[data-state="done"] .bars i:nth-child(3) { height: 14px; }
+  @keyframes rise { from { transform: scaleY(0.2); } to { transform: none; } }
+
+  /* ---------- Error : barres à plat + secousse ---------- */
+  #pill[data-state="error"] .bars i { height: 3px; }
+  #pill[data-state="error"] .bars i:nth-child(3) { height: 10px; }
+  #pill[data-state="error"] { animation: shake 320ms var(--ease); }
+  @keyframes shake {
+    0%, 100% { translate: 0; }
+    20% { translate: -3px; }
+    40% { translate: 3px; }
+    60% { translate: -2px; }
+    80% { translate: 1px; }
+  }
+
+  /* ---------- Mouvement réduit ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    #pill, .bars, .bars i, .inner, .idle-mark, .mark { transition-duration: 1ms !important; }
+    #pill[data-state="error"] { animation: none; }
+    #pill[data-state="recording"] .mark { animation: none; }
+    #pill[data-state="done"] .bars i { animation: none; }
+    .text.swap { animation: none; }
+    #pill[data-state="transcribing"] .bars i,
+    #pill[data-state="cleaning"] .bars i,
+    #pill[data-state="inserting"] .bars i {
+      animation: soft 2400ms ease-in-out infinite alternate !important;
+      animation-delay: 0ms !important;
+    }
+    #pill[data-state="transcribing"] .bars i { height: 4px; }
+    #pill[data-state="cleaning"] .bars i { height: 9px; }
+    #pill[data-state="cleaning"] .text { animation: none; background: none; color: var(--text-dim); }
+    @keyframes soft { from { opacity: 0.45; } to { opacity: 0.9; } }
+  }
+</style>
+</head>
+<body>
+  <div id="pill" data-state="idle" role="status" aria-live="polite">
+    <div class="idle-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="inner">
+      <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="rule" aria-hidden="true"></div>
+      <div class="mark" aria-hidden="true"></div>
+      <div class="label"><span class="text"></span></div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  var LABELS = {
+    recording: 'Écoute',
+    transcribing: 'Transcription',
+    cleaning: 'Mise au propre',
+    inserting: 'Collage',
+    done: 'Collé',
+    error: 'Échec de la dictée'
+  };
+  var STATES = ['idle', 'recording', 'transcribing', 'cleaning', 'inserting', 'done', 'error'];
+
+  // Silhouette du logo : 240 / 400 / 560 / 400 / 240
+  var RATIOS = [240 / 560, 400 / 560, 1, 400 / 560, 240 / 560];
+  var REST_H = 10, PEAK_H = 16, BAR_MIN = 3;
+  var REST = RATIOS.map(function (r) { return Math.max(BAR_MIN, r * REST_H); }); // 4.3 / 7.1 / 10
+  var PEAK = RATIOS.map(function (r) { return PEAK_H * (0.6 + 0.4 * r); });      // 12.3 / 14.2 / 16
+  var SPEEDS = [5.1, 6.3, 4.4, 5.9, 6.6];
+  var PHASES = [0.0, 1.7, 3.1, 4.0, 5.2];
+
+  var root = document.documentElement;
+  var pill = document.getElementById('pill');
+  var inner = pill.querySelector('.inner');
+  var label = pill.querySelector('.label');
+  var text = pill.querySelector('.text');
+  var bars = Array.prototype.slice.call(pill.querySelectorAll('.bars i'));
+
+  var reduceMq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  function reduced() { return !!(reduceMq && reduceMq.matches); }
+
+  // Délais d'animation par barre
+  function setDelays(state) {
+    bars.forEach(function (b, i) {
+      var d = 0;
+      if (state === 'transcribing') d = i * 110;
+      else if (state === 'cleaning') d = Math.abs(i - 2) * 180;
+      else if (state === 'inserting') d = i * 70;
+      else if (state === 'done') d = i * 45;
+      b.style.animationDelay = d + 'ms';
+    });
+  }
+
+  // ---------- Boucle niveau micro ----------
+  var targetLevel = 0, smooth = 0, rafId = 0, t0 = 0;
+  function clamp01(x) { x = Number(x); return isFinite(x) ? Math.max(0, Math.min(1, x)) : 0; }
+
+  function frame(ts) {
+    if (!t0) t0 = ts;
+    var t = (ts - t0) / 1000;
+    var red = reduced();
+    // attaque rapide, relâchement lent
+    var k = targetLevel > smooth ? (red ? 0.2 : 0.45) : (red ? 0.06 : 0.12);
+    smooth += (targetLevel - smooth) * k;
+    var lv = Math.pow(smooth, 0.6); // courbe perceptuelle : voix faible visible
+    for (var i = 0; i < bars.length; i++) {
+      // silence : silhouette du logo qui respire ; voix : chaque barre vit sa vie
+      var jitter = red ? 1 : 0.62 + 0.38 * Math.sin(t * SPEEDS[i] + PHASES[i]);
+      var breath = red ? 1 : 0.92 + 0.08 * Math.sin(t * 2.4);
+      var v = Math.min(1, lv * jitter);
+      var h = REST[i] * breath + (PEAK[i] - REST[i]) * v;
+      bars[i].style.height = Math.max(BAR_MIN, h).toFixed(1) + 'px';
+    }
+    rafId = requestAnimationFrame(frame);
+  }
+  function startMeter() {
+    if (rafId) return;
+    t0 = 0;
+    rafId = requestAnimationFrame(frame);
+  }
+  function stopMeter() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    smooth = 0;
+    bars.forEach(function (b) { b.style.height = ''; });
+  }
+
+  // ---------- Largeur (mesurée : suit la police réellement chargée) ----------
+  function layout(state) {
+    if (state === 'idle') { pill.style.width = ''; return; }
+    var natural = text.scrollWidth;
+    var max = parseFloat(getComputedStyle(label).maxWidth) || 380;
+    label.classList.toggle('overflow', natural > max + 0.5);
+    pill.style.width = Math.ceil(inner.scrollWidth + 2) + 'px'; // +2 = bordures 1px
+  }
+
+  // ---------- API ----------
+  var current = { state: 'idle' };
+  var lastText = '';
+
+  function setStatus(status) {
+    if (!status || typeof status !== 'object') return;
+    var state = STATES.indexOf(status.state) >= 0 ? status.state : null;
+    if (!state) return;
+    var prev = current.state;
+    current = status;
+
+    // niveau micro
+    targetLevel = clamp01(status.level);
+
+    // libellé
+    var str = '', dim = false, live = false;
+    if (state === 'recording') {
+      var p = typeof status.partialText === 'string' ? status.partialText.replace(/\s+/g, ' ').trim() : '';
+      if (p) { str = p; live = true; } else { str = status.message || LABELS.recording; }
+    } else if (state !== 'idle') {
+      str = status.message || LABELS[state];
+      if (state === 'transcribing' || state === 'inserting') dim = true;
+    }
+    text.classList.toggle('live', live);
+    if (str !== lastText) {
+      var isPartialUpdate = state === 'recording' && prev === 'recording' && live;
+      text.textContent = str;
+      if (!isPartialUpdate && str) {
+        text.classList.remove('swap');
+        void text.offsetWidth; // relance l'animation
+        text.classList.add('swap');
+      }
+      lastText = str;
+    }
+    text.classList.toggle('dim', dim);
+
+    if (state !== prev) {
+      // relancer les animations CSS ponctuelles (secousse, montée)
+      if (state === 'error' || state === 'done') {
+        pill.style.animation = 'none';
+        void pill.offsetWidth;
+        pill.style.animation = '';
+      }
+      pill.setAttribute('data-state', state);
+      setDelays(state);
+      if (state === 'recording') startMeter(); else stopMeter();
+    }
+    pill.setAttribute('aria-label', state === 'idle' ? 'CBW AI prêt' : str);
+    layout(state);
+  }
+
+  function setIdleMode(mode) {
+    root.setAttribute('data-idle', mode === 'hidden' ? 'hidden' : 'dim');
+  }
+
+  window.setStatus = setStatus;
+  window.setIdleMode = setIdleMode;
+
+  window.addEventListener('message', function (e) {
+    var d = e && e.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'dicta-status') setStatus(d.status);
+    else if (d.type === 'dicta-idle-mode') setIdleMode(d.mode);
+    else if (d.type === 'dicta-accent' && typeof d.color === 'string') root.style.setProperty('--accent', d.color);
+  });
+
+  // Paramètres d'URL
+  try {
+    var q = new URLSearchParams(location.search);
+    setIdleMode(q.get('idle') || 'dim');
+    if (q.get('accent')) root.style.setProperty('--accent', q.get('accent'));
+  } catch (err) { setIdleMode('dim'); }
+
+  // Les polices hors ligne changent la largeur du libellé : on remesure une fois chargées.
+  if (document.fonts && document.fonts.load) {
+    var relayout = function () { layout(current.state); };
+    try {
+      document.fonts.addEventListener('loadingdone', relayout);
+      Promise.all([
+        document.fonts.load('500 11px "JetBrains Mono"', 'ÉCOUTE'),
+        document.fonts.load('500 13px "Archivo"', 'Écoute')
+      ]).then(relayout, relayout);
+    } catch (err) { /* polices système en repli */ }
+  }
+
+  // Abonnement automatique si un preload l'expose
+  if (window.dicta && typeof window.dicta.onStatus === 'function') {
+    window.dicta.onStatus(setStatus);
+  }
+
+  setStatus({ state: 'idle' });
+})();
+</script>
+</body>
+</html>

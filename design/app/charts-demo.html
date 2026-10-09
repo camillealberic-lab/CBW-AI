@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CBW AI · Graphiques</title>
+<link rel="stylesheet" href="../../assets/fonts/fonts.css">
+<link rel="stylesheet" href="../cbw/tokens.css">
+<style>
+  body{margin:0;background:var(--fond);color:var(--texte);font-family:var(--police)}
+  .page{max-width:1360px;margin:0 auto;padding:32px 40px 64px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:24px;flex-wrap:wrap}
+  .lab{font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--texte-sec)}
+  h1{margin:6px 0 0;font-size:44px;font-weight:900;font-stretch:85%;letter-spacing:-.035em;line-height:.95}
+  .tools{display:flex;gap:8px}
+  button{font:700 13px var(--police);min-height:36px;padding:0 14px;border:1px solid var(--trait);background:var(--surface);color:var(--texte);border-radius:0;cursor:pointer}
+  button[aria-pressed="true"]{background:var(--inverse-fond);color:var(--inverse-texte)}
+  button:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+  @media (max-width:700px){.page{padding:20px 16px 48px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div><div class="lab">01 · Accueil</div><h1>Tes chiffres</h1></div>
+    <div class="tools">
+      <button id="theme" type="button" aria-pressed="false">Thème sombre</button>
+      <button id="empty" type="button" aria-pressed="false">État vide</button>
+      <button id="replay" type="button">Rejouer</button>
+    </div>
+  </header>
+  <main id="home"></main>
+</div>
+<script src="charts.js"></script>
+<script>
+(function () {
+  function rnd(seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+  var r = rnd(42), daily = [], today = new Date(2026, 9, 8);
+  for (var i = 29; i >= 0; i--) {
+    var d = new Date(today); d.setDate(today.getDate() - i);
+    var wk = d.getDay() === 0 || d.getDay() === 6;
+    var trend = 0.55 + (29 - i) / 40;
+    var dict = (wk && r() < 0.5) || i === 22 ? 0 : Math.round((wk ? 3 : 9) * trend + r() * 8);
+    var words = Math.round(dict * (26 + r() * 22));
+    var iso = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    daily.push({ date: iso, words: words, dictations: dict, avgMs: dict ? Math.round(900 + r() * 700 - (29 - i) * 12) : 0 });
+  }
+  var words = daily.reduce(function (a, d) { return a + d.words; }, 0);
+  var dictations = daily.reduce(function (a, d) { return a + d.dictations; }, 0);
+  var full = {
+    words: words, dictations: dictations, wpm: 148, streakDays: 6, timeSavedMin: Math.round(words / 40 - words / 148),
+    daily: daily,
+    byProvider: { groq: Math.round(dictations * 0.46), gemini: Math.round(dictations * 0.22), ollama: Math.round(dictations * 0.14),
+      mistral: Math.round(dictations * 0.08), cloudflare: Math.round(dictations * 0.04), openrouter: Math.round(dictations * 0.03),
+      zai: Math.round(dictations * 0.02), passthrough: Math.round(dictations * 0.01) }
+  };
+  var empty = { words: 0, dictations: 0, wpm: 0, streakDays: 0, timeSavedMin: 0,
+    daily: daily.map(function (d) { return { date: d.date, words: 0, dictations: 0, avgMs: 0 }; }), byProvider: {} };
+
+  var q = new URLSearchParams(location.search);
+  var html = document.documentElement, home = document.getElementById('home');
+  var bTheme = document.getElementById('theme'), bEmpty = document.getElementById('empty');
+  var isEmpty = q.get('empty') === '1';
+  function isDark() {
+    var t = html.getAttribute('data-theme');
+    return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  function sync() { bTheme.setAttribute('aria-pressed', String(isDark())); bEmpty.setAttribute('aria-pressed', String(isEmpty)); }
+  if (q.get('theme')) html.setAttribute('data-theme', q.get('theme'));
+  function render() { CBWCharts.renderHome(home, isEmpty ? empty : full); sync(); }
+  bTheme.addEventListener('click', function () { html.setAttribute('data-theme', isDark() ? 'light' : 'dark'); sync(); });
+  bEmpty.addEventListener('click', function () { isEmpty = !isEmpty; render(); });
+  document.getElementById('replay').addEventListener('click', render);
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(render);
+})();
+</script>
+</body>
+</html>

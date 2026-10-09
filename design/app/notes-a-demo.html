@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline' file:; font-src 'self' file: data:; script-src 'self' 'unsafe-inline'; img-src data:">
+<title>CBW AI — Notes A v2 (démo)</title>
+<link rel="stylesheet" href="../../assets/fonts/fonts.css">
+<link rel="stylesheet" href="../cbw/tokens.css">
+<style>
+  :root{--encre:#1C1C1E;--fond-3:#ECECE8}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--encre:#F4F4F2;--fond-3:#2C2D31}}
+  :root[data-theme="dark"]{--encre:#F4F4F2;--fond-3:#2C2D31}
+  html,body{margin:0;height:100%;background:var(--fond)}
+  #demo-badge{position:fixed;top:10px;right:12px;z-index:40;font:500 11px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:4px 8px;background:var(--fond-2);color:var(--texte-sec)}
+</style>
+</head>
+<body>
+<div id="demo-badge">Mode démo</div>
+<main id="app"></main>
+<script src="notes.js"></script>
+<script>
+(function () {
+  var qs = new URLSearchParams(location.search);
+  if (qs.get('theme')) document.documentElement.dataset.theme = qs.get('theme');
+  var view = qs.get('view') || '';
+
+  var now = Date.now(), D = 864e5;
+  function iso(t) { return new Date(t).toISOString(); }
+  var MD1 = [
+    '# Réunion produit — refonte onboarding',
+    '',
+    'Point rapide avec l’équipe sur la **refonte de l’onboarding** : passer de 7 à 4 étapes sans perdre la vérification des autorisations.',
+    '',
+    '## Décisions',
+    '- Fusionner **Micro** et **Accessibilité** en un seul écran',
+    '- Le moteur IA sort du parcours obligatoire',
+    '  - proposé après le premier essai',
+    '  - un seul fournisseur recommandé (`groq`)',
+    '- Thème clair par défaut',
+    '',
+    '## À faire',
+    '- [x] Valider les maquettes avec Camille',
+    '- [ ] Réécrire les textes d’erreur (401, quota)',
+    '- [ ] Tester sur un Mac Intel',
+    '',
+    '### Questions ouvertes',
+    'Faut-il garder l’étape **Raccourci** séparée ? Les tests montrent que 3 personnes sur 5 la sautent.',
+    '',
+    '## Idées en vrac',
+    '1. Un préchargeur « jeu de couleur »',
+    '2. Les toasts en bas à droite',
+    '3. Un mode <b>sans</b> HTML injecté'
+  ].join('\n');
+  // Note v2 : comité projet de 52 min, 3 voix, avec segments horodatés
+  var SEG = [
+    ['00:04', 1, 'Bon, on est tous là ? Parfait. Merci d’avoir bloqué l’heure. L’objectif aujourd’hui c’est de figer la date de mise en ligne de la boutique, de valider le catalogue et de se mettre d’accord sur le budget du lancement.'],
+    ['00:31', 2, 'Oui, et j’aimerais qu’on parle aussi de la livraison, parce que j’ai encore eu deux casses la semaine dernière sur des envois Vinted, ça m’inquiète un peu pour la suite.'],
+    ['00:49', 1, 'Noté, on le met dans le point paiement et livraison. Thomas, tu peux nous dire où en est la technique ?'],
+    ['01:02', 3, 'Alors le thème est installé, les pages produits sont prêtes, il reste le tunnel de commande à tester et surtout l’import du catalogue. Tant que je n’ai pas les fiches finales, je ne peux pas faire la recette complète.'],
+    ['01:40', 1, 'D’accord. Je propose qu’on commence par le calendrier puisque tout en dépend.'],
+    ['03:42', 1, 'Donc aujourd’hui on vise le 21 octobre. Honnêtement, avec les photos qui ne sont pas encore faites, je trouve ça très serré.'],
+    ['04:10', 2, 'Le 21 c’était surtout pour être prêt avant le salon des métiers d’art, le 9 novembre. Si on décale de deux semaines on est encore bons, non ?'],
+    ['04:36', 3, 'Le 4 novembre ça me laisse une semaine de recette après réception des fiches. En dessous, je ne garantis rien sur le paiement.'],
+    ['05:05', 1, 'Le 4 novembre c’est un mardi, c’est un bon jour pour lancer. Et on garde cinq jours avant le salon pour corriger ce qui doit l’être.'],
+    ['05:31', 2, 'Ok pour le 4. Mais alors il faut que je sache exactement ce que vous attendez de moi d’ici là, parce que l’atelier tourne à plein en ce moment.'],
+    ['06:02', 1, 'Je te fais un rétroplanning à la fin de la réunion, avec une seule chose à faire par semaine de ton côté.'],
+    ['08:20', 3, 'Petit point bloquant quand même : le nom de domaine est toujours chez l’ancien prestataire. Il me faut le code de transfert, sinon on lance sur une adresse myshopify et ce n’est pas terrible.'],
+    ['08:44', 2, 'Je l’appelle demain, je crois que c’est mon beau-frère qui avait les accès.'],
+    ['11:27', 1, 'On passe au catalogue. Combien de pièces au lancement ?'],
+    ['11:39', 2, 'J’en ai quarante-huit prêtes. Des bols, des tasses, les grands plats bleus et la série de vases. Mais certaines pièces sont uniques, il n’y en a qu’un exemplaire.'],
+    ['12:15', 3, 'Pour les pièces uniques, Shopify gère très bien le stock à un. Par contre il faut une photo par pièce, on ne peut pas réutiliser la même pour toute la série.'],
+    ['12:48', 1, 'Ça me paraît beaucoup pour un lancement. Je proposerais plutôt trente pièces bien photographiées, et on garde les dix-huit autres pour une deuxième vague après le salon. Ça fait aussi une raison de recommuniquer.'],
+    ['13:30', 2, 'Hmm. J’aime l’idée de la deuxième vague. Mais je veux que les grands plats bleus soient dedans dès le début, c’est ce que les gens me demandent le plus.'],
+    ['13:55', 1, 'Évidemment, les plats bleus en tête. Tu me fais ta sélection de trente pour vendredi ?'],
+    ['14:09', 2, 'Vendredi oui.'],
+    ['15:20', 3, 'Pour les fiches produits, j’ai besoin pour chaque pièce : dimensions, poids, si ça passe au lave-vaisselle et au micro-ondes, et le prix. Le poids surtout, c’est lui qui calcule les frais de port.'],
+    ['15:58', 2, 'Le poids je l’ai pour les bols et les tasses, pas pour les vases. Je peux peser ce week-end.'],
+    ['16:40', 1, 'Et pour les textes, je peux écrire une base à partir de ce que tu racontes sur chaque série, tu relis juste. Tu n’as pas besoin de partir de zéro.'],
+    ['17:12', 2, 'Ça m’arrange. Par contre je ne veux pas de textes trop marketing, pas de « pièce d’exception » partout, ça ne me ressemble pas.'],
+    ['17:35', 1, 'Promis, ton ton à toi. Court, concret, la terre, la cuisson, l’usage.'],
+    ['18:30', 3, 'Pour les photos, le photographe peut venir quand ?'],
+    ['18:41', 1, 'Il propose le 22 ou le 23 octobre, une journée à l’atelier, lumière naturelle, fond lin. Je confirme le 22 si c’est bon pour toi.'],
+    ['19:02', 2, 'Le 22 c’est bon, je fais un four le 20, les pièces seront sorties.'],
+    ['19:52', 1, 'Paiement et livraison maintenant. Thomas, côté paiement ?'],
+    ['20:05', 3, 'Shopify Payments, carte, Apple Pay, Google Pay. J’ai mis PayPal en option, mais il prend une commission en plus. Je le laisserais quand même, une partie de la clientèle un peu plus âgée l’utilise beaucoup.'],
+    ['20:44', 2, 'Oui, garde PayPal. Ma clientèle sur les marchés, c’est plutôt cinquante ans et plus.'],
+    ['21:30', 2, 'Pour la livraison, je reviens sur les casses. Deux colis sur une dizaine, c’est énorme. Je ne peux pas me permettre ça sur des plats à quatre-vingt-dix euros.'],
+    ['22:06', 3, 'Colissimo avec assurance ad valorem, ça couvre la casse jusqu’à la valeur déclarée. Et il faudrait un vrai calage : carton double cannelure, papier froissé, pas de papier bulle seul.'],
+    ['22:41', 1, 'Je propose qu’on teste trois emballages avant le lancement. Tu t’envoies trois colis à toi-même, avec trois calages différents, et on garde celui qui arrive intact.'],
+    ['23:10', 2, 'C’est malin. Je peux faire ça la semaine prochaine.'],
+    ['24:25', 1, 'Et le retrait à l’atelier ? Pour la clientèle de Bordeaux, ça évite les frais de port et ça les fait venir chez toi.'],
+    ['24:49', 2, 'Le retrait oui, mais uniquement le samedi matin. Le reste de la semaine je suis au tour, je ne peux pas ouvrir la porte toutes les vingt minutes.'],
+    ['25:12', 3, 'Je peux mettre un créneau fixe, samedi de dix heures à midi, avec un message de confirmation automatique.'],
+    ['26:15', 1, 'Dernière chose sur ce point : la livraison gratuite. On met un seuil ?'],
+    ['26:30', 2, 'Gratuite à partir de quatre-vingts euros, ça me paraît bien.'],
+    ['26:52', 3, 'Attention, sur un grand plat lourd, l’envoi peut coûter quinze ou dix-huit euros. À quatre-vingts euros de panier tu perds pas mal de marge. Je mettrais plutôt cent vingt.'],
+    ['27:30', 1, 'On peut trancher sur cent euros, et on regarde les chiffres au bout d’un mois. C’est réversible.'],
+    ['27:44', 2, 'Cent euros, va pour cent.'],
+    ['28:12', 1, 'Le budget pub du lancement. J’avais chiffré six cents euros sur Instagram et Facebook, sur trois semaines, ciblés sur Bordeaux et la Gironde.'],
+    ['28:50', 2, 'Six cents c’est le maximum que je peux mettre ce trimestre. Et je ne suis pas sûr que la pub sur Instagram marche pour de la céramique à ce prix-là.'],
+    ['29:28', 1, 'C’est une vraie question. Je propose de couper en deux : trois cents en publicité ciblée, et trois cents pour une collaboration avec deux ou trois comptes locaux, des cafés ou des restaurants qui utilisent déjà tes pièces.'],
+    ['30:11', 2, 'Le café de la rue Notre-Dame sert dans mes tasses depuis deux ans. Ça, ça me plaît beaucoup plus qu’une pub.'],
+    ['30:40', 3, 'Côté technique, il faut que j’installe le pixel Meta et les événements de conversion avant de lancer quoi que ce soit, sinon on ne saura pas ce qui marche.'],
+    ['31:05', 1, 'Oui, c’est dans tes actions. Avant le 28 octobre si possible, pour qu’on puisse tester.'],
+    ['33:40', 2, 'Et on mesure comment si c’est rentable ? Je ne veux pas jeter trois cents euros.'],
+    ['34:02', 1, 'On regarde le coût par vente. Si une vente coûte plus de vingt euros en pub au bout de dix jours, on coupe et on bascule le reste sur les collaborations.'],
+    ['36:33', 1, 'La newsletter. Tu as combien de contacts aujourd’hui ?'],
+    ['36:45', 2, 'À peu près trois cent quarante adresses, récupérées sur les marchés et les ateliers d’initiation. Mais je ne leur ai jamais rien envoyé.'],
+    ['37:15', 3, 'Attention au consentement : si les gens ont donné leur mail pour un atelier, on ne peut pas forcément leur envoyer de la promo. Il faut un premier mail pour leur demander s’ils veulent rester.'],
+    ['37:52', 1, 'Bonne remarque. On fait un premier envoi très simple, deux semaines avant : « la boutique ouvre le 4 novembre, voulez-vous être prévenus ? ». Ça fait du teasing et ça nettoie la liste.'],
+    ['38:30', 2, 'Et sur Instagram ? Je poste quand j’ai le temps, donc pas souvent.'],
+    ['38:55', 1, 'Trois publications par semaine pendant le lancement, pas plus. Je te prépare un calendrier avec les visuels, tu n’as qu’à valider. Des vidéos du tour surtout, c’est ce qui fonctionne le mieux chez toi.'],
+    ['39:40', 2, 'Les vidéos je peux, je filme déjà un peu pour moi.'],
+    ['41:10', 3, 'Une question : est-ce qu’on ouvre les avis clients dès le lancement ? Une page produit sans avis, ce n’est pas grave, mais un seul avis négatif au début, ça se voit beaucoup.'],
+    ['41:44', 2, 'Je n’ai pas d’avis là-dessus. Faisons comme vous pensez.'],
+    ['42:01', 1, 'On laisse en suspens, je regarde ce que font d’autres céramistes et je reviens vers vous.'],
+    ['44:08', 1, 'Dernier point : le suivi après le lancement. Je propose un point de trente minutes chaque lundi pendant le premier mois.'],
+    ['44:30', 3, 'Ok pour moi. Je peux préparer un petit tableau : visites, taux de conversion, panier moyen, et les produits les plus vus.'],
+    ['45:05', 2, 'Et si quelque chose casse le week-end, par exemple le paiement, je fais quoi ?'],
+    ['45:20', 3, 'Tu m’envoies un SMS. Le premier mois, je regarde mes messages le week-end, c’est compris dans la mission.'],
+    ['46:12', 2, 'Et à partir de combien de ventes on considère que c’est un succès ? Pour moi, une vingtaine de commandes le premier mois, ce serait déjà bien.'],
+    ['46:40', 1, 'Vingt commandes c’est réaliste avec trente pièces et le salon derrière. On l’écrit comme objectif, et on regarde le panier moyen en plus.'],
+    ['49:32', 1, 'Je récapitule. Lancement le 4 novembre. Trente pièces au départ, plats bleus inclus. Colissimo assuré plus retrait le samedi matin. Livraison offerte dès cent euros. Six cents euros de lancement, moitié pub, moitié collaborations.'],
+    ['50:20', 2, 'C’est clair. Je m’occupe du nom de domaine demain, de la sélection vendredi et des colis tests la semaine prochaine.'],
+    ['50:44', 3, 'Et moi l’import du catalogue dès que j’ai le fichier, le pixel avant le 28, et la recette paiement la dernière semaine.'],
+    ['51:20', 1, 'Parfait, je vous envoie le compte rendu et le rétroplanning ce soir. Merci à tous.']
+  ];
+  function msOf(t) { var p = t.split(':'); return (+p[0] * 60 + +p[1]) * 1000; }
+  var SEGMENTS = SEG.map(function (s, i) {
+    var start = msOf(s[0]), next = SEG[i + 1] ? msOf(SEG[i + 1][0]) : 52 * 6e4 + 14e3;
+    return { startMs: start, endMs: next - 400, speaker: 'Personne ' + s[1], text: s[2] };
+  });
+  var TRANSCRIPT4 = SEG.map(function (s) { return '[' + s[0] + '] Personne ' + s[1] + ' : ' + s[2]; }).join('\n');
+  var MD4 = [
+    '# Comité projet — lancement de la boutique en ligne',
+    '',
+    '## En bref',
+    'La mise en ligne de la boutique de l’**Atelier Garonne** est repoussée au **4 novembre** pour laisser le temps de faire les photos et une vraie recette, cinq jours avant le salon des métiers d’art. Le lancement se fera avec **30 pièces** (plats bleus inclus), une seconde vague suivra après le salon. Budget de lancement : **600 €**, partagé entre publicité ciblée et collaborations locales.',
+    '',
+    '## Participants',
+    '- Personne 1 — cheffe de projet, anime la réunion',
+    '- Personne 2 — fondateur et céramiste de l’Atelier Garonne',
+    '- Personne 3 — développeur Shopify (freelance)',
+    '',
+    '## Sujets abordés',
+    '### Calendrier de mise en ligne',
+    '- La date du 21 octobre est jugée trop serrée, les photos n’étant pas faites — Personne 1',
+    '- Contrainte : être en ligne avant le salon des métiers d’art du 9 novembre — Personne 2',
+    '- Une semaine de recette est nécessaire après réception des fiches, sinon pas de garantie sur le paiement — Personne 3',
+    '- Le nom de domaine est encore chez l’ancien prestataire : le code de transfert est indispensable — Personne 3',
+    '',
+    '### Catalogue, fiches produits et photos',
+    '- 48 pièces prêtes, dont des pièces uniques (stock à 1, une photo par pièce) — Personne 2, Personne 3',
+    '- Proposition de lancer avec 30 pièces et de garder les 18 autres pour une deuxième vague après le salon — Personne 1',
+    '- Les grands plats bleus doivent être là dès le début : c’est la demande la plus fréquente — Personne 2',
+    '- Chaque fiche a besoin des dimensions, du poids (frais de port), de l’entretien et du prix — Personne 3',
+    '- Textes rédigés à partir des récits de l’artisan, ton sobre, pas de jargon marketing — Personne 1, Personne 2',
+    '- Séance photo à l’atelier le 22 octobre, lumière naturelle, fond lin',
+    '',
+    '### Paiement et livraison',
+    '- Shopify Payments (carte, Apple Pay, Google Pay) + PayPal conservé pour la clientèle plus âgée — Personne 3, Personne 2',
+    '- Deux casses sur une dizaine d’envois récents : sujet prioritaire — Personne 2',
+    '- Colissimo avec assurance ad valorem, carton double cannelure et calage papier — Personne 3',
+    '- Test de trois emballages en s’envoyant des colis avant le lancement — Personne 1',
+    '- Retrait à l’atelier uniquement le samedi de 10 h à 12 h — Personne 2',
+    '- Seuil de livraison offerte débattu : 80 € (Personne 2), 120 € (Personne 3) ; compromis à 100 €, revu au bout d’un mois',
+    '',
+    '### Budget du lancement',
+    '- 600 € maximum ce trimestre ; doute sur l’efficacité de la publicité Instagram pour ce prix de pièce — Personne 2',
+    '- Répartition proposée : 300 € de publicité ciblée Bordeaux / Gironde, 300 € de collaborations avec des lieux locaux — Personne 1',
+    '- Le café de la rue Notre-Dame utilise déjà les tasses depuis deux ans — Personne 2',
+    '- Pixel Meta et événements de conversion à installer avant toute campagne — Personne 3',
+    '- Règle d’arrêt : si une vente coûte plus de 20 € de publicité après 10 jours, on bascule tout sur les collaborations — Personne 1',
+    '',
+    '### Newsletter et réseaux sociaux',
+    '- Environ 340 contacts collectés sur les marchés et ateliers, jamais sollicités — Personne 2',
+    '- Consentement à vérifier : un premier mail doit demander l’accord avant toute promotion — Personne 3',
+    '- Envoi « la boutique ouvre le 4 novembre » deux semaines avant : teasing et nettoyage de la liste — Personne 1',
+    '- Instagram : trois publications par semaine pendant le lancement, surtout des vidéos du tour — Personne 1, Personne 2',
+    '',
+    '### Suivi après le lancement',
+    '- Point de 30 minutes chaque lundi pendant le premier mois — Personne 1',
+    '- Tableau de suivi : visites, conversion, panier moyen, produits les plus vus — Personne 3',
+    '- Astreinte par SMS le week-end pendant le premier mois — Personne 3',
+    '- Objectif : une vingtaine de commandes le premier mois — Personne 2',
+    '',
+    '## Décisions',
+    '- Mise en ligne le **mardi 4 novembre** (au lieu du 21 octobre)',
+    '- Lancement avec **30 pièces**, grands plats bleus inclus ; seconde vague de 18 pièces après le salon',
+    '- Colissimo avec assurance + retrait à l’atelier le samedi de 10 h à 12 h',
+    '- Livraison offerte à partir de **100 €**, à réévaluer après un mois',
+    '- Budget de **600 €** : 300 € de publicité, 300 € de collaborations locales',
+    '',
+    '## Actions',
+    '- [ ] Personne 2 — récupérer le code de transfert du nom de domaine — demain',
+    '- [ ] Personne 2 — choisir les 30 pièces du lancement — vendredi',
+    '- [ ] Personne 2 — peser les vases et compléter les poids',
+    '- [ ] Personne 2 — envoyer trois colis tests avec trois calages — semaine prochaine',
+    '- [ ] Personne 1 — envoyer le compte rendu et le rétroplanning — ce soir',
+    '- [x] Personne 1 — réserver le photographe pour le 22 octobre',
+    '- [ ] Personne 1 — rédiger la base des fiches produits à partir des récits',
+    '- [ ] Personne 1 — préparer le calendrier Instagram et le mail de consentement',
+    '- [ ] Personne 3 — importer le catalogue dès réception du fichier',
+    '- [ ] Personne 3 — installer le pixel Meta et les conversions — avant le 28 octobre',
+    '- [ ] Personne 3 — recette complète du tunnel de paiement — semaine du 27 octobre',
+    '',
+    '## Questions ouvertes',
+    '- Ouvre-t-on les avis clients dès le lancement ou après les premières ventes ?',
+    '- Quels comptes locaux, au-delà du café de la rue Notre-Dame, pour les collaborations ?',
+    '- Faut-il ajouter une option de livraison express pour les pièces offertes à Noël ?',
+    '',
+    '## Par personne',
+    '### Personne 1',
+    '- **Positions** : la date du 21 octobre est irréaliste ; mieux vaut un catalogue réduit mais bien photographié',
+    '- **Propositions** : 30 pièces puis une deuxième vague ; test de trois emballages ; budget coupé en deux avec règle d’arrêt à 20 € par vente ; mail de consentement en teasing',
+    '- **Engagements** : compte rendu et rétroplanning ce soir, textes des fiches, calendrier Instagram, point hebdomadaire',
+    '',
+    '### Personne 2',
+    '- **Positions** : priorité au salon du 9 novembre ; les plats bleus dès le lancement ; pas de ton « marketing » ; méfiance envers la publicité Instagram',
+    '- **Propositions** : livraison offerte à 80 € ; collaboration avec le café de la rue Notre-Dame',
+    '- **Engagements** : nom de domaine, sélection des 30 pièces, pesée, colis tests, vidéos du tour',
+    '',
+    '### Personne 3',
+    '- **Positions** : une semaine de recette minimum ; consentement obligatoire avant tout envoi promotionnel ; prudence sur les avis clients',
+    '- **Propositions** : Colissimo assuré, carton double cannelure ; seuil de livraison offerte à 120 € ; tableau de suivi hebdomadaire',
+    '- **Engagements** : import du catalogue, pixel Meta avant le 28 octobre, recette paiement, astreinte SMS le premier mois',
+    '',
+    '## Chronologie',
+    '- 00:04 — Tour de table et objectifs de la réunion',
+    '- 03:42 — Calendrier : la mise en ligne passe au 4 novembre',
+    '- 08:20 — Nom de domaine bloqué chez l’ancien prestataire',
+    '- 11:27 — Catalogue : 30 pièces au lancement, fiches et photos',
+    '- 19:52 — Paiement, livraison et casse des colis',
+    '- 26:15 — Seuil de livraison offerte fixé à 100 €',
+    '- 28:12 — Budget du lancement : publicité et collaborations',
+    '- 36:33 — Newsletter, consentement et Instagram',
+    '- 41:10 — Avis clients (question laissée ouverte)',
+    '- 44:08 — Suivi après le lancement et objectif de 20 commandes',
+    '- 49:32 — Récapitulatif et répartition des actions'
+  ].join('\n');
+  var notes = [
+    { meta: { id: 'n4', title: 'Comité projet — lancement de la boutique en ligne', createdAt: iso(now - 1 * 36e5), durationMs: 52 * 6e4 + 14e3, words: 7412, path: '~/Documents/CBW AI/Notes/2026-10-08 13h40 — Comité projet boutique en ligne.md', provider: 'groq' },
+      markdown: MD4, transcript: TRANSCRIPT4, segments: SEGMENTS },
+    { meta: { id: 'n3', title: 'Réunion produit — refonte onboarding', createdAt: iso(now - 2 * 36e5), durationMs: 14 * 6e4 + 12e3, words: 2140, path: '~/Documents/CBW AI/Notes/2026-10-08 12h32 — Réunion produit.md', provider: 'groq' }, markdown: MD1,
+      transcript: 'Bon alors on fait le point sur la refonte de l’onboarding, l’idée c’est de passer de sept à quatre étapes euh sans perdre la vérification des autorisations… <scr' + 'ipt>alert(1)</scr' + 'ipt> on fusionne micro et accessibilité.' },
+    { meta: { id: 'n2', title: 'Idées article « dicter plutôt qu’écrire »', createdAt: iso(now - 1 * D - 5 * 36e5), durationMs: 9 * 6e4 + 41e3, words: 1312, path: '~/Documents/CBW AI/Notes/2026-10-07 09h14 — Idées article.md', provider: 'ollama' },
+      markdown: '# Idées article « dicter plutôt qu’écrire »\n\n## Angle\nOn pense plus vite qu’on ne tape : **3× plus vite** à l’oral.\n\n## Plan\n- Accroche : la page blanche\n- Le coût caché du clavier\n- Démo CBW\n', transcript: 'Alors pour l’article, l’angle principal…' },
+    { meta: { id: 'n1', title: 'Note récupérée du 2 oct.', createdAt: iso(now - 6 * D), durationMs: 31 * 6e4 + 5e3, words: 4518, path: '~/Documents/CBW AI/Notes/2026-10-02 16h05 — Note récupérée.md', provider: 'passthrough' },
+      markdown: 'Bon on reprend la liste des fournisseurs, groq marche bien, mistral un peu plus lent, il faudrait tester cloudflare demain…', transcript: 'Bon on reprend la liste des fournisseurs, groq marche bien, mistral un peu plus lent, il faudrait tester cloudflare demain…' }
+  ];
+  if (view === 'empty') notes = [];
+
+  var cbs = [], sim = null;
+  function emit(p) { cbs.forEach(function (cb) { cb(p); }); }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function find(id) { return notes.filter(function (n) { return n.meta.id === id; })[0]; }
+
+  function runSession(startMs) {
+    sim = { elapsed: startMs || 0, words: Math.round((startMs || 0) / 1000 * 2.4), paused: false, last: Date.now() };
+    sim.timer = setInterval(function () {
+      var t = Date.now(), dt = t - sim.last; sim.last = t;
+      if (!sim.paused) { sim.elapsed += dt; if (Math.random() < .5) sim.words += Math.round(Math.random() * 3); }
+      var talk = Math.sin(t / 700) > -.3;
+      emit({ state: sim.paused ? 'paused' : 'recording', elapsedMs: sim.elapsed, words: sim.words, level: sim.paused ? 0 : (talk ? .35 + Math.random() * .6 : Math.random() * .08) });
+    }, 120);
+  }
+  function process(base, id) {
+    emit({ state: 'transcribing', elapsedMs: base.elapsedMs, words: base.words });
+    return wait(1600).then(function () {
+      var s = 0;
+      return (function step() {
+        s++; emit({ state: 'organizing', step: s, total: 3, elapsedMs: base.elapsedMs, words: base.words });
+        return wait(900).then(function () { if (s < 3) return step(); });
+      })();
+    }).then(function () {
+      if (!id) {
+        id = 'n' + (notes.length + 10);
+        notes.unshift({ meta: { id: id, title: 'Note du ' + new Date().getDate() + ' oct. — démo', createdAt: iso(Date.now()), durationMs: base.elapsedMs, words: base.words, path: '~/Documents/CBW AI/Notes/démo.md', provider: 'groq' },
+          markdown: '# Note démo\n\n## Résumé\nSession simulée de **' + Math.round(base.elapsedMs / 1000) + ' s**.\n\n## À faire\n- [ ] Brancher le vrai pont\n- [x] Simuler la session\n', transcript: 'Transcription simulée de la session.' });
+      }
+      emit({ state: 'done', elapsedMs: base.elapsedMs, words: base.words, noteId: id });
+    });
+  }
+
+  var api = {
+    onNoteProgress: function (cb) { cbs.push(cb); },
+    listNotes: function () { return wait(120).then(function () { return notes.map(function (n) { return n.meta; }); }); },
+    getNote: function (id) { return wait(80).then(function () { var n = find(id); if (!n) throw new Error('Note introuvable'); return n; }); },
+    startNote: function () { runSession(0); return Promise.resolve(); },
+    pauseNote: function () { if (sim) sim.paused = true; return Promise.resolve(); },
+    resumeNote: function () { if (sim) { sim.paused = false; sim.last = Date.now(); } return Promise.resolve(); },
+    stopNote: function () { if (!sim) return Promise.resolve(); clearInterval(sim.timer); var b = { elapsedMs: sim.elapsed, words: sim.words }; sim = null; process(b); return Promise.resolve(); },
+    cancelNote: function () { if (sim) clearInterval(sim.timer); sim = null; return Promise.resolve(); },
+    reorganizeNote: function (id) { var n = find(id); return process({ elapsedMs: n.meta.durationMs, words: n.meta.words }, id).then(function () { n.meta.provider = 'groq'; }); },
+    deleteNote: function (id) { notes = notes.filter(function (n) { return n.meta.id !== id; }); return Promise.resolve(); },
+    revealNote: function () { return Promise.resolve(); },
+    copyNote: function () { return Promise.resolve(); },
+    // Notes v2 : remplace le nom partout (note, transcription, segments)
+    renameSpeaker: function (id, from, to) {
+      return wait(140).then(function () {
+        var n = find(id); if (!n) throw new Error('Note introuvable');
+        var re = new RegExp('(^|[^\\wÀ-ɏ])' + String(from).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\wÀ-ɏ])', 'g');
+        function r(s) { return String(s || '').replace(re, function (_, p) { return p + to; }); }
+        n.markdown = r(n.markdown); n.transcript = r(n.transcript);
+        if (n.segments) n.segments = n.segments.map(function (s) { return Object.assign({}, s, { speaker: s.speaker === from ? to : s.speaker }); });
+        n = Object.assign({}, n); notes = notes.map(function (x) { return x.meta.id === id ? n : x; });
+      });
+    }
+  };
+  if (view === 'off') api = {};
+  window.__notesDemo = { api: api, emit: emit, runSession: runSession };
+
+  var noteId = (/^#notes:(.+)$/.exec(location.hash) || [])[1] || ((view === 'note' || view === 'full' || view === 'delete' || view === 'rename') ? (qs.get('id') || 'n4') : null);
+  var inst = window.CBWNotes.mount(document.getElementById('app'), {
+    api: api, noteId: noteId,
+    navigate: function (h) { history.replaceState(null, '', location.pathname + location.search + h); }
+  });
+
+  // Review shortcuts (screenshots): ?view=note|full|rename|session|marks|paused|processing|organizing|modal|delete  (&tab=res|pp|da|tr|ch, &q=recherche, &toc=3)
+  var tab = qs.get('tab');
+  if (tab || view === 'rename') setTimeout(function () {
+    var t = document.querySelector('[data-tab="' + (tab || 'res') + '"]'); if (t) t.click();
+    if (qs.get('q')) { var i = document.querySelector('[data-act="tq"]'); if (i) { i.value = qs.get('q'); i.dispatchEvent(new Event('input', { bubbles: true })); } }
+    if (qs.get('toc')) { var a = document.querySelectorAll('[data-act="toc"]')[+qs.get('toc') - 1]; if (a) a.click(); }
+    if (view === 'rename') setTimeout(function () {
+      var c = document.querySelector('.na-pane [data-act="spk"]'); if (!c) return;
+      c.click(); var inp = document.querySelector('[data-act="spkin"]'); if (inp) { inp.value = qs.get('to') || 'Camille'; }
+      if (qs.get('commit')) inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    }, 300);
+  }, view === 'full' ? 700 : 400);
+  if (view === 'session' || view === 'paused' || view === 'modal') {
+    runSession(qs.get('ms') ? +qs.get('ms') : 754e3);
+    if (view === 'paused') sim.paused = true;
+    if (view === 'modal') setTimeout(function () { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); }, 400);
+  } else if (view === 'processing') {
+    emit({ state: 'transcribing', elapsedMs: 754e3, words: 1820 });
+  } else if (view === 'organizing') {
+    emit({ state: 'organizing', step: 2, total: 3, elapsedMs: 754e3, words: 1820 });
+  } else if (view === 'full') {
+    setTimeout(function () { var b = document.querySelector('[data-act="full"]'); if (b) b.click(); }, 300);
+  } else if (view === 'marks') {
+    runSession(754e3);
+    setTimeout(function () { var t = document.querySelector('[data-act="title"]'); if (t) { t.value = 'Point hebdo produit'; t.dispatchEvent(new Event('input', { bubbles: true })); } var m = document.querySelector('[data-act="mark"]'); ['Décision : fusion Micro + Accessibilité', 'Relancer Camille sur les maquettes'].forEach(function (v) { m.value = v; m.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }); m.blur(); }, 300);
+  } else if (view === 'delete') {
+    setTimeout(function () { var b = document.querySelector('[data-act="del"]'); if (b) b.click(); }, 400);
+  }
+})();
+</script>
+</body>
+</html>

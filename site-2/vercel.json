@@ -1,0 +1,51 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . || exit 1",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    {
+      "source": "/download",
+      "destination": "https://github.com/camillealberic-lab/CBW-AI/releases/latest/download/CBW-AI-arm64.dmg",
+      "permanent": false
+    },
+    {
+      "source": "/download/latest.json",
+      "destination": "https://github.com/camillealberic-lab/CBW-AI/releases/latest/download/latest.json",
+      "permanent": false
+    },
+    {
+      "source": "/releases",
+      "destination": "https://github.com/camillealberic-lab/CBW-AI/releases",
+      "permanent": false
+    }
+  ],
+  "headers": [
+    {
+      "source": "/fonts/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ]
+}

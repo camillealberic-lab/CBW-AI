@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CBW AI — Dictée vocale gratuite pour Mac</title>
+<meta name="description" content="Parle, CBW AI écrit à ta place, déjà propre, dans n'importe quelle app. Notes de réunion complètes et brainstorm vocal vers master prompt. Transcription locale, gratuit, pour Mac Apple Silicon.">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1A1B1D" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="CBW AI — Parle. C'est écrit.">
+<meta property="og:description" content="Dictée vocale gratuite pour Mac : ta voix, nettoyée et collée partout. Par CBW Studio.">
+<meta property="og:type" content="website">
+<link rel="icon" href="img/logo.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/Archivo-latin.var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+<script>document.documentElement.classList.add('js')</script>
+</head>
+<body>
+<a class="skip" href="#main">Aller au contenu</a>
+
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="CBW AI, accueil">
+      <img src="img/logo.svg" alt="" width="34" height="34">
+      <span class="wordmark">CBW <span>AI</span></span>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a class="hide-s" href="#comment">Comment ça marche</a>
+      <a class="hide-s" href="#confidentialite">Confidentialité</a>
+      <a class="hide-s" href="#faq">FAQ</a>
+      <a class="hide-xs" href="/aide">Aide</a>
+      <!-- TODO: remplacer OWNER/REPO par le dépôt GitHub réel -->
+      <a class="btn btn-s js-dl" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">Télécharger<span class="long sr"> pour macOS</span></a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============ HERO ============ -->
+<section class="hero" aria-labelledby="h-hero">
+  <div class="wrap">
+    <p class="label"><i class="o"></i>Dictée vocale gratuite pour Mac</p>
+    <h1 class="h1" id="h-hero"><span class="line"><span>Parle.</span></span><span class="line"><span>C'est écrit<span class="acc">.</span></span></span></h1>
+
+    <div class="hero-sub">
+      <p class="lead">La dictée vocale gratuite pour Mac. Appuie deux fois sur <kbd>⌃ Control</kbd> et parle : CBW AI enlève les « euh », les répétitions et les hésitations, puis <strong>colle un texte propre là où est ton curseur</strong>, dans toutes tes apps.</p>
+      <div class="hero-cta">
+        <div class="cta-row">
+          <!-- TODO: remplacer OWNER/REPO par le dépôt GitHub réel -->
+          <a class="btn btn-p btn-l js-dl" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">Télécharger pour macOS <span class="arr" aria-hidden="true">→</span></a>
+          <a class="btn-t" href="#comment">Voir comment ça marche ↓</a>
+        </div>
+        <p class="meta"><b>Gratuit</b> · macOS 14+ · Apple Silicon (M1 et +) · 117 Mo</p>
+      </div>
+    </div>
+
+    <!-- Product demo (decorative; the same content is described in text below) -->
+    <figure class="demo" aria-label="Démonstration : une phrase dictée avec hésitations devient « Je veux quatre boutons. »">
+      <div class="demo-bar">
+        <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="label">Messages — Projet site</span>
+        <span class="kbdhint" aria-hidden="true"><kbd class="k1">⌃</kbd><kbd class="k2">⌃</kbd></span>
+      </div>
+      <div class="demo-body">
+        <div class="demo-side" aria-hidden="true">
+          <span>Boîte de réception</span><span class="cur">Projet site</span><span>Lucas — design</span><span>Équipe</span>
+        </div>
+        <div class="demo-main">
+          <div class="field" aria-hidden="true">À <b>Lucas</b></div>
+          <div class="compose">
+            <p class="before" aria-hidden="true">Salut Lucas, pour la page d'accueil :</p>
+            <p>
+              <span class="raw" id="raw" aria-hidden="true"></span>
+              <span class="clean" id="clean">Je veux quatre boutons.</span><span class="caret" id="caret" aria-hidden="true"></span>
+            </p>
+          </div>
+          <div class="demo-foot" aria-hidden="true">
+            <span class="label" id="demoNote">Ta voix est transcrite sur ton Mac</span>
+            <span class="tags" id="tags"><span class="tag o">hésitation retirée</span><span class="tag v">correction appliquée</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="pill" id="pill" data-s="idle" aria-hidden="true">
+        <span class="bars"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="sep"></span><span class="dot"></span>
+        <span class="txt" id="pillTxt">PRÊT</span>
+      </div>
+    </figure>
+    <div class="demo-cap" aria-hidden="true">
+      <span class="o" data-c="rec"><i></i>Écoute</span>
+      <span class="b" data-c="ai"><i></i>Mise au propre</span>
+      <span class="v" data-c="done"><i></i>Collé</span>
+    </div>
+  </div>
+
+  <div class="apps">
+    <div class="wrap">
+      <span class="label">Marche partout où tu tapes</span>
+      <ul>
+        <li>Mail</li><li>Gmail</li><li>Slack</li><li>Notion</li><li>Word</li><li>WhatsApp</li><li>ChatGPT</li><li>Claude</li><li>Cursor</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOW ============ -->
+<section class="sec" id="comment" aria-labelledby="h-how">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="label"><i></i>Comment ça marche</p>
+      <h2 class="h2 rv" id="h-how">Trois gestes.<br>Zéro réglage.</h2>
+      <p class="lead rv">Pas de fenêtre à ouvrir, pas de bouton à chercher : CBW AI vit dans ta barre de menus. Au clavier, on tape environ 40 mots par minute ; à la voix, on en dit plus de 150.</p>
+    </div>
+    <div class="colorbars" aria-hidden="true"><i></i><i></i><i></i></div>
+    <ol class="steps">
+      <li class="step rv">
+        <span class="label"><i class="o"></i>Étape</span>
+        <span class="n">01</span>
+        <h3 class="h3">Appuie deux fois sur Control</h3>
+        <p>Où que soit ton curseur. Une petite pastille apparaît en bas de l'écran : les barres orange, c'est qu'on t'écoute.</p>
+        <span class="kbds"><kbd>⌃</kbd><kbd>⌃</kbd> Control gauche</span>
+      </li>
+      <li class="step rv">
+        <span class="label"><i class="b"></i>Étape</span>
+        <span class="n">02</span>
+        <h3 class="h3">Parle normalement</h3>
+        <p>Hésite, reprends-toi, change d'avis : c'est normal. Pas besoin de dicter la ponctuation.</p>
+        <span class="kbds">« trois, enfin non quatre »</span>
+      </li>
+      <li class="step rv">
+        <span class="label"><i class="v"></i>Étape</span>
+        <span class="n">03</span>
+        <h3 class="h3">Le texte apparaît, propre</h3>
+        <p>Un appui sur Control pour arrêter. Ponctué, sans les « euh », là où se trouve ton curseur.</p>
+        <span class="kbds"><kbd>⌃</kbd> pour arrêter · <kbd>Échap</kbd> pour annuler</span>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============ FEATURES ============ -->
+<section class="sec" id="fonctions" aria-labelledby="h-feat" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="label"><i></i>Trois outils, une touche</p>
+      <h2 class="h2 rv" id="h-feat">Dicte. Note.<br>Brainstorme.</h2>
+      <p class="lead rv">Un correcteur de parole, pas un rédacteur : CBW AI n'invente rien, ne reformule pas tes idées et ne répond jamais à ce que tu dictes.</p>
+    </div>
+
+    <div class="feats">
+      <!-- Dictée -->
+      <article class="feat" aria-labelledby="f1">
+        <div class="feat-txt rv">
+          <span class="label"><i class="o"></i>01 · Dictée</span>
+          <h3 class="h2" id="f1">Ta voix, sans les « euh ».</h3>
+          <p>Fillers, répétitions, auto-corrections : tout ce qui rend une phrase dite pénible à lire disparaît. Le sens, lui, reste exactement le tien.</p>
+          <ul style="--c:var(--orange)">
+            <li>Colle dans l'app active, quelle qu'elle soit</li>
+            <li>Maintiens Control pour une phrase courte</li>
+            <li>Dictionnaire pour tes noms propres</li>
+          </ul>
+          <span class="gesture"><kbd>⌃</kbd><kbd>⌃</kbd> dicter · maintenir pour parler</span>
+        </div>
+        <div class="panel rv">
+          <div class="panel-h"><span class="label"><i class="o"></i>Avant / après</span><span class="badge v">COLLÉ</span></div>
+          <div class="ba">
+            <div><span class="label">Tu dis</span><p class="said">« Euh bonjour Claire, alors je voulais savoir si <s>si</s> on peut décaler le rendez-vous à <s>jeudi, enfin non</s> vendredi »</p></div>
+            <div><span class="label">CBW AI écrit</span><p class="wrote">Bonjour Claire, je voulais savoir si on peut décaler le rendez-vous à vendredi.</p></div>
+            <div><span class="label">Tu dis</span><p class="said">« Alors le devis c'est euh <s>trois cents euros, non pardon,</s> trois cent cinquante euros hors taxes »</p></div>
+            <div><span class="label">CBW AI écrit</span><p class="wrote">Le devis est de trois cent cinquante euros hors taxes.</p></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Notes -->
+      <article class="feat" aria-labelledby="f2">
+        <div class="feat-txt rv">
+          <span class="label"><i class="b"></i>02 · Prise de notes</span>
+          <h3 class="h2" id="f2">La réunion entière. Qui a dit quoi.</h3>
+          <p>Lance une note et parle, ou laisse tourner pendant un appel. CBW AI rédige un compte rendu exhaustif : décisions, objections, engagements, chacun attribué à la bonne personne.</p>
+          <ul style="--c:var(--bleu)">
+            <li>Aussi long que tu veux, sans placer ton curseur</li>
+            <li>Attribution par personne, jamais de supposition</li>
+            <li>Fichiers Markdown dans Documents › CBW AI</li>
+          </ul>
+          <span class="gesture"><kbd>⌃</kbd><kbd>⌃</kbd><kbd>⌃</kbd> démarrer une note</span>
+        </div>
+        <div class="panel rv">
+          <div class="panel-h"><span class="label"><i class="b"></i>Compte rendu</span><span class="label mono">42:18 · 6 812 mots</span></div>
+          <div class="panel-b report">
+            <h4>Point refonte du site</h4>
+            <p class="when">MAR. 8 OCT. · 3 PARTICIPANTS</p>
+            <h5>Décisions</h5>
+            <ul>
+              <li>La page d'accueil garde un seul bouton principal. <span class="who">Moi</span></li>
+              <li>Mise en ligne repoussée au 21 octobre. <span class="who">Personne 2 (Julie)</span></li>
+            </ul>
+            <h5>Objections</h5>
+            <ul>
+              <li>Le formulaire de contact est trop long pour le mobile. <span class="who">Personne 3</span></li>
+            </ul>
+            <h5>Engagements</h5>
+            <ul>
+              <li class="task">Envoyer les maquettes mobiles <span class="who">Julie · ven.</span></li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- Brainstorm -->
+      <article class="feat" aria-labelledby="f3">
+        <div class="feat-txt rv">
+          <span class="label"><i class="v"></i>03 · Brainstorm</span>
+          <h3 class="h2" id="f3">Une idée floue. Un master prompt.</h3>
+          <p>Vide ton idée à voix haute. CBW AI te pose les bonnes questions, puis assemble un prompt structuré, prêt à coller dans Claude Code, Cursor ou ChatGPT.</p>
+          <ul style="--c:var(--vert-pt)">
+            <li>Questions en direct, l'IA ne décide pas à ta place</li>
+            <li>Structure CRAFT : contexte, rôle, action, format, cible</li>
+            <li>Contraintes, critères de réussite, points ouverts</li>
+          </ul>
+          <span class="gesture">Barre de menus › Brainstorm</span>
+        </div>
+        <div class="panel rv">
+          <div class="panel-h"><span class="label"><i class="v"></i>Master prompt</span><span class="badge b">IA</span></div>
+          <div class="bubbles">
+            <p class="bubble me">… une app de réservation pour mon salon, simple, pas une usine à gaz.</p>
+            <p class="bubble"><small>Question</small>Qui réserve : tes clients seuls, ou ton équipe aussi ?</p>
+          </div>
+          <div class="craft" aria-hidden="true"><span>C</span><span>R</span><span>A</span><span>F</span><span>T</span></div>
+          <div class="panel-b">
+<pre class="prompt"><span class="k">## Contexte</span>
+Salon de coiffure, 3 employés. Réservations par téléphone aujourd'hui.
+<span class="k">## Rôle</span>
+Développeur full-stack senior, attentif à la simplicité.
+<span class="k">## Action</span>
+Construis une app web de réservation : créneaux, rappel SMS, vue équipe.
+<span class="k">## Contraintes</span>
+Pas de paiement en ligne en V1. Mobile d'abord.
+<span class="k">## Points ouverts</span>
+Annulation tardive : pénalité ou non ?</pre>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRIVACY / FREE ============ -->
+<section class="sec free" id="confidentialite" aria-labelledby="h-free">
+  <div class="wrap free-grid">
+    <div class="rv">
+      <p class="label" style="margin-bottom:28px"><i class="v"></i>Gratuit, vraiment</p>
+      <p class="zero" aria-hidden="true">0<span>€</span></p>
+      <h3 class="h3 zero-cap" id="h-free">Gratuit. Pas d'abonnement, pas de compte, pas de carte bancaire.</h3>
+      <p class="zero-cap" style="margin-top:12px">CBW AI utilise des moteurs IA qui offrent un accès gratuit. Tu crées ta propre clé gratuite en 2 minutes, on te guide. Aucun plafond fixé par CBW AI : si un moteur atteint sa limite du jour, l'app passe au suivant.</p>
+    </div>
+    <div>
+      <h2 class="h2 rv" style="font-size:clamp(36px,4.2vw,60px);margin-bottom:32px">Ta voix reste<br>sur ton Mac.</h2>
+      <div class="facts">
+        <div class="fact rv"><span class="label"><i class="o"></i>Voix</span><h3 class="h3">Ta voix ne quitte jamais ton Mac</h3><p>Whisper transcrit en local. Aucun enregistrement audio n'est envoyé ni conservé.</p></div>
+        <div class="fact rv"><span class="label"><i class="b"></i>Texte</span><h3 class="h3">Seul le texte part, s'il le faut</h3><p>Pour le nettoyage, vers le moteur que tu as choisi. Il revient aussitôt et est collé.</p></div>
+        <div class="fact rv"><span class="label"><i class="v"></i>Local</span><h3 class="h3">Tout en local, si tu veux</h3><p>Avec Ollama installé sur ton Mac, même le texte reste chez toi. Plus gourmand en mémoire.</p></div>
+        <div class="fact rv"><span class="label"><i></i>Studio</span><h3 class="h3">Pas de compte, pas de cloud</h3><p>Tes notes sont de simples fichiers dans Documents › CBW AI. CBW Studio ne reçoit ni ta voix, ni tes textes, ni tes clés.</p></div>
+      </div>
+      <p class="flow rv" aria-label="Parcours des données : micro, Whisper sur ton Mac, nettoyage IA, texte collé">
+        <span><i style="background:var(--orange)"></i>Micro</span><em>→</em>
+        <span><i style="background:var(--texte)"></i>Whisper · ton Mac</span><em>→</em>
+        <span><i style="background:var(--bleu)"></i>Nettoyage</span><em>→</em>
+        <span><i style="background:var(--vert)"></i>Collé</span>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ INSTALL ============ -->
+<section class="sec" id="installer" aria-labelledby="h-inst">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="label"><i></i>Installation</p>
+      <h2 class="h2 rv" id="h-inst">Installer<br>en 1 minute.</h2>
+      <p class="lead rv">Un fichier .dmg, un glisser-déposer, une confirmation au premier lancement. C'est tout.</p>
+    </div>
+    <div class="inst">
+      <ol class="inst-steps">
+        <li class="rv"><span class="n">1</span><div><h3 class="h3">Ouvre le fichier</h3><p><code>CBW-AI-arm64.dmg</code>, dans ton dossier Téléchargements.</p></div></li>
+        <li class="rv"><span class="n">2</span><div><h3 class="h3">Glisse dans Applications</h3><p>L'icône CBW AI sur le dossier Applications, puis double-clic.</p></div></li>
+        <li class="rv"><span class="n">3</span><div><h3 class="h3">Confirme, une seule fois</h3><p>Réglages Système › Confidentialité et sécurité › <strong>Ouvrir quand même</strong>.</p></div></li>
+      </ol>
+      <div class="note info rv">
+        <p class="label"><i class="b"></i>Pourquoi cette confirmation ?</p>
+        <p>Au premier lancement, macOS te demandera de confirmer. C'est normal : CBW AI n'est pas encore enregistré auprès d'Apple (une démarche payante prévue plus tard). Tu ne le fais qu'une fois.</p>
+        <p style="margin-top:12px"><a class="btn-t" href="/aide#gatekeeper" style="color:var(--texte)">Le pas-à-pas détaillé →</a></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section class="sec" id="faq" aria-labelledby="h-faq">
+  <div class="wrap">
+    <div class="sec-head">
+      <p class="label"><i></i>Questions</p>
+      <h2 class="h2 rv" id="h-faq">Questions fréquentes</h2>
+      <p class="lead rv">Tout le reste est dans <a class="btn-t" href="/aide" style="font-size:inherit">l'aide complète</a>.</p>
+    </div>
+    <div class="faq">
+      <details><summary>Mon Mac est-il compatible ?<span class="plus" aria-hidden="true"></span></summary><div class="a"><p>Il faut un Mac à puce Apple Silicon (M1 ou plus récent) avec macOS 14 Sonoma ou plus. Pour vérifier : menu Pomme › À propos de ce Mac. Les Mac Intel, Windows et iPhone ne sont pas pris en charge pour l'instant.</p></div></details>
+      <details><summary>C'est vraiment gratuit ? Où est le piège ?<span class="plus" aria-hidden="true"></span></summary><div class="a"><p>Pas de piège. L'app est gratuite et le nettoyage utilise des moteurs IA qui ont un accès gratuit. Tant que tu n'ajoutes pas de carte bancaire chez eux, rien ne peut t'être facturé. Au pire, un quota du jour est atteint et CBW AI passe au moteur suivant.</p></div></details>
+      <details><summary>Pourquoi faut-il une clé ? C'est compliqué ?<span class="plus" aria-hidden="true"></span></summary><div class="a"><p>La clé relie CBW AI à ton compte gratuit chez un moteur IA (Groq conseillé). Ça prend 2 minutes et l'app te guide. Sans clé, CBW AI colle quand même ta dictée, sans le nettoyage.</p><p><a href="/aide#cle">Obtenir une clé gratuite</a></p></div></details>
+      <details><summary>Ma voix est-elle envoyée sur internet ?<span class="plus" aria-hidden="true"></span></summary><div class="a"><p>Non. La transcription se fait sur ton Mac avec Whisper, et aucun audio n'est conservé. Seul le texte transcrit part vers le moteur IA que tu as choisi, pour être nettoyé. Avec Ollama, même le texte reste sur ton Mac.</p></div></details>
+      <details><summary>Pourquoi macOS affiche un avertissement au premier lancement ?<span class="plus" aria-hidden="true"></span></summary><div class="a"><p>CBW AI n'est pas encore notarisé par Apple. Une seule fois : Réglages Système › Confidentialité et sécurité › <strong>Ouvrir quand même</strong>.</p><p><a href="/aide#gatekeeper">Le pas-à-pas</a></p></div></details>
+      <details><summary>Ça marche dans quelles apps ? En quelles langues ?<span class="plus" aria-hidden="true"></span></summary><div class="a"><p>Partout où tu peux taper du texte : Mail, Gmail, Word, Notion, Slack, WhatsApp, ChatGPT, Claude, Cursor, ton navigateur… En français, en anglais, ou en détection automatique.</p></div></details>
+      <details><summary>Comment mettre à jour ou désinstaller ?<span class="plus" aria-hidden="true"></span></summary><div class="a"><p>Pour mettre à jour, télécharge le nouveau .dmg et remplace l'app : tes réglages et le modèle sont conservés. Pour désinstaller, quitte l'app et mets-la à la Corbeille.</p><p><a href="/aide#desinstaller">Désinstaller proprement</a></p></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FINAL CTA ============ -->
+<section class="final" aria-labelledby="h-final" style="border-top:2px solid var(--trait)">
+  <div class="wrap">
+    <div class="colorbars" aria-hidden="true" style="max-width:240px;margin-bottom:40px"><i></i><i></i><i></i></div>
+    <h2 class="h1" id="h-final"><span class="line"><span>Arrête de taper.</span></span><span class="line"><span>Parle<span class="acc">.</span></span></span></h2>
+    <div class="cta-row">
+      <!-- TODO: remplacer OWNER/REPO par le dépôt GitHub réel -->
+      <a class="btn btn-p btn-l js-dl" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">Télécharger pour macOS <span class="arr" aria-hidden="true">→</span></a>
+      <a class="btn-t" href="#installer">Comment l'installer</a>
+    </div>
+    <p class="meta"><b>Gratuit</b> · macOS 14+ · Apple Silicon (M1 et +) · 117 Mo</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <div class="about">
+      <a class="brand" href="/" aria-label="CBW AI, accueil" style="margin-bottom:14px"><img src="img/logo.svg" alt="" width="28" height="28"><span class="wordmark">CBW <span>AI</span></span></a>
+      <p style="max-width:36ch">Dictée vocale, notes et brainstorm pour Mac. Un outil gratuit fait par CBW Studio.</p>
+    </div>
+    <div><h2>Produit</h2><ul><li><a href="#comment">Comment ça marche</a></li><li><a href="#fonctions">Fonctions</a></li><li><a href="#confidentialite">Confidentialité</a></li><li><a href="#installer">Installation</a></li></ul></div>
+    <div><h2>Aide</h2><ul><li><a href="/aide#installation">Installation</a></li><li><a href="/aide#cle">Clé gratuite</a></li><li><a href="/aide#depannage">Dépannage</a></li><li><a href="mailto:contact@cbw.studio">Contact</a><!-- TODO: adresse réelle --></li></ul></div>
+    <div class="legal"><span>CBW AI, une app de CBW Studio · © <span id="y">2026</span></span><span>v1.0.0 · octobre 2026<!-- TODO: version de la release --> · <a href="/mentions">Mentions légales</a><!-- TODO --></span></div>
+  </div>
+</footer>
+
+<script src="main.js" defer></script>
+</body>
+</html>

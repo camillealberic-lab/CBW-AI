@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Préchargement A1</title>
+<!-- CBW AI — proposition de préchargement A1 « Il parle » (itération de A « Pulse sonore »). Autonome : aucun fichier externe.
+     ?t=NNN fige l'image à NNN ms · ?embed=1 masque les commandes · ?reduced=1 simule « réduire les animations » · ?theme=dark -->
+<style>
+:root{
+  --orange:#FF5A1F; --bleu:#2B3BFF; --vert:#1FD26A; --encre:#1C1C1E; --noir:#1E1E1C;
+  --fond:#FFFFFF; --fond-2:#F4F4F2; --fond-3:#ECECE8; --texte:#1E1E1C; --fil:#DDDDDD; --fil-fort:#C4C4BF; --trait:#1E1E1C;
+  --ease:cubic-bezier(.2,.7,.2,1); --ease-rideau:cubic-bezier(.7,0,.15,1);
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --fond:#1A1B1D; --fond-2:#202124; --fond-3:#2C2D31; --texte:#ECECEA; --fil:#3A3B3E; --fil-fort:#55565B; --trait:#D9D9D6;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--fond)}
+body{font:15px/1.5 system-ui,-apple-system,sans-serif;color:var(--texte)}
+
+/* ── Application factice (sans texte : blocs) ── */
+#app{position:fixed;inset:0;display:grid;grid-template-columns:clamp(150px,19vw,232px) 1fr;grid-template-rows:52px 1fr;background:var(--fond)}
+#app .tb{grid-column:1/-1;border-bottom:2px solid var(--trait);display:flex;align-items:center;gap:8px;padding:0 18px}
+#app .tb b{width:12px;height:12px;border-radius:50%;background:var(--fil-fort)}
+#app .tb .sp{flex:1}
+#app .tb .bars{display:grid;grid-template-columns:repeat(3,14px);gap:4px}
+#app .tb .bars i{height:8px}
+#app nav{background:var(--fond-2);border-right:2px solid var(--trait);padding:22px 14px;display:grid;align-content:start;gap:8px}
+#app nav i{height:34px;background:var(--fond-3)}
+#app nav i:first-child{background:var(--fond-3);box-shadow:inset 3px 0 0 var(--texte)}
+#app nav i:not(:first-child){background:transparent;border-bottom:1px solid var(--fil)}
+#app main{padding:clamp(18px,4vw,44px);display:grid;align-content:start;gap:clamp(12px,2.4vw,22px);min-width:0}
+#app .h1{height:clamp(18px,3.4vw,40px);width:58%;background:var(--texte)}
+#app .p{height:10px;width:40%;background:var(--fil-fort)}
+#app .row{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(8px,1.4vw,16px);margin-top:8px}
+#app .card{border:2px solid var(--trait);height:clamp(70px,16vw,170px);padding:clamp(8px,1.6vw,20px);display:grid;align-content:start;gap:10px}
+#app .card i{height:8px;width:44px}
+#app .card s{height:8px;width:70%;background:var(--fil)}
+#app .card s+s{width:45%}
+#app .big{border:2px solid var(--trait);height:clamp(60px,14vw,200px);box-shadow:8px 8px 0 var(--trait)}
+.o{background:var(--orange)} .b{background:var(--bleu)} .v{background:var(--vert)}
+#app [data-in]{will-change:transform,opacity}
+
+/* ── Préchargement ── */
+#pl{position:fixed;inset:0;z-index:10;background:var(--fond);overflow:hidden;cursor:pointer}
+#pl.gone{display:none}
+#pl.skip{opacity:0;transition:opacity 120ms linear}
+#pl .r{position:absolute;left:0;top:0;width:100px;height:100px;transform-origin:50% 50%;will-change:transform,opacity}
+
+
+/* ── Commandes de démo ── */
+.ctl{position:fixed;right:12px;bottom:12px;z-index:50;display:flex;gap:6px}
+.ctl button{width:34px;height:34px;border:2px solid var(--trait);background:var(--fond);color:var(--texte);display:grid;place-items:center;cursor:pointer;padding:0}
+.ctl button:hover{background:var(--fond-3)}
+.ctl button:focus-visible{outline:3px solid var(--bleu);outline-offset:2px}
+.ctl svg{width:16px;height:16px}
+html.embed .ctl{display:none}
+</style>
+</head>
+<body>
+<div id="app" aria-hidden="true">
+  <div class="tb"><b></b><b></b><b></b><span class="sp"></span><span class="bars"><i class="o"></i><i class="b"></i><i class="v"></i></span></div>
+  <nav><i data-in></i><i data-in></i><i data-in></i><i data-in></i><i data-in></i></nav>
+  <main>
+    <div class="h1" data-in></div>
+    <div class="p" data-in></div>
+    <div class="row">
+      <div class="card" data-in><i class="o"></i><s></s><s></s></div>
+      <div class="card" data-in><i class="b"></i><s></s><s></s></div>
+      <div class="card" data-in><i class="v"></i><s></s><s></s></div>
+    </div>
+    <div class="big" data-in></div>
+  </main>
+</div>
+
+<div id="pl" aria-hidden="true"></div>
+
+<div class="ctl">
+  <button id="replay" type="button" aria-label="Rejouer" title="Rejouer (R)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13 2v3.5H9.5" stroke-linecap="square"/></svg></button>
+  <button id="theme" type="button" aria-label="Clair / sombre" title="Clair / sombre (T)"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></button>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const Q = new URLSearchParams(location.search);
+  const root = document.documentElement;
+  if (Q.get('embed') === '1') root.classList.add('embed');
+  if (Q.get('theme') === 'dark') root.dataset.theme = 'dark';
+  const FREEZE = Q.has('t') ? +Q.get('t') : null;
+  const REDUCED = Q.get('reduced') === '1' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pl = document.getElementById('pl');
+  const app = document.getElementById('app');
+  const ins = [...app.querySelectorAll('[data-in]')];
+
+  /* ── Outils de mouvement ── */
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const prog = (t, a, b) => clamp((t - a) / (b - a));
+  function bezier(x1, y1, x2, y2) {           // cubic-bezier CSS, résolu par Newton + bissection
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+    const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const X = (s) => ((ax * s + bx) * s + cx) * s, Y = (s) => ((ay * s + by) * s + cy) * s;
+    const dX = (s) => (3 * ax * s + 2 * bx) * s + cx;
+    return (x) => {
+      if (x <= 0) return 0; if (x >= 1) return 1;
+      let s = x;
+      for (let i = 0; i < 6; i++) { const e = X(s) - x, d = dX(s); if (Math.abs(e) < 1e-5) return Y(s); if (Math.abs(d) < 1e-6) break; s -= e / d; }
+      let lo = 0, hi = 1; s = x;
+      for (let i = 0; i < 24; i++) { const v = X(s); if (Math.abs(v - x) < 1e-5) break; if (v < x) lo = s; else hi = s; s = (lo + hi) / 2; }
+      return Y(s);
+    };
+  }
+  const E = {
+    rideau: bezier(.7, 0, .15, 1), sortie: bezier(.16, 1, .3, 1), ease: bezier(.2, .7, .2, 1),
+    inOut: bezier(.65, 0, .35, 1), in: bezier(.55, 0, .9, .3), snap: bezier(.45, 0, .1, 1),
+  };
+  // Ressort amorti normalisé (u = 0 → 0, u = 1 → ≈ 1). z = amortissement, w = pulsation.
+  function spring(u, z = .42, w = 15) {
+    if (u <= 0) return 0; if (u >= 1.6) return 1;
+    const wd = w * Math.sqrt(1 - z * z);
+    return 1 - Math.exp(-z * w * u) * (Math.cos(wd * u) + (z * w / wd) * Math.sin(wd * u));
+  }
+  // Place un carré de 100 px : centre (x, y), taille (w, h), rotation r (deg)
+  function put(el, x, y, w, h, r = 0, o = 1) {
+    el.style.transform = `translate(${(x - 50).toFixed(2)}px,${(y - 50).toFixed(2)}px) rotate(${r.toFixed(2)}deg) scale(${(w / 100).toFixed(4)},${(h / 100).toFixed(4)})`;
+    el.style.opacity = o;
+  }
+  const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+
+  /* ── Entrée de l'appli (montée 10 px + fondu, décalage 40 ms) ── */
+  function appIn(t, at) {
+    ins.forEach((el, i) => {
+      const k = E.sortie(prog(t, at + i * 30, at + i * 30 + 420));
+      el.style.transform = `translateY(${((1 - k) * 14).toFixed(2)}px)`;
+      el.style.opacity = (0.0 + k).toFixed(3);
+    });
+  }
+
+  /* ── Voix synthétique → barres : MÊME algorithme que la pastille d'enregistrement (design/overlay/overlay.html) ──
+     · le niveau micro arrive par paliers de 33 ms (recorder.ts : RMS → dB, −50 dB → 0, −10 dB → 1) ;
+     · lissage par image à 60 i/s : attaque rapide k = 0,45, relâchement lent k = 0,12 ;
+     · courbe perceptuelle lv = lissé^0,6 ;
+     · chaque barre vit sa vie : gigue 0,62 + 0,38·sin(t·vitesse + phase), respiration 0,92 + 0,08·sin(2,4·t) ;
+     · h = repos·respiration + (crête − repos)·min(1, lv·gigue), plancher = un carré.
+     Les 3 barres = les 3 barres centrales du logo (orange · bleu · vert) : mêmes ratios, vitesses et phases,
+     agrandies de 3 px → 28 px (×9,33). Deux réglages seulement, propres à l'écran plein format :
+     · GAIN 1,7 sur l'amplitude (crête − repos) : à 16 px la pastille lit bien ±6 px, en grand il faut plus d'ampleur ;
+     · T_OFF : l'horloge de la gigue démarre « au milieu d'une phrase » (4,65 s) pour que les 3 barres divergent.
+     Tout est pré-calculé sur une horloge fixe → rendu identique à chaque lecture. */
+  const VOICE = (function () {
+    const U = 28 / 3;                                          // 1 px de la pastille = 9,33 px ici
+    const RATIOS = [400 / 560, 1, 400 / 560];
+    const REST_H = 10 * U, PEAK_H = 16 * U, BAR_MIN = 3 * U;
+    const REST = RATIOS.map((r) => Math.max(BAR_MIN, r * REST_H));   // 66 / 93 / 66
+    const PEAK = RATIOS.map((r) => PEAK_H * (0.6 + 0.4 * r));        // 133 / 149 / 133
+    const SPEEDS = [6.3, 4.4, 5.9], PHASES = [1.7, 3.1, 4.0];
+    const W = BAR_MIN, GAP = 2 * U;                             // largeur 3, écart 2 (proportions de la pastille)
+    const FR = 1000 / 60, TICK = 1000 / 30;
+    function rng(seed) { return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296); }
+    // Une syllabe : attaque (consonne) → voyelle tenue qui fléchit → chute exponentielle.
+    function syl(t, s) {
+      const d = t - s.at;
+      if (d < -s.a) return 0;
+      if (d < 0) { const u = 1 + d / s.a; return s.p * u * u * (3 - 2 * u); }
+      if (d < s.hold) return s.p * (1 - 0.18 * d / s.hold);
+      return s.p * 0.82 * Math.exp(-(d - s.hold) / s.tau);
+    }
+    // Enveloppe → niveaux 33 ms (avec la granularité d'un vrai micro) → simulation image par image.
+    function bake(sylls, dur, seed = 7, T_OFF = 4.65, GAIN = 1.7) {
+      const r = rng(seed);
+      const ticks = [];
+      for (let k = 0; k * TICK <= dur + TICK; k++) {
+        const t = k * TICK;
+        let e = 0.03;                                             // souffle de fond
+        for (const s of sylls) e = Math.max(e, syl(t, s));
+        e *= 1 + (r() - 0.5) * 0.28;                              // grain de la voix
+        e += (r() - 0.5) * 0.03;
+        ticks.push(Math.max(0, Math.min(1, e)));
+      }
+      const frames = [];
+      let smooth = 0;
+      for (let f = 0; f * FR <= dur + FR; f++) {
+        const tm = f * FR, ts = tm / 1000;
+        const target = ticks[Math.min(ticks.length - 1, Math.floor(tm / TICK))];
+        smooth += (target - smooth) * (target > smooth ? 0.45 : 0.12);
+        const lv = Math.pow(smooth, 0.6);
+        const breath = 0.92 + 0.08 * Math.sin(ts * 2.4);
+        const tj = ts + T_OFF;
+        const h = [0, 1, 2].map((i) => {
+          const jitter = 0.62 + 0.38 * Math.sin(tj * SPEEDS[i] + PHASES[i]);
+          const v = Math.min(1, lv * jitter);
+          return Math.max(BAR_MIN, REST[i] * breath + (PEAK[i] - REST[i]) * GAIN * v);
+        });
+        frames.push({ lv, h, target });
+      }
+      // échantillonnage interpolé (rendu fluide à n'importe quelle cadence)
+      function at(t) {
+        const x = Math.max(0, t) / FR, f = Math.min(frames.length - 2, Math.floor(x)), k = Math.min(1, x - f);
+        const A = frames[f], B = frames[f + 1];
+        return { lv: A.lv + (B.lv - A.lv) * k, h: A.h.map((v, i) => v + (B.h[i] - v) * k), target: A.target };
+      }
+      return { at, ticks, TICK };
+    }
+    return { U, REST, PEAK, W, GAP, BAR_MIN, bake, X: (cx, i) => cx + (i - 1) * (W + GAP) };
+  })();
+
+  const P = (function () {
+    /* A1 · Il parle — « C · B · W »
+       0–200   trois carrés apparaissent (ressort) et prennent la silhouette de repos du logo
+       200–600 les barres « disent » C · B · W : trois syllabes à ~170 ms, pilotées par l'algorithme de la pastille
+       590–820 sur la dernière syllabe elles jaillissent : pleine hauteur puis trois colonnes (rideau tricolore)
+       830–990 les colonnes remontent en cascade → l'appli apparaît */
+    const V = VOICE;
+    const voice = V.bake([
+      { at: 225, p: 0.85, a: 30, hold: 25, tau: 30 },   // « sé »
+      { at: 395, p: 0.95, a: 30, hold: 25, tau: 30 },   // « bé »
+      { at: 560, p: 1.00, a: 30, hold: 90, tau: 80 },   // « vé » — tenu, il porte le jaillissement
+    ], 1000, 11);
+    let el = [];
+    function setup(c) {
+      c.pl.innerHTML = '<i class="r o"></i><i class="r b"></i><i class="r v"></i>';
+      el = [...c.pl.querySelectorAll('.r')];
+    }
+    function render(t, c) {
+      const m = voice.at(t);
+      const cols = c.vw / 3;
+      el.forEach((e, i) => {
+        // apparition : carré (ressort) → silhouette au repos
+        const ap = 20 + [30, 0, 60][i];
+        const ks = spring(prog(t, ap, ap + 260), .5, 16);
+        const kg = spring(prog(t, ap + 70, ap + 380), .55, 13);
+        let x = V.X(c.cx, i), y = c.cy;
+        let w = V.W * ks, h = lerp(V.W, m.h[i], kg) * ks;
+        // jaillissement : la hauteur part d'abord (bleu en tête), la largeur suit
+        const st = 600 + [25, 0, 45][i];
+        const kh = E.snap(prog(t, st, st + 170));
+        const k = E.rideau(prog(t, 660, 820));
+        if (kh > 0) h = lerp(h, c.vh + 4, kh);
+        if (k > 0) { x = lerp(x, cols * i + cols / 2, k); w = lerp(w, cols + 2, k); }
+        // remontée du rideau (le bord bas monte)
+        const ws = 830 + [0, 20, 40][i];
+        const kw = E.rideau(prog(t, ws, ws + 120));
+        if (kw > 0) { const hh = (c.vh + 4) * (1 - kw); y = hh / 2 - 2; h = hh; }
+        put(e, x, y, w, h);
+      });
+      c.pl.style.background = t >= 840 ? 'transparent' : '';
+    }
+    function reducedLayout(c) { el.forEach((e, i) => put(e, V.X(c.cx, i), c.cy, V.W, V.REST[i])); }
+    return { DUR: 1000, APP_AT: 830, setup, render, reducedLayout };
+  })();
+  // P = { DUR, APP_AT, setup(ctx), render(t, ctx), reducedLayout(ctx) }
+
+  /* ── Lecture ── */
+  let raf = 0, timer = 0, t0 = 0, ctx = null;
+  function context() {
+    return { vw: innerWidth, vh: innerHeight, cx: innerWidth / 2, cy: innerHeight / 2, pl, app,
+      O: css('--orange'), B: css('--bleu'), V: css('--vert'), fond: css('--fond'), texte: css('--texte'),
+      dark: root.dataset.theme === 'dark', E, clamp, lerp, prog, spring, put };
+  }
+  function reset() {
+    cancelAnimationFrame(raf); clearTimeout(timer);
+    pl.classList.remove('gone', 'skip'); pl.style.opacity = '';
+    pl.style.clipPath = ''; pl.style.background = '';
+    ctx = context(); P.setup && P.setup(ctx);
+  }
+  function finish() {
+    pl.classList.add('gone');
+  }
+  function frame(t) {
+    if (REDUCED) {                                   // barres statiques puis fondu
+      P.reducedLayout(ctx);
+      pl.style.opacity = (1 - prog(t, 450, 650)).toFixed(3);
+      ins.forEach((el) => { el.style.transform = 'none'; el.style.opacity = 1; });
+      return t >= 650;
+    }
+    P.render(Math.min(t, P.DUR), ctx);
+    appIn(t, P.APP_AT);
+    return t >= P.DUR;
+  }
+  function play() {
+    reset();
+    t0 = performance.now();
+    let ended = false;
+    const loop = (now) => {
+      const t = now - t0;
+      if (!ended && frame(t)) { ended = true; finish(); }
+      if (ended) appIn(t, REDUCED ? -1e4 : P.APP_AT);
+      if (t < 1600) raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    if (FREEZE === null) timer = setTimeout(play, 2500);
+  }
+  function skip() {
+    if (pl.classList.contains('gone')) return;
+    pl.classList.add('skip');
+    setTimeout(() => { finish(); appIn(1e4, 0); }, 130);
+  }
+  function setTheme(d) { root.dataset.theme = d ? 'dark' : 'light'; }
+
+  pl.addEventListener('pointerdown', skip);
+  document.getElementById('replay').addEventListener('click', play);
+  document.getElementById('theme').addEventListener('click', () => { setTheme(root.dataset.theme !== 'dark'); play(); });
+  addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') play();
+    else if (e.key === 't' || e.key === 'T') { setTheme(root.dataset.theme !== 'dark'); play(); }
+    else skip();
+  });
+  addEventListener('message', (e) => {
+    const m = e.data || {};
+    if (m.theme) setTheme(m.theme === 'dark');
+    if (m.replay) play();
+  });
+  addEventListener('resize', () => { if (ctx) { ctx = context(); P.setup && P.setup(ctx); if (FREEZE !== null) frame(FREEZE); } });
+
+  if (FREEZE !== null) {
+    reset();
+    if (frame(FREEZE)) finish();
+    window.__ready = true;
+    window.__seek = (t) => { reset(); if (frame(t)) finish(); };
+  } else play();
+})();
+</script>
+</body>
+</html>

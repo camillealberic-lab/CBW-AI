@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <title>Dicta AI — variante B (trio, 3 barres)</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6B5CFF"/>
+      <stop offset="1" stop-color="#3A2BD6"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#bg)"/>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#sheen)"/>
+  <g fill="#FFFFFF">
+    <rect x="248" y="352" width="128" height="320" rx="64"/>
+    <rect x="448" y="232" width="128" height="560" rx="64"/>
+    <rect x="648" y="352" width="128" height="320" rx="64"/>
+  </g>
+</svg>

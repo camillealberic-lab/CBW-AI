@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"><title>CBW AI</title>
+<style>
+:root{--bg:#fff;--text:#1d1d1f;--muted:#6e6e73;--accent:#4B3CF0}
+@media(prefers-color-scheme:dark){:root{--bg:#1c1c1e;--text:#f5f5f7;--muted:#a1a1a6;--accent:#8579FF}}
+body{margin:0;font:14px -apple-system,sans-serif;background:var(--bg);color:var(--text);-webkit-app-region:drag;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+h1{margin:0;font-weight:600}h1 span{font-weight:400;color:var(--muted)}p{color:var(--muted);margin:0}
+button{-webkit-app-region:no-drag;font:inherit;padding:8px 16px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+code{font-family:ui-monospace,monospace}
+</style></head><body>
+<h1>CBW <span>AI</span></h1>
+<p id="perm">…</p>
+<p>Maintenez <code>⌥ Espace</code>, parlez, relâchez.</p>
+<p id="last"></p>
+<div><button id="mic">Autoriser le micro</button> <button id="ax">Accessibilité</button> <button id="done">Terminer l’onboarding</button></div>
+<script>
+const d = window.dictaApp;
+if (d) {
+  const show = (p) => (document.getElementById('perm').textContent = `Micro : ${p.mic} · Accessibilité : ${p.accessibility ? 'oui' : 'non'}`);
+  d.getPermissions().then(show); d.onPermissions(show);
+  d.onDictation((x) => (document.getElementById('last').textContent = x.text));
+  document.getElementById('mic').onclick = () => d.requestMic();
+  document.getElementById('ax').onclick = () => d.openAccessibilitySettings();
+  document.getElementById('done').onclick = () => d.finishOnboarding();
+}
+</script>
+</body></html>

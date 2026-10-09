@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Préchargement B</title>
+<!-- CBW AI — proposition de préchargement B « Assemblage ». Autonome : aucun fichier externe.
+     ?t=NNN fige l'image à NNN ms · ?embed=1 masque les commandes · ?reduced=1 simule « réduire les animations » · ?theme=dark -->
+<style>
+:root{
+  --orange:#FF5A1F; --bleu:#2B3BFF; --vert:#1FD26A; --encre:#1C1C1E; --noir:#1E1E1C;
+  --fond:#FFFFFF; --fond-2:#F4F4F2; --fond-3:#ECECE8; --texte:#1E1E1C; --fil:#DDDDDD; --fil-fort:#C4C4BF; --trait:#1E1E1C;
+  --ease:cubic-bezier(.2,.7,.2,1); --ease-rideau:cubic-bezier(.7,0,.15,1);
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --fond:#1A1B1D; --fond-2:#202124; --fond-3:#2C2D31; --texte:#ECECEA; --fil:#3A3B3E; --fil-fort:#55565B; --trait:#D9D9D6;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--fond)}
+body{font:15px/1.5 system-ui,-apple-system,sans-serif;color:var(--texte)}
+
+/* ── Application factice (sans texte : blocs) ── */
+#app{position:fixed;inset:0;display:grid;grid-template-columns:clamp(150px,19vw,232px) 1fr;grid-template-rows:52px 1fr;background:var(--fond)}
+#app .tb{grid-column:1/-1;border-bottom:2px solid var(--trait);display:flex;align-items:center;gap:8px;padding:0 18px}
+#app .tb b{width:12px;height:12px;border-radius:50%;background:var(--fil-fort)}
+#app .tb .sp{flex:1}
+#app .tb .bars{display:grid;grid-template-columns:repeat(3,14px);gap:4px}
+#app .tb .bars i{height:8px}
+#app nav{background:var(--fond-2);border-right:2px solid var(--trait);padding:22px 14px;display:grid;align-content:start;gap:8px}
+#app nav i{height:34px;background:var(--fond-3)}
+#app nav i:first-child{background:var(--fond-3);box-shadow:inset 3px 0 0 var(--texte)}
+#app nav i:not(:first-child){background:transparent;border-bottom:1px solid var(--fil)}
+#app main{padding:clamp(18px,4vw,44px);display:grid;align-content:start;gap:clamp(12px,2.4vw,22px);min-width:0}
+#app .h1{height:clamp(18px,3.4vw,40px);width:58%;background:var(--texte)}
+#app .p{height:10px;width:40%;background:var(--fil-fort)}
+#app .row{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(8px,1.4vw,16px);margin-top:8px}
+#app .card{border:2px solid var(--trait);height:clamp(70px,16vw,170px);padding:clamp(8px,1.6vw,20px);display:grid;align-content:start;gap:10px}
+#app .card i{height:8px;width:44px}
+#app .card s{height:8px;width:70%;background:var(--fil)}
+#app .card s+s{width:45%}
+#app .big{border:2px solid var(--trait);height:clamp(60px,14vw,200px);box-shadow:8px 8px 0 var(--trait)}
+.o{background:var(--orange)} .b{background:var(--bleu)} .v{background:var(--vert)}
+#app [data-in]{will-change:transform,opacity}
+
+/* ── Préchargement ── */
+#pl{position:fixed;inset:0;z-index:10;background:var(--fond);overflow:hidden;cursor:pointer}
+#pl.gone{display:none}
+#pl.skip{opacity:0;transition:opacity 120ms linear}
+#pl .r{position:absolute;left:0;top:0;width:100px;height:100px;transform-origin:50% 50%;will-change:transform,opacity}
+#pl .gl{filter:blur(18px)}
+
+
+/* ── Commandes de démo ── */
+.ctl{position:fixed;right:12px;bottom:12px;z-index:50;display:flex;gap:6px}
+.ctl button{width:34px;height:34px;border:2px solid var(--trait);background:var(--fond);color:var(--texte);display:grid;place-items:center;cursor:pointer;padding:0}
+.ctl button:hover{background:var(--fond-3)}
+.ctl button:focus-visible{outline:3px solid var(--bleu);outline-offset:2px}
+.ctl svg{width:16px;height:16px}
+html.embed .ctl{display:none}
+</style>
+</head>
+<body>
+<div id="app" aria-hidden="true">
+  <div class="tb"><b></b><b></b><b></b><span class="sp"></span><span class="bars"><i class="o"></i><i class="b"></i><i class="v"></i></span></div>
+  <nav><i data-in></i><i data-in></i><i data-in></i><i data-in></i><i data-in></i></nav>
+  <main>
+    <div class="h1" data-in></div>
+    <div class="p" data-in></div>
+    <div class="row">
+      <div class="card" data-in><i class="o"></i><s></s><s></s></div>
+      <div class="card" data-in><i class="b"></i><s></s><s></s></div>
+      <div class="card" data-in><i class="v"></i><s></s><s></s></div>
+    </div>
+    <div class="big" data-in></div>
+  </main>
+</div>
+
+<div id="pl" aria-hidden="true"></div>
+
+<div class="ctl">
+  <button id="replay" type="button" aria-label="Rejouer" title="Rejouer (R)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13 2v3.5H9.5" stroke-linecap="square"/></svg></button>
+  <button id="theme" type="button" aria-label="Clair / sombre" title="Clair / sombre (T)"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></button>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const Q = new URLSearchParams(location.search);
+  const root = document.documentElement;
+  if (Q.get('embed') === '1') root.classList.add('embed');
+  if (Q.get('theme') === 'dark') root.dataset.theme = 'dark';
+  const FREEZE = Q.has('t') ? +Q.get('t') : null;
+  const REDUCED = Q.get('reduced') === '1' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pl = document.getElementById('pl');
+  const app = document.getElementById('app');
+  const ins = [...app.querySelectorAll('[data-in]')];
+
+  /* ── Outils de mouvement ── */
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const prog = (t, a, b) => clamp((t - a) / (b - a));
+  function bezier(x1, y1, x2, y2) {           // cubic-bezier CSS, résolu par Newton + bissection
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+    const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const X = (s) => ((ax * s + bx) * s + cx) * s, Y = (s) => ((ay * s + by) * s + cy) * s;
+    const dX = (s) => (3 * ax * s + 2 * bx) * s + cx;
+    return (x) => {
+      if (x <= 0) return 0; if (x >= 1) return 1;
+      let s = x;
+      for (let i = 0; i < 6; i++) { const e = X(s) - x, d = dX(s); if (Math.abs(e) < 1e-5) return Y(s); if (Math.abs(d) < 1e-6) break; s -= e / d; }
+      let lo = 0, hi = 1; s = x;
+      for (let i = 0; i < 24; i++) { const v = X(s); if (Math.abs(v - x) < 1e-5) break; if (v < x) lo = s; else hi = s; s = (lo + hi) / 2; }
+      return Y(s);
+    };
+  }
+  const E = {
+    rideau: bezier(.7, 0, .15, 1), sortie: bezier(.16, 1, .3, 1), ease: bezier(.2, .7, .2, 1),
+    inOut: bezier(.65, 0, .35, 1), in: bezier(.55, 0, .9, .3), snap: bezier(.45, 0, .1, 1),
+  };
+  // Ressort amorti normalisé (u = 0 → 0, u = 1 → ≈ 1). z = amortissement, w = pulsation.
+  function spring(u, z = .42, w = 15) {
+    if (u <= 0) return 0; if (u >= 1.6) return 1;
+    const wd = w * Math.sqrt(1 - z * z);
+    return 1 - Math.exp(-z * w * u) * (Math.cos(wd * u) + (z * w / wd) * Math.sin(wd * u));
+  }
+  // Place un carré de 100 px : centre (x, y), taille (w, h), rotation r (deg)
+  function put(el, x, y, w, h, r = 0, o = 1) {
+    el.style.transform = `translate(${(x - 50).toFixed(2)}px,${(y - 50).toFixed(2)}px) rotate(${r.toFixed(2)}deg) scale(${(w / 100).toFixed(4)},${(h / 100).toFixed(4)})`;
+    el.style.opacity = o;
+  }
+  const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+
+  /* ── Entrée de l'appli (montée 10 px + fondu, décalage 40 ms) ── */
+  function appIn(t, at) {
+    ins.forEach((el, i) => {
+      const k = E.sortie(prog(t, at + i * 30, at + i * 30 + 420));
+      el.style.transform = `translateY(${((1 - k) * 14).toFixed(2)}px)`;
+      el.style.opacity = (0.0 + k).toFixed(3);
+    });
+  }
+
+  const P = (function () {
+    /* B · Assemblage
+       0–380   les barres arrivent de trois directions, en rotation, étirées par la vitesse
+       300–600 impact sur la ligne de base : écrasement + micro-rebond + halo bref
+       520–720 anticipation (le groupe se rétracte) puis zoom ; orange et vert s'écartent et s'effacent
+       660–860 la barre bleue devient un masque plein écran
+       740–960 une fenêtre s'ouvre dans le bleu (clip-path evenodd sur le préchargement) → l'appli blanche apparaît, le cadre bleu s'amincit */
+    const W = 28, G = 14, H = [84, 140, 106];
+    const FROM = [ // décalage de départ (fraction de l'écran) + rotation initiale
+      { dx: -.46, dy: -.52, r: -135 },
+      { dx: 0, dy: -.78, r: 90 },
+      { dx: .5, dy: -.22, r: 160 },
+    ];
+    const START = [45, 0, 95], FLY = 300;
+    const fly = bezier(.5, 0, .55, 1);
+    let el = [], gl = [], base;
+    function setup(c) {
+      c.pl.innerHTML = '<i class="r gl o"></i><i class="r gl b"></i><i class="r gl v"></i><i class="r ln"></i>' +
+        '<i class="r o"></i><i class="r b"></i><i class="r v"></i>';
+      el = [...c.pl.querySelectorAll('.r:not(.gl):not(.ln)')];
+      gl = [...c.pl.querySelectorAll('.gl')];
+      base = c.pl.querySelector('.ln'); base.style.background = c.texte;
+    }
+    const BASE = (c) => c.cy + 70;
+    const X = (c, i) => c.cx + (i - 1) * (W + G);
+    // rectangle d'une barre au repos (avant zoom), avec vol + impact
+    function bar(c, i, t) {
+      const st = START[i], land = st + FLY;
+      const u = prog(t, st, land);
+      const f = fly(u);
+      const v = (fly(Math.min(1, u + .02)) - fly(Math.max(0, u - .02))) / .04; // vitesse normalisée
+      const fr = FROM[i];
+      let x = X(c, i) + fr.dx * c.vw * (1 - f);
+      let w = W, h = H[i], r = fr.r * (1 - E.sortie(u)), sx = 1, sy = 1;
+      if (u < 1) { sy = 1 + Math.min(.9, v * .32); sx = 1 / Math.sqrt(sy); }
+      // impact : écrasement amorti, ancré sur la ligne de base
+      const e = (t - land) / 260;
+      if (e >= 0 && e < 1.2) { const d = -.3 * Math.exp(-4.2 * e) * Math.cos(10 * e); sy = 1 + d; sx = 1 - d * .85; }
+      w *= sx; h *= sy;
+      let y = BASE(c) - h / 2 + fr.dy * c.vh * (1 - f);
+      return { x, y, w, h, r, land };
+    }
+    function render(t, c) {
+      const b0 = BASE(c);
+      // ligne de base
+      const gw = 3 * W + 2 * G + 56;
+      const kl = E.sortie(prog(t, 60, 340)) * (1 - E.inOut(prog(t, 520, 640)));
+      put(base, c.cx, b0 + 4, gw * kl, 2, 0, kl > 0 ? 1 : 0);
+      // groupe : anticipation puis zoom
+      const ant = E.inOut(prog(t, 520, 600));
+      const zoom = E.in(prog(t, 600, 720));
+      const gs = (1 - .1 * ant) * (1 + 1.1 * zoom);
+      const px = c.cx, py = b0 - 70;
+      const out = E.in(prog(t, 610, 720));
+      el.forEach((e, i) => {
+        let { x, y, w, h, r, land } = bar(c, i, t);
+        if (t < START[i]) { put(e, x, y, 0, 0, 0, 0); put(gl[i], x, y, 0, 0, 0, 0); return; }
+        // groupe
+        x = px + (x - px) * gs; y = py + (y - py) * gs; w *= gs; h *= gs;
+        let o = 1;
+        if (i !== 1) { x += (i - 1) * 90 * out; o = 1 - out; h *= 1 - .5 * out; }
+        else {
+          const k = E.rideau(prog(t, 660, 860));
+          if (k > 0) { x = lerp(x, c.cx, k); y = lerp(y, c.cy, k); w = lerp(w, c.vw + 6, k); h = lerp(h, c.vh + 6, k); }
+        }
+        put(e, x, y, w, h, r, o);
+        // halo bref à l'impact
+        const g = t >= land && t < land + 420 ? Math.exp(-(t - land) / 110) * (1 - prog(t, land + 300, land + 420)) : 0;
+        put(gl[i], x, y, w * (1.3 + .5 * (1 - g)), h * (1.1 + .25 * (1 - g)), r, (c.dark ? .7 : .5) * g * o);
+      });
+      // fenêtre dans le bleu : rectangle bleu en retard de 90 ms, toujours contenu dans le bleu
+      const tb = t - 90;
+      if (tb > 660) {
+        const blue = blueRect(c, t), hole = blueRect(c, tb);
+        const L = Math.max(blue.x - blue.w / 2, hole.x - hole.w / 2 + 2), R = Math.min(blue.x + blue.w / 2, hole.x + hole.w / 2 - 2);
+        const T = Math.max(blue.y - blue.h / 2, hole.y - hole.h / 2 + 2), B = Math.min(blue.y + blue.h / 2, hole.y + hole.h / 2 - 2);
+        const k = prog(t, 900, 960);  // fin : on referme l'écart restant
+        const l = lerp(L, 0, k), rr = lerp(R, c.vw, k), tt = lerp(T, 0, k), bb = lerp(B, c.vh, k);
+        // le préchargement se troue (evenodd) : l'appli, dessous, apparaît dans la fenêtre
+        const f = (n) => n.toFixed(1) + 'px';
+        c.pl.style.clipPath = R > L && B > T
+          ? `polygon(evenodd, 0 0, ${f(c.vw)} 0, ${f(c.vw)} ${f(c.vh)}, 0 ${f(c.vh)}, 0 0, ${f(l)} ${f(tt)}, ${f(rr)} ${f(tt)}, ${f(rr)} ${f(bb)}, ${f(l)} ${f(bb)}, ${f(l)} ${f(tt)})`
+          : '';
+      } else c.pl.style.clipPath = '';
+    }
+    function blueRect(c, t) {
+      const b0 = BASE(c);
+      let { x, y, w, h } = bar(c, 1, t);
+      const ant = E.inOut(prog(t, 520, 600)), zoom = E.in(prog(t, 600, 720));
+      const gs = (1 - .1 * ant) * (1 + 1.1 * zoom), px = c.cx, py = b0 - 70;
+      x = px + (x - px) * gs; y = py + (y - py) * gs; w *= gs; h *= gs;
+      const k = E.rideau(prog(t, 660, 860));
+      return { x: lerp(x, c.cx, k), y: lerp(y, c.cy, k), w: lerp(w, c.vw + 6, k), h: lerp(h, c.vh + 6, k) };
+    }
+    function reducedLayout(c) {
+            el.forEach((e, i) => put(e, X(c, i), BASE(c) - H[i] / 2, W, H[i]));
+      put(base, c.cx, BASE(c) + 4, 3 * W + 2 * G + 56, 2);
+    }
+    return { DUR: 1000, APP_AT: 790, setup, render, reducedLayout };
+
+  })();
+  // P = { DUR, APP_AT, setup(ctx), render(t, ctx), reducedLayout(ctx) }
+
+  /* ── Lecture ── */
+  let raf = 0, timer = 0, t0 = 0, ctx = null;
+  function context() {
+    return { vw: innerWidth, vh: innerHeight, cx: innerWidth / 2, cy: innerHeight / 2, pl, app,
+      O: css('--orange'), B: css('--bleu'), V: css('--vert'), fond: css('--fond'), texte: css('--texte'),
+      dark: root.dataset.theme === 'dark', E, clamp, lerp, prog, spring, put };
+  }
+  function reset() {
+    cancelAnimationFrame(raf); clearTimeout(timer);
+    pl.classList.remove('gone', 'skip'); pl.style.opacity = '';
+    pl.style.clipPath = ''; pl.style.background = '';
+    ctx = context(); P.setup && P.setup(ctx);
+  }
+  function finish() {
+    pl.classList.add('gone');
+  }
+  function frame(t) {
+    if (REDUCED) {                                   // barres statiques puis fondu
+      P.reducedLayout(ctx);
+      pl.style.opacity = (1 - prog(t, 450, 650)).toFixed(3);
+      ins.forEach((el) => { el.style.transform = 'none'; el.style.opacity = 1; });
+      return t >= 650;
+    }
+    P.render(Math.min(t, P.DUR), ctx);
+    appIn(t, P.APP_AT);
+    return t >= P.DUR;
+  }
+  function play() {
+    reset();
+    t0 = performance.now();
+    let ended = false;
+    const loop = (now) => {
+      const t = now - t0;
+      if (!ended && frame(t)) { ended = true; finish(); }
+      if (ended) appIn(t, REDUCED ? -1e4 : P.APP_AT);
+      if (t < 1600) raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    if (FREEZE === null) timer = setTimeout(play, 2500);
+  }
+  function skip() {
+    if (pl.classList.contains('gone')) return;
+    pl.classList.add('skip');
+    setTimeout(() => { finish(); appIn(1e4, 0); }, 130);
+  }
+  function setTheme(d) { root.dataset.theme = d ? 'dark' : 'light'; }
+
+  pl.addEventListener('pointerdown', skip);
+  document.getElementById('replay').addEventListener('click', play);
+  document.getElementById('theme').addEventListener('click', () => { setTheme(root.dataset.theme !== 'dark'); play(); });
+  addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') play();
+    else if (e.key === 't' || e.key === 'T') { setTheme(root.dataset.theme !== 'dark'); play(); }
+    else skip();
+  });
+  addEventListener('message', (e) => {
+    const m = e.data || {};
+    if (m.theme) setTheme(m.theme === 'dark');
+    if (m.replay) play();
+  });
+  addEventListener('resize', () => { if (ctx) { ctx = context(); P.setup && P.setup(ctx); if (FREEZE !== null) frame(FREEZE); } });
+
+  if (FREEZE !== null) {
+    reset();
+    if (frame(FREEZE)) finish();
+    window.__ready = true;
+  } else play();
+})();
+</script>
+</body>
+</html>

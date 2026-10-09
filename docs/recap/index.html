@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CBW AI — Récapitulatif</title>
+<link rel="stylesheet" href="../../assets/fonts/fonts.css">
+<style>
+/* Récap au langage de l'app : Swiss, blanc, Archivo + JetBrains Mono, filets, beaucoup d'air. */
+:root {
+  --fond: #FFFFFF; --fond-2: #F4F4F2; --encre: #1C1C1E; --texte: #1E1E1C; --sec: #55554F; --fil: #DDDDDA;
+  --orange: #FF5A1F; --bleu: #2B3BFF; --vert: #1FD26A; --vert-txt: #15803D; --orange-txt: #C2410C;
+  --police: "Archivo", -apple-system, system-ui, sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --fond: #1A1B1D; --fond-2: #232427; --encre: #ECECEA; --texte: #ECECEA; --sec: #A3A3A0; --fil: #3A3B3E; --vert-txt: #3DD68C; --orange-txt: #FF8A5C; color-scheme: dark; }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--fond); color: var(--texte); font: 400 17px/1.65 var(--police); padding-inline: 24px; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1180px; margin-inline: auto; }
+.lbl { font: 500 12px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--sec); }
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1 { font-weight: 850; font-stretch: 75%; font-size: clamp(56px, 10vw, 132px); line-height: .88; letter-spacing: -.025em; }
+h2 { font-weight: 800; font-stretch: 80%; font-size: clamp(36px, 5vw, 64px); line-height: .95; letter-spacing: -.015em; }
+h3 { font-weight: 700; font-size: 21px; line-height: 1.25; }
+p { margin: 0; max-width: 64ch; }
+.pt { color: var(--orange); }
+a { color: inherit; text-underline-offset: 4px; }
+
+/* nav */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding-block: 28px; border-bottom: 2px solid var(--encre); flex-wrap: wrap; position: sticky; top: 0; background: var(--fond); z-index: 5; }
+.brand { display: flex; align-items: center; gap: 12px; font: 800 20px var(--police); }
+.brand img { width: 34px; height: 34px; }
+.top nav { display: flex; gap: 26px; flex-wrap: wrap; }
+.top nav a { font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; text-decoration: none; color: var(--sec); position: relative; }
+.top nav a::after { content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 2px; background: var(--orange); transform: scaleX(0); transform-origin: left; transition: transform .24s cubic-bezier(.16,1,.3,1); }
+.top nav a:hover { color: var(--texte); } .top nav a:hover::after { transform: scaleX(1); }
+
+/* hero */
+.hero { padding-block: 120px 96px; display: grid; gap: 40px; }
+.bars { display: flex; gap: 10px; align-items: end; height: 76px; }
+.bars i { width: 18px; display: block; animation: talk 1.6s cubic-bezier(.2,.7,.2,1) infinite; transform-origin: bottom; }
+.bars i:nth-child(1){ background: var(--orange); height: 48%; animation-delay: .1s }
+.bars i:nth-child(2){ background: var(--bleu); height: 100%; }
+.bars i:nth-child(3){ background: var(--vert); height: 60%; animation-delay: .22s }
+@keyframes talk { 0%,100% { transform: scaleY(1) } 30% { transform: scaleY(.55) } 55% { transform: scaleY(1.08) } 75% { transform: scaleY(.8) } }
+.hero p { font-size: 21px; color: var(--sec); }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); border-top: 2px solid var(--encre); margin-top: 24px; }
+.kpis div { padding: 26px 22px 26px 0; border-right: 1px solid var(--fil); }
+.kpis div + div { padding-left: 22px; } .kpis div:last-child { border-right: 0; }
+.kpis b { display: block; font: 850 64px/1 var(--police); font-stretch: 75%; letter-spacing: -.02em; }
+
+/* sections */
+section { padding-block: 112px; border-top: 1px solid var(--fil); }
+.head { display: grid; grid-template-columns: 1fr 1.2fr; gap: 48px; align-items: end; margin-bottom: 64px; }
+.head .lbl { display: block; margin-bottom: 18px; }
+.head p { color: var(--sec); font-size: 18px; }
+
+/* fonctionnalités */
+.feat { display: grid; grid-template-columns: 1fr 1.35fr; gap: 64px; align-items: center; padding-block: 56px; border-top: 1px solid var(--fil); }
+.feat:first-of-type { border-top: 0; }
+.feat .num { font: 850 96px/.9 var(--police); font-stretch: 70%; letter-spacing: -.03em; display: flex; align-items: baseline; gap: 16px; }
+.feat .num span { height: 6px; flex: 1; max-width: 140px; }
+.feat ul { list-style: none; margin: 26px 0 0; padding: 0; border-top: 1px solid var(--fil); }
+.feat li { padding: 13px 0 13px 26px; border-bottom: 1px solid var(--fil); position: relative; font-size: 16px; }
+.feat li::before { content: ""; position: absolute; left: 0; top: 21px; width: 9px; height: 9px; background: currentColor; }
+.feat li b { font-weight: 650; }
+.shot { border: 1px solid var(--fil); background: var(--fond-2); box-shadow: 8px 8px 0 var(--encre); transition: transform .24s cubic-bezier(.16,1,.3,1), box-shadow .24s; }
+.shot:hover { transform: translate(-3px,-3px); box-shadow: 11px 11px 0 var(--encre); }
+.shot img { display: block; width: 100%; height: auto; }
+.c-o li::before, .c-o .num span { background: var(--orange); } .c-o li::before { background: var(--orange) }
+.c-v li::before, .c-v .num span { background: var(--vert); }
+.c-b li::before, .c-b .num span { background: var(--bleu); }
+
+/* grille de cartes */
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); border-top: 2px solid var(--encre); border-left: 1px solid var(--fil); }
+.grid > div { padding: 30px 28px 34px; border-right: 1px solid var(--fil); border-bottom: 1px solid var(--fil); display: grid; gap: 12px; align-content: start; transition: background .2s; }
+.grid > div:hover { background: var(--fond-2); }
+.grid p { font-size: 15.5px; color: var(--sec); }
+.dot { width: 12px; height: 12px; display: inline-block; margin-right: 8px; vertical-align: 1px; }
+
+/* sites */
+.sites { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 32px; }
+.site { display: grid; gap: 18px; align-content: start; }
+.site .shot { aspect-ratio: 16 / 11; overflow: hidden; }
+.site .shot img { object-fit: cover; object-position: top; height: 100%; }
+.site .tag { justify-self: start; font: 600 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; padding: 6px 9px; border: 1px solid currentColor; }
+.site.reco .tag { color: var(--fond); background: var(--orange); border-color: var(--orange); }
+.site p { font-size: 15.5px; color: var(--sec); }
+.site a.open { font: 600 15px var(--police); text-decoration: none; display: inline-flex; gap: 8px; align-items: center; }
+.site a.open span { transition: transform .2s cubic-bezier(.16,1,.3,1); } .site a.open:hover span { transform: translateX(4px); }
+.reco-box { margin-top: 64px; padding: 40px 44px; background: var(--fond-2); border-left: 4px solid var(--orange); display: grid; gap: 14px; }
+.reco-box p { font-size: 17px; }
+
+/* tables / listes */
+.todo { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 64px; }
+.todo ol { margin: 0; padding: 0; list-style: none; counter-reset: n; border-top: 2px solid var(--encre); }
+.todo li { counter-increment: n; display: grid; grid-template-columns: 44px 1fr; gap: 12px; padding: 18px 0; border-bottom: 1px solid var(--fil); font-size: 16px; }
+.todo li::before { content: counter(n, decimal-leading-zero); font: 500 13px/1.9 var(--mono); color: var(--sec); }
+.todo li b { display: block; font-weight: 650; }
+.strip img { width: 100%; border: 1px solid var(--fil); display: block; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+.icon-big { width: min(260px, 60%); filter: drop-shadow(0 18px 30px rgba(0,0,0,.18)); transition: transform .3s cubic-bezier(.16,1,.3,1); }
+.icon-big:hover { transform: rotate(-3deg) scale(1.03); }
+footer { padding-block: 64px 96px; border-top: 2px solid var(--encre); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+@media (max-width: 900px) {
+  .head, .feat, .duo, .todo { grid-template-columns: 1fr; gap: 32px; }
+  .grid, .sites { grid-template-columns: 1fr; }
+  .kpis { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .kpis div:nth-child(2) { border-right: 0; } .kpis div:nth-child(3) { padding-left: 0; }
+  section { padding-block: 72px; } .hero { padding-block: 72px 56px; }
+  .top nav { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="brand"><img src="img/icon.png" alt="">CBW AI</div>
+  <nav>
+    <a href="#app">L'app</a><a href="#fonctions">Fonctions</a><a href="#design">Design</a><a href="#site">Site web</a><a href="#suite">La suite</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <div class="bars" aria-hidden="true"><i></i><i></i><i></i></div>
+  <span class="lbl">Récapitulatif · 9 octobre 2026</span>
+  <h1>Tu parles.<br>CBW écrit<span class="pt">.</span></h1>
+  <p>Une app macOS gratuite qui transcrit ta voix sur ton Mac, nettoie le texte avec une IA gratuite et le colle là où tu écris. Elle prend aussi des comptes rendus de réunion complets et transforme un brainstorm parlé en master prompt pour Claude Code ou Cursor.</p>
+  <div class="kpis">
+    <div><b>0 €</b><span class="lbl">par mois</span></div>
+    <div><b>0,4 s</b><span class="lbl">nettoyage Groq</span></div>
+    <div><b>21/21</b><span class="lbl">répliques bien attribuées</span></div>
+    <div><b>3</b><span class="lbl">modes : dictée · notes · brainstorm</span></div>
+  </div>
+</div>
+
+<section id="app">
+  <div class="head">
+    <div><span class="lbl">01 · L'app installée</span><h2>Dans ton Dock, prête à servir<span class="pt">.</span></h2></div>
+    <p>CBW AI vit dans le Dock et la barre de menus. Une pastille discrète reste en bas de chaque écran : au survol, elle propose Dicter, Note et Brainstorm.</p>
+  </div>
+  <div class="feat">
+    <div class="duo" style="grid-template-columns:auto 1fr">
+      <img class="icon-big" src="img/icon.png" alt="Icône CBW AI">
+    </div>
+    <div>
+      <ul>
+        <li><b>Icône</b> : l'ancien logo, barres blanc · orange · bleu · vert · blanc.</li>
+        <li><b>Raccourci</b> : Control gauche ×2 pour dicter, ×1 pour coller, ×3 pour une note. fn reste libre pour les emojis.</li>
+        <li><b>Preloader A1 « Il parle »</b> : les 3 barres prononcent « C·B·W » puis s'ouvrent en rideau tricolore (1 s, sans texte).</li>
+        <li><b>Sons de marque</b> discrets au début et à la fin de l'écoute.</li>
+        <li><b>Rien n'est enregistré</b> si rien n'a été entendu ; la pastille revient toujours au repos.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="fonctions">
+  <div class="head">
+    <div><span class="lbl">02 · Fonctions</span><h2>Trois façons de parler à ton Mac<span class="pt">.</span></h2></div>
+    <p>Chaque mode a sa couleur, comme dans l'app : orange pour la dictée, vert pour les notes, bleu pour le brainstorm et l'IA.</p>
+  </div>
+
+  <div class="feat c-o">
+    <div>
+      <div class="num">01<span></span></div>
+      <h3 style="margin-top:18px">Dictée nettoyée</h3>
+      <ul>
+        <li>Retire les « euh », répétitions et phrases abandonnées.</li>
+        <li>Applique tes corrections : « trois, enfin non quatre » → quatre.</li>
+        <li>Corrige les mots mal entendus : « si tu plaisais » → « s'il te plaît », « cloud » → Claude.</li>
+        <li>Passe l'oral familier à l'écrit courant, sans le rendre « corporate ».</li>
+      </ul>
+    </div>
+    <div class="shot"><img src="img/home.png" alt="Accueil de CBW AI"></div>
+  </div>
+
+  <div class="feat c-v">
+    <div>
+      <div class="num">02<span></span></div>
+      <h3 style="margin-top:18px">Notes de réunion complètes</h3>
+      <ul>
+        <li>Sans limite de durée, transcrites au fil de l'eau, sans perte en cas de plantage.</li>
+        <li>Qui a dit quoi : voix séparées en local, son du Mac capté pour les visios.</li>
+        <li>Compte rendu exhaustif : sujets, décisions, actions par personne, chronologie.</li>
+        <li>Panneau à onglets : Résumé, Par personne, Décisions & actions, Transcription.</li>
+      </ul>
+    </div>
+    <div class="shot"><img src="img/notes.png" alt="Écran Notes"></div>
+  </div>
+
+  <div class="feat c-b">
+    <div>
+      <div class="num">03<span></span></div>
+      <h3 style="margin-top:18px">Brainstorm → master prompt</h3>
+      <ul>
+        <li>Tu parles en continu ; des bulles de questions apparaissent en bas à droite.</li>
+        <li>Tu réponds en parlant, la bulle se coche toute seule.</li>
+        <li>La grille CRAFT+ se remplit en direct, sans rien inventer.</li>
+        <li>À l'arrêt : un prompt prêt pour Claude Code ou Cursor, en 2 à 3 s.</li>
+      </ul>
+    </div>
+    <div class="shot"><img src="img/brainstorm.png" alt="Écran Brainstorm"></div>
+  </div>
+</section>
+
+<section id="design">
+  <div class="head">
+    <div><span class="lbl">03 · Design</span><h2>Le langage de CBW Studio<span class="pt">.</span></h2></div>
+    <p>Repris de ton site d'automatisations : blanc, encre adoucie, angles droits, filets fins, et trois couleurs qui ont chacune un sens.</p>
+  </div>
+  <div class="grid">
+    <div><span class="lbl"><i class="dot" style="background:var(--encre)"></i>Typographie</span><h3>Archivo + JetBrains Mono</h3><p>Titres condensés très gras, étiquettes en mono capitales.</p></div>
+    <div><span class="lbl"><i class="dot" style="background:var(--orange)"></i>Couleurs</span><h3>Orange · bleu · vert</h3><p>Écoute, traitement IA, collé. Le reste en blanc et graphite.</p></div>
+    <div><span class="lbl"><i class="dot" style="background:var(--bleu)"></i>Mise en page</span><h3>Menu repliable</h3><p>Logo calé sous les boutons macOS, menu ⌘\ qui passe en colonne d'icônes.</p></div>
+    <div><span class="lbl"><i class="dot" style="background:var(--vert)"></i>Mouvement</span><h3>Survol partout</h3><p>Micro-animations de 0,12 à 0,24 s, coupées si macOS demande moins d'animations.</p></div>
+    <div><span class="lbl"><i class="dot" style="background:var(--encre)"></i>Thème</span><h3>Clair par défaut</h3><p>Sombre « graphite » au choix, sans flash au lancement.</p></div>
+    <div><span class="lbl"><i class="dot" style="background:var(--orange)"></i>Audit</span><h3>Onboarding en 4 étapes</h3><p>Bienvenue, autorisations, essai, prêt. Un seul bouton principal par écran.</p></div>
+  </div>
+  <div class="strip" style="margin-top:64px"><span class="lbl" style="display:block;margin-bottom:16px">Preloader A1 · une image toutes les 50 ms</span><img src="img/preloader.png" alt="Images successives du preloader A1"></div>
+</section>
+
+<section id="site">
+  <div class="head">
+    <div><span class="lbl">04 · Site web · 3 propositions</span><h2>Un seul bouton : télécharger pour macOS<span class="pt">.</span></h2></div>
+    <p>Inspirés de 15 sites étudiés (Wispr Flow, Superwhisper, Granola, Raycast…). Tous affichent sous le bouton : Gratuit · macOS 14+ · Apple Silicon · 117 Mo.</p>
+  </div>
+  <div class="sites">
+    <div class="site">
+      <span class="tag">Site 1 · Produit minimal</span>
+      <div class="shot"><img src="img/site1.png" alt="Site 1"></div>
+      <h3>La démo d'abord</h3>
+      <p>Titre géant et la vraie pastille animée : ÉCOUTE, MISE AU PROPRE, COLLÉ. Le plus court et le plus clair, proche de Raycast et Linear.</p>
+      <a class="open" href="../../site-1/index.html">Ouvrir le site 1 <span>→</span></a>
+    </div>
+    <div class="site reco">
+      <span class="tag">Site 2 · Recommandé</span>
+      <div class="shot"><img src="img/site2.png" alt="Site 2"></div>
+      <h3>Éditorial CBW Studio</h3>
+      <p>Avant/après cliquable, gros chiffres, un chapitre par fonction avec son mini-écran. Le plus fidèle à ta marque.</p>
+      <a class="open" href="../../site-2/index.html">Ouvrir le site 2 <span>→</span></a>
+    </div>
+    <div class="site">
+      <span class="tag">Site 3 · Histoire</span>
+      <div class="shot"><img src="img/site3.png" alt="Site 3"></div>
+      <h3>Racontée au défilement</h3>
+      <p>Le logo parle, puis trois scènes : Tu parles, Tu réunis, Tu imagines. Le plus spectaculaire, mais le plus long.</p>
+      <a class="open" href="../../site-3/index.html">Ouvrir le site 3 <span>→</span></a>
+    </div>
+  </div>
+  <div class="reco-box">
+    <span class="lbl">Ma recommandation</span>
+    <h3>Le site 2 comme base, avec la démo de pastille du site 1 dans le haut de page.</h3>
+    <p>Le site 2 porte le mieux l'identité CBW Studio et montre chaque fonction concrètement. Il gagnerait le hero animé du site 1, qui fait comprendre l'app en 5 secondes, et les bulles du site 3 pour le brainstorm. On garde une page courte et un seul bouton principal.</p>
+  </div>
+</section>
+
+<section id="suite">
+  <div class="head">
+    <div><span class="lbl">05 · La suite</span><h2>Ce qui t'attend<span class="pt">.</span></h2></div>
+    <p>Ce qui reste à faire, et les décisions qui sont de ton côté.</p>
+  </div>
+  <div class="todo">
+    <div>
+      <span class="lbl" style="display:block;margin-bottom:14px">À tester ou finir</span>
+      <ol>
+        <li><div><b>Une vraie note avec le son du Mac</b>macOS demandera l'autorisation « audio système » la première fois.</div></li>
+        <li><div><b>Cliquer une bulle depuis une autre app</b>Vérifier que l'app active reste bien devant.</div></li>
+        <li><div><b>Le site final</b>Fusionner site 2 + hero du site 1, puis la page d'aide.</div></li>
+        <li><div><b>Quelques mots perdus</b>Quand une phrase est coupée pile au changement de personne.</div></li>
+      </ol>
+    </div>
+    <div>
+      <span class="lbl" style="display:block;margin-bottom:14px">Tes décisions</span>
+      <ol>
+        <li><div><b>Choisir le site</b>Site 2 recommandé, ou un autre.</div></li>
+        <li><div><b>Publier sur GitHub + Vercel</b>Le lien de téléchargement est encore provisoire. Rien n'est publié sans ton accord.</div></li>
+        <li><div><b>Compte Apple Developer</b>99 $/an pour retirer l'avertissement d'Apple au premier lancement. Optionnel.</div></li>
+        <li><div><b>Clés Mistral et Cloudflare</b>Pour plus de marge gratuite, si tu veux.</div></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span class="lbl">CBW AI · CBW Studio</span>
+  <span class="lbl">Fichiers : ~/dicta-ai</span>
+</footer>
+</div>
+</body>
+</html>

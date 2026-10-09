@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CBW AI — Dictée vocale gratuite pour Mac</title>
+<meta name="description" content="Parle, CBW AI écrit. Dictée vocale gratuite pour Mac Apple Silicon : ta voix est transcrite sur ton Mac, le texte est nettoyé et collé dans n'importe quelle app.">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/svg+xml" href="img/logo.svg">
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="preload" href="fonts/Archivo-latin.var.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Aller au contenu</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="CBW AI, accueil">
+      <svg viewBox="0 0 664 560" aria-hidden="true"><rect x="0" y="160" width="88" height="240" fill="currentColor"/><rect x="144" y="80" width="88" height="400" fill="currentColor"/><rect x="288" y="0" width="88" height="560" fill="#FF5A1F"/><rect x="432" y="80" width="88" height="400" fill="currentColor"/><rect x="576" y="160" width="88" height="240" fill="currentColor"/></svg>
+      <span>CBW <small>AI</small></span>
+    </a>
+    <nav class="nav" aria-label="Navigation principale">
+      <a href="#etapes">Comment ça marche</a>
+      <a href="#fonctions">Fonctionnalités</a>
+      <a href="#faq">FAQ</a>
+      <a href="aide">Aide</a>
+      <a class="btn s download-link" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">Télécharger</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero">
+    <div class="wrap">
+      <div>
+        <span class="label"><i class="o"></i>Dictée vocale · Mac · Gratuit</span>
+        <h1>Parle.<br>CBW écrit<em>.</em></h1>
+        <p class="lede">Appuie deux fois sur <kbd>Control</kbd>, parle normalement, et ton texte apparaît, déjà propre, dans ton mail, ton devis ou ton message. Sans « euh », sans répétitions, avec la ponctuation.</p>
+        <!-- TODO: remplacer OWNER/REPO par le dépôt GitHub qui publie les releases (fichier CBW-AI-arm64.dmg). Même lien dans l'en-tête, en bas de page et dans aide.html. -->
+        <a class="btn cta xl download-link" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v11.2l4.6-4.6 1.4 1.4-7 7-7-7 1.4-1.4 4.6 4.6z M4 19h16v2H4z" fill="currentColor"/></svg>
+          <span>Télécharger pour Mac (Apple Silicon)<span class="sub">CBW-AI-arm64.dmg · macOS 14+ · 0 €</span></span>
+        </a>
+        <div class="meta">
+          <span class="label"><i class="v"></i>Ta voix reste sur ton Mac</span>
+          <span class="label"><i class="b"></i>Marche dans toutes tes apps</span>
+        </div>
+        <p class="todo">Mac M1, M2, M3, M4 ou plus récent uniquement. <a href="aide#installation-pas-à-pas">Guide d'installation</a></p>
+      </div>
+      <div class="demo" aria-label="Exemple de dictée">
+        <div class="demo-h"><span class="label"><i class="o"></i>Exemple</span><span class="badge v">COLLÉ</span></div>
+        <div class="demo-b">
+          <div class="pill" aria-hidden="true"><span class="eq"><span></span><span></span><span></span><span></span><span></span></span><b>J'écoute…</b></div>
+          <div>
+            <div class="label" style="margin-bottom:8px">Tu dis</div>
+            <div class="said">« <s>Euh</s> bonjour Claire, <s>alors</s> je voulais savoir si <s>si</s> on peut décaler le rendez-vous à <s>jeudi, enfin non</s> vendredi »</div>
+          </div>
+          <div>
+            <div class="label" style="margin-bottom:8px"><i class="v"></i>CBW écrit</div>
+            <div class="wrote">Bonjour Claire, je voulais savoir si on peut décaler le rendez-vous à vendredi.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="wrap" style="padding-bottom:0"><div class="bars" aria-hidden="true"><span></span><span></span><span></span></div></div>
+  </section>
+
+  <section id="etapes" class="sec">
+    <div class="wrap">
+      <div class="sec-h">
+        <span class="label"><i></i>01 · En 3 étapes</span>
+        <h2>Prêt en cinq minutes.</h2>
+        <p>Pas de compte CBW, pas d'abonnement. Tu installes, tu autorises, tu parles.</p>
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="bar o"></div>
+          <div class="n">01</div>
+          <h3>Télécharge et installe</h3>
+          <p>Ouvre le fichier .dmg et glisse CBW AI dans Applications. Au premier lancement, macOS demande une confirmation : <a href="aide#premier-lancement--le-message--apple-ne-peut-pas-vérifier-">voici comment faire</a>.</p>
+        </div>
+        <div class="step">
+          <div class="bar b"></div>
+          <div class="n">02</div>
+          <h3>Autorise et branche ta clé</h3>
+          <p>Autorise le micro et l'accessibilité, puis colle ta clé IA gratuite (Groq, 2 minutes). CBW AI te guide écran par écran.</p>
+        </div>
+        <div class="step">
+          <div class="bar v"></div>
+          <div class="n">03</div>
+          <h3>Appuie deux fois sur Control</h3>
+          <p>Parle, puis appuie une fois sur <kbd>Control</kbd> : le texte se colle là où est ton curseur. <kbd>Échap</kbd> annule.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="fonctions" class="sec alt">
+    <div class="wrap">
+      <div class="sec-h">
+        <span class="label"><i></i>02 · Fonctionnalités</span>
+        <h2>Écris trois fois plus vite.</h2>
+        <p>On parle environ trois fois plus vite qu'on ne tape. CBW AI s'occupe du reste.</p>
+      </div>
+      <div class="grid">
+        <div class="card"><span class="label"><i class="v"></i>Confidentialité</span><h3>Ta voix ne sort pas du Mac</h3><p>La transcription se fait sur ton Mac. Aucun enregistrement audio n'est envoyé ni conservé.</p></div>
+        <div class="card"><span class="label"><i class="o"></i>0 €</span><h3>Gratuit, vraiment</h3><p>App gratuite, moteurs IA en offre gratuite avec ta propre clé. Sans carte bancaire, rien ne peut t'être facturé.</p></div>
+        <div class="card"><span class="label"><i class="b"></i>Partout</span><h3>Dans toutes tes apps</h3><p>Mail, Gmail, Word, Notion, Slack, WhatsApp, ChatGPT, ton navigateur… Là où tu peux taper, tu peux dicter.</p></div>
+        <div class="card"><span class="label"><i class="b"></i>Nettoyage</span><h3>Un texte propre du premier coup</h3><p>Fini les « euh », les mots répétés et les « jeudi, non vendredi » : CBW garde seulement ce que tu voulais dire.</p></div>
+        <div class="card"><span class="label"><i></i>Fidèle</span><h3>Correcteur, pas rédacteur</h3><p>CBW n'invente rien, ne reformule pas tes idées et ne répond jamais à ce que tu dictes. C'est ton texte.</p></div>
+        <div class="card"><span class="label"><i class="o"></i>Rapide</span><h3>Un geste, c'est tout</h3><p>Deux appuis sur <kbd>Control</kbd> pour parler les mains libres, ou maintiens la touche pour une phrase courte. La touche fn reste libre pour tes emoji.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec band">
+    <div class="wrap">
+      <div class="sec-h">
+        <span class="label"><i class="o"></i>03 · Avant / après</span>
+        <h2>Tu parles comme tu parles.</h2>
+        <p>Et ça s'écrit comme ça devait s'écrire.</p>
+      </div>
+      <div class="ba">
+        <div>
+          <span class="label" style="margin-bottom:10px"><i class="o"></i>Tu dis</span>
+          <div class="row said">« Alors le devis c'est euh trois cents euros, non pardon, trois cent cinquante euros hors taxes »</div>
+          <div class="row said">« Est-ce que tu peux m'envoyer le le fichier avant midi s'il te plaît »</div>
+        </div>
+        <div>
+          <span class="label" style="margin-bottom:10px"><i class="v"></i>CBW écrit</span>
+          <div class="row">Le devis est de trois cent cinquante euros hors taxes.</div>
+          <div class="row">Est-ce que tu peux m'envoyer le fichier avant midi, s'il te plaît ?</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq" class="sec">
+    <div class="wrap">
+      <div class="sec-h">
+        <span class="label"><i></i>04 · Questions fréquentes</span>
+        <h2>FAQ</h2>
+      </div>
+      <div class="faq">
+        <details><summary>C'est vraiment gratuit ?<span class="plus" aria-hidden="true">+</span></summary><div class="a"><p>Oui. L'app est gratuite. Le nettoyage du texte passe par un moteur IA qui a une offre gratuite (Groq, Mistral, Cloudflare…) : tu crées ta propre clé en deux minutes. Tant que tu n'ajoutes pas de carte bancaire sur ces comptes, rien ne peut t'être facturé.</p></div></details>
+        <details><summary>Quel Mac faut-il ?<span class="plus" aria-hidden="true">+</span></summary><div class="a"><p>Un Mac avec puce Apple (M1, M2, M3, M4 ou plus récent) sous macOS 14 Sonoma ou plus récent. Les Mac Intel ne sont pas pris en charge.</p></div></details>
+        <details><summary>Où vont mes données ?<span class="plus" aria-hidden="true">+</span></summary><div class="a"><p>Ta voix est transcrite sur ton Mac et n'est jamais envoyée. Seul le texte transcrit part vers le moteur IA que tu as choisi, pour être nettoyé. Mistral héberge ses serveurs en Europe ; Z.ai, hors de l'Union européenne. Pour que rien ne sorte du Mac, tu peux utiliser Ollama (option locale, pour les Mac avec beaucoup de mémoire).</p></div></details>
+        <details><summary>macOS dit « Apple ne peut pas vérifier… »<span class="plus" aria-hidden="true">+</span></summary><div class="a"><p>C'est normal pour l'instant : l'app n'est pas encore notarisée par Apple. Ouvre Réglages Système › Confidentialité et sécurité, descends et clique sur « Ouvrir quand même ». À faire une seule fois. <a href="aide#premier-lancement--le-message--apple-ne-peut-pas-vérifier-">Le détail pas à pas</a>.</p></div></details>
+        <details><summary>Pourquoi ces autorisations Micro et Accessibilité ?<span class="plus" aria-hidden="true">+</span></summary><div class="a"><p>Le micro sert à t'entendre, uniquement pendant une dictée. L'accessibilité permet de repérer la touche Control et de coller le texte là où est ton curseur. CBW AI ne lit pas ce que tu tapes.</p></div></details>
+        <details><summary>Ça marche sans internet ?<span class="plus" aria-hidden="true">+</span></summary><div class="a"><p>La transcription, oui. Le nettoyage a besoin d'internet, sauf avec Ollama. Sans connexion, CBW AI colle quand même ta transcription brute.</p></div></details>
+        <details><summary>Et la touche fn pour les emoji ?<span class="plus" aria-hidden="true">+</span></summary><div class="a"><p>Elle reste libre. Le raccourci par défaut est la touche Control de gauche. Tu peux le changer dans Réglages : Control droite ×2, fn ×2 ou ⌥ Espace.</p></div></details>
+      </div>
+      <p style="margin-top:28px"><a class="btn out" href="aide">Lire l'aide complète</a></p>
+    </div>
+  </section>
+
+  <section class="sec alt final">
+    <div class="wrap">
+      <h2>Arrête de taper.<br>Parle.</h2>
+      <a class="btn cta xl download-link" href="https://github.com/OWNER/REPO/releases/latest/download/CBW-AI-arm64.dmg">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3h2v11.2l4.6-4.6 1.4 1.4-7 7-7-7 1.4-1.4 4.6 4.6z M4 19h16v2H4z" fill="currentColor"/></svg>
+        <span>Télécharger pour Mac (Apple Silicon)<span class="sub">Gratuit · macOS 14+</span></span>
+      </a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="/" aria-label="CBW AI">
+      <svg viewBox="0 0 664 560" aria-hidden="true"><rect x="0" y="160" width="88" height="240" fill="currentColor"/><rect x="144" y="80" width="88" height="400" fill="currentColor"/><rect x="288" y="0" width="88" height="560" fill="#FF5A1F"/><rect x="432" y="80" width="88" height="400" fill="currentColor"/><rect x="576" y="160" width="88" height="240" fill="currentColor"/></svg>
+      <span>CBW <small>AI</small></span>
+    </a>
+    <p>Une app gratuite de CBW Studio. <a href="aide">Aide</a> · <a href="aide#confidentialité">Confidentialité</a></p>
+  </div>
+</footer>
+</body>
+</html>

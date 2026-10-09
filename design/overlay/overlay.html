@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'unsafe-inline'; img-src data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>CBW AI — Overlay</title>
+<!--
+  CBW AI — overlay d'état flottant (identité CBW Studio).
+  Fenêtre Electron recommandée : 520 x 64, transparente, sans cadre, alwaysOnTop,
+  focusable:false, setIgnoreMouseEvents(true). L'étiquette est centrée dans la fenêtre.
+
+  API :
+    window.setStatus({ state, message?, partialText?, level?, mode?, elapsedMs? })   // DictaStatus
+      mode:'note' + state:'recording' → étiquette NOTE + chrono mm:ss ; message contenant « pause » → PAUSE
+    window.setIdleMode('dim' | 'hidden')                          // défaut 'dim'
+  Aussi accepté : window.postMessage({ type: 'dicta-status', status }, '*')
+                  window.postMessage({ type: 'dicta-idle-mode', mode }, '*')
+                  window.postMessage({ type: 'dicta-accent', color }, '*')
+                  window.postMessage({ type: 'dicta-hover', on }, '*')          // simulation du survol
+  Survol (façon Wispr Flow) : la zone de l'étiquette déplie une barre d'actions.
+    idle → « Dicter » | « Note » | « Brainstorm » ; recording → « Arrêter » ; note → « Terminer la note » ;
+    brainstorm (mode:'brainstorm') → « Terminer le brainstorm » (action 'brainstorm') ; traitement → rien.
+    window.dicta.setHover(bool) rend la fenêtre cliquable pendant le survol ;
+    window.dicta.action('dictate' | 'note' | 'brainstorm') déclenche l'action (sans bridge : postMessage dicta-action au parent).
+  Si un preload expose window.dicta.onStatus(cb), l'abonnement est automatique.
+  Paramètres d'URL : ?idle=hidden  ?accent=%23FF5A1F  (couleur d'enregistrement)
+-->
+<link rel="stylesheet" href="../../assets/fonts/fonts.css">
+<style>
+  :root {
+    /* Tokens CBW Studio */
+    --noir: #111111;
+    --encre: #1C1C1E;                 /* fond de l'étiquette (lisible sur fonds sombres) */
+    --gris: #F4F4F2;
+    --blanc: #FFFFFF;
+    --gris-fil: #DDDDDD;
+    --orange: #FF5A1F;
+    --bleu: #2B3BFF;
+    --vert: #1FD26A;
+    --erreur: #FF6B5E;                /* rouge éclairci, lisible sur #1C1C1E */
+    --rec: #FF3B1F;                   /* carré d'enregistrement (prise de notes) */
+    --accent: var(--orange);          /* enregistrement ; surchargeable par ?accent= */
+    --bleu-vif: #5A67FF;              /* bleu éclairci pour les barres sur fond noir */
+    --fil: rgba(255, 255, 255, 0.25); /* liseré extérieur */
+    --fil-int: rgba(255, 255, 255, 0.16); /* filet vertical interne */
+    --ombre: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 4px 16px rgba(0, 0, 0, 0.30);
+    --text: #FFFFFF;
+    --text-dim: rgba(255, 255, 255, 0.62);
+    --tag-h: 30px;
+    --ease: cubic-bezier(.2, .7, .2, 1);
+    --ease-out: cubic-bezier(.16, 1, .3, 1);
+    --police: 'Archivo', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: default;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 500 13px/1 var(--police);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Étiquette ---------- */
+  #pill {
+    position: relative;
+    box-sizing: border-box;
+    height: var(--tag-h);
+    width: 40px;
+    border-radius: 0;
+    background: var(--encre);
+    border: 1px solid var(--fil);
+    box-shadow: var(--ombre);
+    overflow: hidden;
+    color: var(--text);
+    transition:
+      width 240ms var(--ease-out),
+      height 240ms var(--ease-out),
+      opacity 240ms var(--ease-out),
+      transform 240ms var(--ease-out),
+      border-color 200ms var(--ease);
+    will-change: width, transform, opacity;
+  }
+  .inner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: max-content;
+    display: flex;
+    align-items: center;
+    padding: 0 12px 0 11px;
+    transition: opacity 240ms var(--ease-out);
+  }
+
+  /* ---------- Idle : petite étiquette noire, trois carrés CBW ---------- */
+  .idle-mark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    opacity: 0;
+    transition: opacity 240ms var(--ease-out);
+  }
+  .idle-mark i { display: block; width: 5px; height: 5px; }
+  .idle-mark i:nth-child(1) { background: var(--accent); }
+  .idle-mark i:nth-child(2) { background: var(--bleu-vif); }
+  .idle-mark i:nth-child(3) { background: var(--vert); }
+
+  #pill[data-state="idle"] {
+    width: 44px !important;
+    height: 16px;
+    opacity: 1;
+  }
+  #pill[data-state="idle"] .inner { opacity: 0; transition-duration: 120ms; }
+  #pill[data-state="idle"] .idle-mark { opacity: 1; transition-delay: 80ms; }
+  #pill:not([data-state="idle"]) .inner { transition-delay: 60ms; }
+  html[data-idle="hidden"] #pill[data-state="idle"] {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  /* ---------- Barres (concept du logo) ---------- */
+  .bars {
+    width: 23px;               /* 5 barres de 3 px + 4 écarts de 2 px */
+    height: 16px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: transform 220ms var(--ease);
+  }
+  .bars i {
+    display: block;
+    width: 3px;
+    height: 3px;
+    background: var(--accent);
+    flex: none;
+    transition: background-color 200ms var(--ease), height 220ms var(--ease);
+  }
+  #pill[data-state="recording"] .bars i { transition: background-color 200ms var(--ease); } /* hauteur pilotée par rAF */
+
+  /* filet vertical 1px */
+  .rule {
+    width: 1px;
+    height: 14px;
+    margin: 0 10px;
+    background: var(--fil-int);
+    flex: none;
+  }
+
+  /* pastille carrée + libellé */
+  .mark {
+    width: 6px;
+    height: 6px;
+    margin-right: 8px;
+    flex: none;
+    background: var(--accent);
+    transition: background-color 200ms var(--ease);
+  }
+
+  .label {
+    display: flex;
+    justify-content: flex-end;     /* le débordement est rogné à gauche */
+    max-width: 380px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .label.overflow {
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 28px);
+    mask-image: linear-gradient(to right, transparent 0, #000 28px);
+  }
+  .text {
+    display: inline-block;
+    white-space: nowrap;
+    color: var(--text);
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding-top: 1px;
+  }
+  /* texte live (partialText) : Archivo, casse normale */
+  .text.live {
+    font: 500 13px/1 var(--police);
+    letter-spacing: -0.005em;
+    text-transform: none;
+    padding-top: 0;
+  }
+  .text.dim { color: var(--text-dim); }
+  .text.swap { animation: swap 180ms var(--ease); }
+  @keyframes swap {
+    from { opacity: 0; transform: translateY(3px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* chrono (prise de notes) */
+  .clock {
+    display: none;
+    margin-left: 8px;
+    color: var(--text-dim);
+    font: 500 11px/1 var(--mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    padding-top: 1px;
+    white-space: nowrap;
+  }
+
+  /* ---------- Prise de notes ---------- */
+  #pill[data-mode="note"] .clock, #pill[data-mode="brainstorm"] .clock { display: inline-block; color: var(--text); }
+  /* ---------- Brainstorm (vidage) : carré bleu au lieu du rouge ---------- */
+  #pill[data-mode="brainstorm"] .mark { width: 8px; height: 8px; background: var(--bleu-vif); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
+  #pill[data-state="recording"][data-mode="brainstorm"] .mark { animation: recSlow 2000ms ease-in-out infinite; }
+  #pill[data-mode="brainstorm"] .bars i { background: var(--orange); }
+  #pill[data-mode="note"] .mark {
+    width: 8px; height: 8px;
+    background: var(--rec);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+  }
+  #pill[data-state="recording"][data-mode="note"] .mark { animation: recSlow 2000ms ease-in-out infinite; }
+  @keyframes recSlow { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  #pill[data-mode="note"] .bars i { background: var(--orange); }
+  #pill[data-paused] .mark { animation: none !important; background: var(--text-dim); box-shadow: none; }
+  #pill[data-paused] .bars i { opacity: 0.5; }
+  #pill[data-paused] .text { color: var(--text-dim); }
+  #pill[data-paused] .clock { color: var(--text-dim); }
+
+  /* ---------- Couleurs d'état ---------- */
+  #pill[data-state="transcribing"] .bars i,
+  #pill[data-state="cleaning"] .bars i,
+  #pill[data-state="inserting"] .bars i { background: var(--bleu-vif); }
+  #pill[data-state="transcribing"] .mark,
+  #pill[data-state="cleaning"] .mark,
+  #pill[data-state="inserting"] .mark { background: var(--bleu); box-shadow: 0 0 0 1px var(--bleu-vif) inset; }
+  #pill[data-state="done"] .bars i,
+  #pill[data-state="done"] .mark { background: var(--vert); }
+  #pill[data-state="error"] .bars i,
+  #pill[data-state="error"] .mark { background: var(--erreur); }
+  #pill[data-state="error"] { border-color: var(--erreur); }
+  #pill[data-state="error"] .mark { box-shadow: none; }
+
+  /* ---------- Recording : hauteurs pilotées par JS ---------- */
+  #pill[data-state="recording"] .mark { animation: rec 1100ms steps(1, end) infinite; }
+  @keyframes rec { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  /* ---------- Transcribing : vague gauche → droite ---------- */
+  #pill[data-state="transcribing"] .bars i { animation: wave 960ms var(--ease) infinite; }
+  @keyframes wave {
+    0%, 100% { height: 3px;  opacity: 0.5; }
+    35%      { height: 13px; opacity: 1; }
+    70%      { height: 3px;  opacity: 0.5; }
+  }
+
+  /* ---------- Cleaning : respiration depuis le centre + reflet ---------- */
+  #pill[data-state="cleaning"] .bars i { animation: think 1400ms cubic-bezier(.45, 0, .55, 1) infinite; }
+  @keyframes think {
+    0%, 100% { height: 4px;  opacity: 0.55; }
+    50%      { height: 15px; opacity: 1; }
+  }
+  #pill[data-state="cleaning"] .text {
+    background: linear-gradient(90deg,
+      var(--text-dim) 0%, var(--text-dim) 35%,
+      #fff 50%,
+      var(--text-dim) 65%, var(--text-dim) 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 1600ms linear infinite;
+  }
+  @keyframes shimmer {
+    from { background-position: 100% 0; }
+    to   { background-position: -150% 0; }
+  }
+
+  /* ---------- Inserting : barres resserrées qui clignotent ---------- */
+  #pill[data-state="inserting"] .bars { transform: scaleX(0.6); }
+  #pill[data-state="inserting"] .bars i { height: 8px; animation: blink 500ms ease-in-out infinite alternate; }
+  @keyframes blink { from { opacity: 0.35; } to { opacity: 1; } }
+
+  /* ---------- Done : silhouette du logo, montée en cascade ---------- */
+  #pill[data-state="done"] .bars i { animation: rise 340ms var(--ease) both; }
+  #pill[data-state="done"] .bars i:nth-child(1),
+  #pill[data-state="done"] .bars i:nth-child(5) { height: 6px; }
+  #pill[data-state="done"] .bars i:nth-child(2),
+  #pill[data-state="done"] .bars i:nth-child(4) { height: 10px; }
+  #pill[data-state="done"] .bars i:nth-child(3) { height: 14px; }
+  @keyframes rise { from { transform: scaleY(0.2); } to { transform: none; } }
+
+  /* ---------- Error : barres à plat + secousse ---------- */
+  #pill[data-state="error"] .bars i { height: 3px; }
+  #pill[data-state="error"] .bars i:nth-child(3) { height: 10px; }
+  #pill[data-state="error"] { animation: shake 320ms var(--ease); }
+  @keyframes shake {
+    0%, 100% { translate: 0; }
+    20% { translate: -3px; }
+    40% { translate: 3px; }
+    60% { translate: -2px; }
+    80% { translate: 1px; }
+  }
+
+
+  /* ---------- Survol : barre d'actions (façon Wispr Flow) ---------- */
+  #zone { padding: 10px 14px; display: flex; }       /* zone de survol un peu plus large que l'étiquette idle */
+  .actions {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: stretch;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 100ms var(--ease), visibility 0s linear 100ms;
+  }
+  .act {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font: 500 10px/1 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    cursor: default;
+    -webkit-appearance: none;
+    appearance: none;
+    transition: background-color 140ms var(--ease), transform 120ms var(--ease);
+  }
+  .act:hover { background: rgba(255, 255, 255, 0.09); }
+  .act:active { background: rgba(255, 255, 255, 0.14); transform: scale(.97); }
+  .act:focus { outline: none; }
+  .act .kbd { color: var(--text-dim); letter-spacing: 0.04em; font: 500 10px/1 -apple-system, 'Helvetica Neue', var(--mono); } /* vrai glyphe ⌃ */
+  .act-rule { width: 1px; align-self: center; height: 18px; background: var(--fil-int); flex: none; }
+  .act[hidden], .act-rule[hidden] { display: none; }
+  .act-c { display: flex; align-items: center; gap: 7px; }
+  .act[data-act="brainstorm"] { flex-grow: 1.3; }
+  #pill[data-state="idle"][data-hover] .act { padding: 0 6px; }
+
+  /* icônes */
+  .ico-bars { display: flex; align-items: center; gap: 1.5px; height: 12px; flex: none; }
+  .ico-bars i { display: block; width: 2px; background: var(--text); }
+  .ico-bars i:nth-child(1), .ico-bars i:nth-child(5) { height: 4px; }
+  .ico-bars i:nth-child(2), .ico-bars i:nth-child(4) { height: 8px; }
+  .ico-bars i:nth-child(3) { height: 12px; }
+  .ico-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rec); flex: none;
+             box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
+  .ico-stop { width: 8px; height: 8px; background: var(--text); flex: none; }
+  #pill[data-hover="stop-note"] .ico-stop { background: var(--rec); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
+  #pill[data-hover="stop-brainstorm"] .ico-stop { background: var(--bleu-vif); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
+  /* étincelle « Brainstorm » : 4 branches carrées, bleu */
+  .ico-spark { position: relative; width: 11px; height: 11px; flex: none; }
+  .ico-spark::before, .ico-spark::after { content: ""; position: absolute; background: var(--bleu-vif); }
+  .ico-spark::before { left: 4.5px; top: 0; width: 2px; height: 11px; }
+  .ico-spark::after { top: 4.5px; left: 0; width: 11px; height: 2px; }
+  .act[data-act="brainstorm"]:hover .ico-spark { transform: rotate(45deg); transition: transform 240ms var(--ease-out); }
+  .ico-spark { transition: transform 240ms var(--ease-out); }
+
+  /* état déplié */
+  #pill[data-hover] {
+    transition:
+      width 260ms var(--ease-out),
+      height 260ms var(--ease-out),
+      opacity 240ms var(--ease-out),
+      transform 240ms var(--ease-out),
+      border-color 200ms var(--ease);
+  }
+  #pill[data-state="idle"][data-hover] { width: 300px !important; height: 38px; }
+  #pill[data-hover] .idle-mark,
+  #pill[data-hover] .inner { opacity: 0; transition-duration: 90ms; transition-delay: 0ms; }
+  #pill[data-hover] .actions {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 180ms var(--ease-out) 60ms, visibility 0s;
+  }
+  html[data-idle="hidden"] #pill[data-state="idle"][data-hover] { opacity: 1; transform: none; }
+
+  /* ---------- Mouvement réduit ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    #pill, #pill[data-hover], .bars, .bars i, .inner, .idle-mark, .mark, .actions, #pill[data-hover] .actions, .act { transition-duration: 1ms !important; transition-delay: 0ms !important; }
+    .act:active { transform: none; }
+    #pill[data-state="error"] { animation: none; }
+    #pill[data-state="recording"] .mark { animation: none !important; }
+    #pill[data-state="done"] .bars i { animation: none; }
+    .text.swap { animation: none; }
+    #pill[data-state="transcribing"] .bars i,
+    #pill[data-state="cleaning"] .bars i,
+    #pill[data-state="inserting"] .bars i {
+      animation: soft 2400ms ease-in-out infinite alternate !important;
+      animation-delay: 0ms !important;
+    }
+    #pill[data-state="transcribing"] .bars i { height: 4px; }
+    #pill[data-state="cleaning"] .bars i { height: 9px; }
+    #pill[data-state="cleaning"] .text { animation: none; background: none; color: var(--text-dim); }
+    @keyframes soft { from { opacity: 0.45; } to { opacity: 0.9; } }
+  }
+</style>
+</head>
+<body>
+  <div id="zone">
+  <div id="pill" data-state="idle" role="status" aria-live="polite">
+    <div class="idle-mark" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="inner">
+      <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="rule" aria-hidden="true"></div>
+      <div class="mark" aria-hidden="true"></div>
+      <div class="label"><span class="text"></span></div>
+      <span class="clock" aria-hidden="true"></span>
+    </div>
+    <div class="actions" aria-hidden="true">
+      <button type="button" class="act" data-act="dictate" tabindex="-1"><span class="act-c"><span class="ico-bars"><i></i><i></i><i></i><i></i><i></i></span><span class="lbl">Dicter</span></span></button>
+      <span class="act-rule"></span>
+      <button type="button" class="act" data-act="note" tabindex="-1"><span class="act-c"><span class="ico-dot"></span><span class="lbl">Note</span></span></button>
+      <span class="act-rule act-rule2"></span>
+      <button type="button" class="act" data-act="brainstorm" tabindex="-1"><span class="act-c"><span class="ico-spark"></span><span class="lbl">Brainstorm</span></span></button>
+    </div>
+  </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  var LABELS = {
+    recording: 'Écoute',
+    transcribing: 'Transcription',
+    cleaning: 'Mise au propre',
+    inserting: 'Collage',
+    done: 'Collé',
+    error: 'Échec de la dictée'
+  };
+  var STATES = ['idle', 'recording', 'transcribing', 'cleaning', 'inserting', 'done', 'error'];
+
+  // Silhouette du logo : 240 / 400 / 560 / 400 / 240
+  var RATIOS = [240 / 560, 400 / 560, 1, 400 / 560, 240 / 560];
+  var REST_H = 10, PEAK_H = 16, BAR_MIN = 3;
+  var REST = RATIOS.map(function (r) { return Math.max(BAR_MIN, r * REST_H); }); // 4.3 / 7.1 / 10
+  var PEAK = RATIOS.map(function (r) { return PEAK_H * (0.6 + 0.4 * r); });      // 12.3 / 14.2 / 16
+  var SPEEDS = [5.1, 6.3, 4.4, 5.9, 6.6];
+  var PHASES = [0.0, 1.7, 3.1, 4.0, 5.2];
+
+  var root = document.documentElement;
+  var pill = document.getElementById('pill');
+  var inner = pill.querySelector('.inner');
+  var label = pill.querySelector('.label');
+  var text = pill.querySelector('.text');
+  var clock = pill.querySelector('.clock');
+  var bars = Array.prototype.slice.call(pill.querySelectorAll('.bars i'));
+
+  var reduceMq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  function reduced() { return !!(reduceMq && reduceMq.matches); }
+
+  // Délais d'animation par barre
+  function setDelays(state) {
+    bars.forEach(function (b, i) {
+      var d = 0;
+      if (state === 'transcribing') d = i * 110;
+      else if (state === 'cleaning') d = Math.abs(i - 2) * 180;
+      else if (state === 'inserting') d = i * 70;
+      else if (state === 'done') d = i * 45;
+      b.style.animationDelay = d + 'ms';
+    });
+  }
+
+  // ---------- Boucle niveau micro ----------
+  var targetLevel = 0, smooth = 0, rafId = 0, t0 = 0;
+  function clamp01(x) { x = Number(x); return isFinite(x) ? Math.max(0, Math.min(1, x)) : 0; }
+
+  function frame(ts) {
+    if (!t0) t0 = ts;
+    var t = (ts - t0) / 1000;
+    var red = reduced();
+    // attaque rapide, relâchement lent
+    var k = targetLevel > smooth ? (red ? 0.2 : 0.45) : (red ? 0.06 : 0.12);
+    smooth += (targetLevel - smooth) * k;
+    var lv = Math.pow(smooth, 0.6); // courbe perceptuelle : voix faible visible
+    for (var i = 0; i < bars.length; i++) {
+      // silence : silhouette du logo qui respire ; voix : chaque barre vit sa vie
+      var jitter = red ? 1 : 0.62 + 0.38 * Math.sin(t * SPEEDS[i] + PHASES[i]);
+      var breath = red ? 1 : 0.92 + 0.08 * Math.sin(t * 2.4);
+      var v = Math.min(1, lv * jitter);
+      var h = REST[i] * breath + (PEAK[i] - REST[i]) * v;
+      bars[i].style.height = Math.max(BAR_MIN, h).toFixed(1) + 'px';
+    }
+    rafId = requestAnimationFrame(frame);
+  }
+  function startMeter() {
+    if (rafId) return;
+    t0 = 0;
+    rafId = requestAnimationFrame(frame);
+  }
+  function stopMeter() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = 0;
+    smooth = 0;
+    bars.forEach(function (b) { b.style.height = ''; });
+  }
+
+  function restBars() { // pause : silhouette du logo, immobile
+    bars.forEach(function (b, i) { b.style.height = REST[i].toFixed(1) + 'px'; });
+  }
+
+  // ---------- Chrono (prise de notes) ----------
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+  function fmtClock(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000));
+    return s >= 3600
+      ? Math.floor(s / 3600) + ':' + pad2(Math.floor(s / 60) % 60) + ':' + pad2(s % 60)
+      : pad2(Math.floor(s / 60)) + ':' + pad2(s % 60);
+  }
+  var clockBase = -1, clockAt = 0, clockTimer = 0, clockStr = '';
+  function renderClock() {
+    if (clockBase < 0) return;
+    // interpolation locale entre deux statuts (plafonnée pour ne pas dériver)
+    var ms = clockBase + (clockTimer ? Math.min(1500, Date.now() - clockAt) : 0);
+    var str = fmtClock(ms);
+    if (str !== clockStr) {
+      clockStr = str;
+      clock.textContent = str;
+      if (str.length !== (clock.dataset.len | 0)) { clock.dataset.len = str.length; layout(current.state); }
+    }
+  }
+  function setClock(status, running) {
+    var ms = Number(status.elapsedMs);
+    if (!isFinite(ms)) {
+      var m = /(\d+):(\d{2})(?::(\d{2}))?/.exec(status.message || '');
+      ms = m ? (m[3] != null ? (+m[1] * 3600 + +m[2] * 60 + +m[3]) : (+m[1] * 60 + +m[2])) * 1000 : 0;
+    }
+    clockBase = ms; clockAt = Date.now();
+    if (running && !clockTimer) clockTimer = setInterval(renderClock, 250);
+    if (!running && clockTimer) { clearInterval(clockTimer); clockTimer = 0; }
+    renderClock();
+  }
+  function clearClock() {
+    if (clockTimer) clearInterval(clockTimer);
+    clockTimer = 0; clockBase = -1; clockStr = ''; clock.textContent = ''; clock.dataset.len = '';
+  }
+
+  // ---------- Largeur (mesurée : suit la police réellement chargée) ----------
+  function layout(state) {
+    if (state === 'idle') { pill.style.width = ''; return; }
+    var natural = text.scrollWidth;
+    var max = parseFloat(getComputedStyle(label).maxWidth) || 380;
+    label.classList.toggle('overflow', natural > max + 0.5);
+    var w = Math.ceil(inner.scrollWidth + 2); // +2 = bordures 1px
+    if (hoverMode && hoverMode !== 'idle') w = Math.max(w, singleWidth());
+    pill.style.width = w + 'px';
+  }
+
+
+  // ---------- Survol : barre d'actions ----------
+  // La fenêtre ignore la souris mais relaie les mousemove : on détecte l'entrée sur la zone,
+  // on rend la fenêtre cliquable (dicta.setHover) puis on déplie après une courte intention.
+  var zone = document.getElementById('zone');
+  var actions = pill.querySelector('.actions');
+  var btnDictate = actions.querySelector('[data-act="dictate"]');
+  var btnNote = actions.querySelector('[data-act="note"]');
+  var btnBrain = actions.querySelector('[data-act="brainstorm"]');
+  var actRule = actions.querySelector('.act-rule');
+  var actRule2 = actions.querySelector('.act-rule2');
+  var HOVER_IN = 120, HOVER_OUT = 250;
+  var hoverMode = '';          // '' | 'idle' | 'stop-dictate' | 'stop-note' | 'stop-brainstorm'
+  var pointerIn = false, suppressed = false, inTimer = 0, outTimer = 0, hoverOn = false;
+
+  var ICO_BARS = '<span class="ico-bars"><i></i><i></i><i></i><i></i><i></i></span>';
+  function btnHTML(ico, lbl, kbd) {
+    return '<span class="act-c">' + ico + '<span class="lbl">' + lbl + '</span>' +
+      (kbd ? '<span class="kbd">' + kbd + '</span>' : '') + '</span>';
+  }
+  var CONTENT = {
+    idle: [btnHTML(ICO_BARS, 'Dicter', ''), btnHTML('<span class="ico-dot"></span>', 'Note', ''), btnHTML('<span class="ico-spark"></span>', 'Brainstorm', '')],
+    'stop-brainstorm': btnHTML('<span class="ico-stop"></span>', 'Terminer le brainstorm', ''),
+    'stop-dictate': btnHTML('<span class="ico-stop"></span>', 'Arrêter', ''),
+    'stop-note': btnHTML('<span class="ico-stop"></span>', 'Terminer la note', '')
+  };
+
+  function bridge(name, arg) {
+    try { if (window.dicta && typeof window.dicta[name] === 'function') window.dicta[name](arg); } catch (err) { /* démo */ }
+  }
+  function setHoverBridge(on) {
+    if (on === hoverOn) return;
+    hoverOn = on;
+    bridge('setHover', on);
+  }
+
+  // Mode de survol autorisé pour l'état courant
+  function allowedMode() {
+    var st = current.state;
+    if (st === 'idle') return root.getAttribute('data-idle') === 'hidden' ? '' : 'idle';
+    if (st === 'recording') return current.mode === 'note' ? 'stop-note' : current.mode === 'brainstorm' ? 'stop-brainstorm' : 'stop-dictate';
+    return ''; // traitement : pas d'actions
+  }
+
+  function singleWidth() {
+    var c = btnDictate.firstChild;
+    return c ? Math.ceil(c.scrollWidth + 40 + 2) : 0; // padding 2 × 20 + bordures
+  }
+
+  function applyHover(mode) {
+    if (mode === hoverMode) return;
+    hoverMode = mode;
+    if (mode === 'idle') {
+      btnDictate.innerHTML = CONTENT.idle[0];
+      btnNote.innerHTML = CONTENT.idle[1];
+      btnBrain.innerHTML = CONTENT.idle[2];
+      btnDictate.hidden = false; btnNote.hidden = false; btnBrain.hidden = false; actRule.hidden = false; actRule2.hidden = false;
+    } else if (mode) {
+      btnDictate.innerHTML = CONTENT[mode];
+      btnDictate.dataset.act = mode === 'stop-note' ? 'note' : mode === 'stop-brainstorm' ? 'brainstorm' : 'dictate';
+      btnNote.hidden = true; btnBrain.hidden = true; actRule.hidden = true; actRule2.hidden = true;
+    }
+    if (mode === 'idle') btnDictate.dataset.act = 'dictate';
+    if (mode) pill.setAttribute('data-hover', mode); else pill.removeAttribute('data-hover');
+    actions.setAttribute('aria-hidden', mode ? 'false' : 'true');
+    layout(current.state);
+  }
+
+  function expand() {
+    inTimer = 0;
+    if (!pointerIn || suppressed) return;
+    applyHover(allowedMode());
+  }
+  function collapse() {
+    clearTimeout(inTimer); clearTimeout(outTimer); inTimer = outTimer = 0;
+    applyHover('');
+  }
+
+  function onEnter() {
+    pointerIn = true;
+    clearTimeout(outTimer); outTimer = 0;
+    if (suppressed || !allowedMode()) return;
+    setHoverBridge(true);
+    if (hoverMode) return;
+    clearTimeout(inTimer);
+    inTimer = setTimeout(expand, reduced() ? 0 : HOVER_IN);
+  }
+  function onLeave() {
+    pointerIn = false;
+    suppressed = false;
+    clearTimeout(inTimer); inTimer = 0;
+    setHoverBridge(false);
+    clearTimeout(outTimer);
+    outTimer = setTimeout(collapse, reduced() ? 0 : HOVER_OUT);
+  }
+  zone.addEventListener('mouseenter', onEnter);
+  zone.addEventListener('mouseleave', onLeave);
+  function safetyOff() { pointerIn = false; suppressed = false; setHoverBridge(false); collapse(); }
+  document.addEventListener('mouseleave', safetyOff);
+  window.addEventListener('blur', safetyOff);
+
+  actions.addEventListener('click', function (e) {
+    var b = e.target.closest('.act');
+    if (!b || !hoverMode) return;
+    var act = b.dataset.act === 'note' || b.dataset.act === 'brainstorm' ? b.dataset.act : 'dictate';
+    suppressed = true;           // ne pas redéplier tant que le pointeur n'est pas ressorti
+    collapse();
+    setHoverBridge(false);
+    if (window.dicta && typeof window.dicta.action === 'function') bridge('action', act);
+    else if (window.parent !== window) window.parent.postMessage({ type: 'dicta-action', action: act }, '*'); // démo
+  });
+
+  // Appelé à chaque statut : replie si l'état n'autorise plus ce mode
+  function syncHover() {
+    if (!hoverMode) {
+      if (pointerIn && !suppressed && !inTimer && allowedMode()) {
+        setHoverBridge(true);
+        inTimer = setTimeout(expand, reduced() ? 0 : HOVER_IN);
+      }
+      return;
+    }
+    var m = allowedMode();
+    if (!m) { collapse(); setHoverBridge(false); }
+    else applyHover(m);
+  }
+
+  // ---------- API ----------
+  var current = { state: 'idle' };
+  var lastText = '';
+
+  function setStatus(status) {
+    if (!status || typeof status !== 'object') return;
+    var state = STATES.indexOf(status.state) >= 0 ? status.state : null;
+    if (!state) return;
+    var prev = current.state;
+    current = status;
+
+    // niveau micro
+    targetLevel = clamp01(status.level);
+
+    // prise de notes
+    var brain = state === 'recording' && status.mode === 'brainstorm';
+    var note = (state === 'recording' && status.mode === 'note') || brain;
+    var paused = note && /pause/i.test(status.message || '');
+    if (note) pill.setAttribute('data-mode', brain ? 'brainstorm' : 'note'); else pill.removeAttribute('data-mode');
+    if (paused) pill.setAttribute('data-paused', ''); else pill.removeAttribute('data-paused');
+
+    // libellé
+    var str = '', dim = false, live = false;
+    if (note) {
+      str = paused ? 'Pause' : (brain ? 'Brainstorm' : 'Note');
+    } else if (state === 'recording') {
+      var p = typeof status.partialText === 'string' ? status.partialText.replace(/\s+/g, ' ').trim() : '';
+      if (p) { str = p; live = true; } else { str = status.message || LABELS.recording; }
+    } else if (state !== 'idle') {
+      str = status.message || LABELS[state];
+      if (state === 'transcribing' || state === 'inserting') dim = true;
+    }
+    text.classList.toggle('live', live);
+    if (str !== lastText) {
+      var isPartialUpdate = state === 'recording' && prev === 'recording' && live;
+      text.textContent = str;
+      if (!isPartialUpdate && str) {
+        text.classList.remove('swap');
+        void text.offsetWidth; // relance l'animation
+        text.classList.add('swap');
+      }
+      lastText = str;
+    }
+    text.classList.toggle('dim', dim);
+
+    if (state !== prev) {
+      // relancer les animations CSS ponctuelles (secousse, montée)
+      if (state === 'error' || state === 'done') {
+        pill.style.animation = 'none';
+        void pill.offsetWidth;
+        pill.style.animation = '';
+      }
+      pill.setAttribute('data-state', state);
+      setDelays(state);
+    }
+    if (state === 'recording' && !paused) startMeter();
+    else { stopMeter(); if (paused) restBars(); }
+    if (note) setClock(status, !paused); else clearClock();
+    pill.setAttribute('aria-label', state === 'idle' ? 'CBW AI prêt' : (note ? str + ' ' + clockStr : str));
+    syncHover();
+    layout(state);
+  }
+
+  function setIdleMode(mode) {
+    root.setAttribute('data-idle', mode === 'hidden' ? 'hidden' : 'dim');
+    if (typeof syncHover === 'function') syncHover();
+  }
+
+  window.setStatus = setStatus;
+  window.setIdleMode = setIdleMode;
+
+  window.addEventListener('message', function (e) {
+    var d = e && e.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'dicta-status') setStatus(d.status);
+    else if (d.type === 'dicta-idle-mode') setIdleMode(d.mode);
+    else if (d.type === 'dicta-hover') { if (d.on) onEnter(); else onLeave(); } // simulation (démo)
+    else if (d.type === 'dicta-accent' && typeof d.color === 'string') root.style.setProperty('--accent', d.color);
+  });
+
+  // Paramètres d'URL
+  try {
+    var q = new URLSearchParams(location.search);
+    setIdleMode(q.get('idle') || 'dim');
+    if (q.get('accent')) root.style.setProperty('--accent', q.get('accent'));
+  } catch (err) { setIdleMode('dim'); }
+
+  // Les polices hors ligne changent la largeur du libellé : on remesure une fois chargées.
+  if (document.fonts && document.fonts.load) {
+    var relayout = function () { layout(current.state); };
+    try {
+      document.fonts.addEventListener('loadingdone', relayout);
+      Promise.all([
+        document.fonts.load('500 11px "JetBrains Mono"', 'ÉCOUTE'),
+        document.fonts.load('500 13px "Archivo"', 'Écoute')
+      ]).then(relayout, relayout);
+    } catch (err) { /* polices système en repli */ }
+  }
+
+  // Abonnement automatique si un preload l'expose
+  if (window.dicta && typeof window.dicta.onStatus === 'function') {
+    window.dicta.onStatus(setStatus);
+  }
+
+  setStatus({ state: 'idle' });
+})();
+</script>
+</body>
+</html>

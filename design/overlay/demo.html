@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overlay CBW AI</title>
+<link rel="stylesheet" href="../../assets/fonts/fonts.css">
+<style>
+  :root {
+    --noir: #111111; --gris: #F4F4F2; --blanc: #FFFFFF; --gris-fil: #DDDDDD; --texte-2: #4A4A4A;
+    --orange: #FF5A1F; --bleu: #2B3BFF; --vert: #1FD26A;
+    --accent: var(--orange);
+    --police: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --ease: cubic-bezier(.2,.7,.2,1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--blanc); color: var(--noir);
+    font: 15px/1.5 var(--police); -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 980px; margin: 0 auto; padding: 28px 16px 48px; }
+  .logo { display: flex; gap: 2px; margin-bottom: 14px; }
+  .logo span { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; }
+  .l-c { background: var(--orange); } .l-b { background: var(--bleu); color: var(--blanc); } .l-w { background: var(--vert); }
+  h1 { font-size: 28px; font-weight: 800; letter-spacing: -.03em; line-height: 1.05; margin: 0 0 6px; }
+  p.sub { margin: 0 0 20px; color: var(--texte-2); }
+
+  .screen {
+    position: relative; height: 340px; overflow: hidden;
+    border: 2px solid var(--noir);
+    transition: background 300ms var(--ease);
+  }
+  .screen[data-wall="light"] { background: linear-gradient(135deg, #E9EEF6 0%, #F7F1EA 55%, #EADFF2 100%); }
+  .screen[data-wall="white"] { background: var(--blanc); }
+  .screen[data-wall="dark"]  { background: linear-gradient(135deg, #0F1420 0%, #1D1A2B 55%, #2A1E1A 100%); }
+  .screen[data-wall="black"] { background: #000; }
+  .screen[data-wall="busy"]  {
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 1px, transparent 1px 22px),
+      linear-gradient(120deg, #3A7BD5 0%, #F2C94C 50%, #EB5757 100%);
+  }
+  .fakewin {
+    position: absolute; left: 50%; top: 28px; transform: translateX(-50%);
+    width: min(560px, 86%); height: 190px; border-radius: 10px;
+    background: rgba(255,255,255,.75); box-shadow: 0 10px 30px rgba(0,0,0,.12);
+    padding: 40px 22px 0; color: #333; font-size: 13px;
+  }
+  .screen[data-wall="dark"] .fakewin, .screen[data-wall="black"] .fakewin { background: rgba(40,40,44,.85); color: #ddd; }
+  .fakewin::before {
+    content: ""; position: absolute; left: 14px; top: 13px; width: 52px; height: 12px;
+    background: radial-gradient(circle at 6px 6px, #FF5F57 5px, transparent 5.5px),
+                radial-gradient(circle at 26px 6px, #FEBC2E 5px, transparent 5.5px),
+                radial-gradient(circle at 46px 6px, #28C840 5px, transparent 5.5px);
+  }
+  .fakewin .line { height: 9px; border-radius: 5px; background: currentColor; opacity: .12; margin: 10px 0; }
+
+  iframe.overlay {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+    width: 520px; height: 64px; border: 0; background: transparent;
+    outline: 1px dashed transparent;
+  }
+  .screen.showframe iframe.overlay { outline-color: rgba(127,127,127,.6); }
+
+  .panel { margin-top: 16px; background: var(--blanc); border: 2px solid var(--noir); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--gris-fil); }
+  .row:first-child { border-top: 0; }
+  .row > .k {
+    width: 110px; display: inline-flex; align-items: center; gap: 8px;
+    font: 500 12px/1 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--texte-2);
+  }
+  .row > .k::before { content: ""; width: 8px; height: 8px; background: var(--noir); flex: none; }
+  button {
+    font: 700 13px/1 var(--police); min-height: 34px; padding: 0 12px; border-radius: 0;
+    border: 1px solid var(--noir); background: var(--blanc); color: var(--noir); cursor: pointer;
+    transition: transform .15s ease;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(1px); }
+  button[aria-pressed="true"] { background: var(--noir); color: var(--blanc); }
+  button.primary { background: var(--orange); border-color: var(--orange); color: var(--noir); font-weight: 800; }
+  :focus-visible { outline: 3px solid var(--bleu); outline-offset: 2px; }
+  input[type=range] { width: 200px; accent-color: var(--orange); }
+  input[type=checkbox] { accent-color: var(--noir); }
+  label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: 13px; }
+  code { font: 12px var(--mono); color: var(--texte-2); }
+  @media (max-width: 600px) {
+    .row > .k { width: 100%; }
+    iframe.overlay { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo" aria-hidden="true"><span class="l-c">C</span><span class="l-b">B</span><span class="l-w">W</span></div>
+  <h1>Overlay d'état — CBW AI</h1>
+  <p class="sub">L'étiquette ci-dessous est <code>overlay.html</code> chargé tel quel dans une iframe de 520 × 64 (taille de la fenêtre Electron).</p>
+
+  <div class="screen" id="screen" data-wall="light">
+    <div class="fakewin"><div class="line" style="width:70%"></div><div class="line" style="width:92%"></div><div class="line" style="width:56%"></div><div class="line" style="width:80%"></div></div>
+    <iframe class="overlay" id="ov" src="overlay.html" title="Overlay CBW AI"></iframe>
+  </div>
+
+  <div class="panel">
+    <div class="row" id="states">
+      <span class="k">État</span>
+      <button data-s="idle">idle</button>
+      <button data-s="recording">recording</button>
+      <button data-s="note">note</button>
+      <button data-s="pause">note · pause</button>
+      <button data-s="transcribing">transcribing</button>
+      <button data-s="cleaning">cleaning</button>
+      <button data-s="inserting">inserting</button>
+      <button data-s="done">done</button>
+      <button data-s="error">error</button>
+      <button class="primary" id="play">Scénario complet</button>
+    </div>
+    <div class="row">
+      <span class="k">Micro</span>
+      <label class="chk"><input type="checkbox" id="voice" checked> voix simulée</label>
+      <input type="range" id="level" min="0" max="1" step="0.01" value="0.5">
+      <code id="lv">0.50</code>
+    </div>
+    <div class="row">
+      <span class="k">Texte live</span>
+      <label class="chk"><input type="checkbox" id="partial"> afficher partialText pendant recording</label>
+    </div>
+    <div class="row">
+      <span class="k">Survol</span>
+      <button id="hov" aria-pressed="false">simuler le survol</button>
+      <span style="color:var(--texte-2);font-size:12px">ou passez la souris sur l'étiquette. Les boutons Dicter / Note / Arrêter pilotent la démo.</span>
+      <code id="lastAct"></code>
+    </div>
+    <div class="row" id="idle">
+      <span class="k">Idle</span>
+      <button data-m="dim" aria-pressed="true">étiquette discrète</button>
+      <button data-m="hidden">masqué</button>
+    </div>
+    <div class="row" id="walls">
+      <span class="k">Fond</span>
+      <button data-w="light" aria-pressed="true">clair</button>
+      <button data-w="white">blanc</button>
+      <button data-w="dark">sombre</button>
+      <button data-w="black">noir</button>
+      <button data-w="busy">chargé</button>
+      <label class="chk"><input type="checkbox" id="frame"> contour de la fenêtre</label>
+    </div>
+    <div class="row">
+      <span class="k">Accent</span>
+      <input type="color" id="accent" value="#FF5A1F">
+      <code>--accent</code> <span style="color:var(--texte-2);font-size:12px">(couleur d'enregistrement : barres, pastille, carré idle)</span>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var ov = document.getElementById('ov');
+  var levelEl = document.getElementById('level');
+  var lvOut = document.getElementById('lv');
+  var voiceEl = document.getElementById('voice');
+  var partialEl = document.getElementById('partial');
+
+  var SENTENCE = "Bonjour Claire, je te confirme notre rendez-vous de jeudi à quatorze heures pour faire le point sur la maquette du nouveau site et valider le calendrier";
+  var state = 'idle', partialWords = 0, simTimer = 0, scenarioTimers = [];
+  var noteMs = 0, noteAt = 0; // prise de notes : chrono, pauses exclues
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function clockOf(ms) { var s = Math.floor(ms / 1000); return pad(Math.floor(s / 60)) + ':' + pad(s % 60); }
+  function noteElapsed() { return noteMs + (state === 'note' && noteAt ? Date.now() - noteAt : 0); }
+
+  function send(msg) { if (ov.contentWindow) ov.contentWindow.postMessage(msg, '*'); }
+  function push() {
+    var st = { state: state };
+    if (state === 'note' || state === 'pause') {
+      var el = noteElapsed(), paused = state === 'pause';
+      st = { state: 'recording', mode: 'note', elapsedMs: el, level: paused ? 0 : Number(levelEl.value),
+             message: paused ? 'NOTE · PAUSE ' + clockOf(el) : 'NOTE · ' + clockOf(el) };
+    } else if (state === 'recording') {
+      st.level = Number(levelEl.value);
+      if (partialEl.checked && partialWords > 0) st.partialText = SENTENCE.split(' ').slice(0, partialWords).join(' ');
+    }
+    if (state === 'error') st.message = 'Aucun micro détecté';
+    send({ type: 'dicta-status', status: st });
+  }
+  function mark(group, attr, val) {
+    document.querySelectorAll('#' + group + ' button[data-' + attr + ']').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset[attr] === val));
+    });
+  }
+  function setState(s) {
+    if (state === 'note') { noteMs = noteElapsed(); noteAt = 0; }
+    if (s === 'note') noteAt = Date.now();
+    else if (s !== 'pause') noteMs = 0;
+    state = s;
+    mark('states', 's', s);
+    if (s === 'recording') partialWords = 0;
+    push();
+  }
+
+  // Simulation micro (~30 Hz, comme un vrai flux de niveau)
+  var tick = 0;
+  function sim() {
+    tick++;
+    if (state === 'pause' && tick % 15 === 0) push();
+    if (state === 'recording' || state === 'note') {
+      if (voiceEl.checked) {
+        var syll = Math.max(0, Math.sin(tick * 0.55)) * Math.max(0, Math.sin(tick * 0.09 + 1));
+        var v = Math.min(1, 0.08 + syll * 0.75 + Math.random() * 0.2);
+        levelEl.value = v.toFixed(2);
+      }
+      if (partialEl.checked && tick % 9 === 0) partialWords = Math.min(partialWords + 1, SENTENCE.split(' ').length);
+      lvOut.textContent = Number(levelEl.value).toFixed(2);
+      push();
+    }
+  }
+  simTimer = setInterval(sim, 33);
+
+  document.getElementById('states').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-s]'); if (!b) return;
+    clearScenario(); setState(b.dataset.s);
+  });
+  levelEl.addEventListener('input', function () { voiceEl.checked = false; lvOut.textContent = Number(levelEl.value).toFixed(2); push(); });
+  partialEl.addEventListener('change', function () { partialWords = 0; push(); });
+
+  document.getElementById('idle').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-m]'); if (!b) return;
+    mark('idle', 'm', b.dataset.m);
+    send({ type: 'dicta-idle-mode', mode: b.dataset.m });
+  });
+  document.getElementById('walls').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-w]'); if (!b) return;
+    mark('walls', 'w', b.dataset.w);
+    document.getElementById('screen').dataset.wall = b.dataset.w;
+  });
+  document.getElementById('frame').addEventListener('change', function (e) {
+    document.getElementById('screen').classList.toggle('showframe', e.target.checked);
+  });
+  document.getElementById('accent').addEventListener('input', function (e) {
+    send({ type: 'dicta-accent', color: e.target.value });
+    document.documentElement.style.setProperty('--accent', e.target.value);
+  });
+
+  function clearScenario() { scenarioTimers.forEach(clearTimeout); scenarioTimers = []; }
+  document.getElementById('play').addEventListener('click', function () {
+    clearScenario();
+    voiceEl.checked = true;
+    var steps = [['recording', 0], ['transcribing', 4200], ['cleaning', 5200], ['inserting', 6600], ['done', 6900], ['idle', 7900]];
+    steps.forEach(function (s) { scenarioTimers.push(setTimeout(function () { setState(s[0]); }, s[1])); });
+  });
+
+  // Survol simulé + actions renvoyées par l'overlay (pas de bridge dans le navigateur)
+  var hovBtn = document.getElementById('hov');
+  hovBtn.addEventListener('click', function () {
+    var on = hovBtn.getAttribute('aria-pressed') !== 'true';
+    hovBtn.setAttribute('aria-pressed', String(on));
+    send({ type: 'dicta-hover', on: on });
+  });
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || d.type !== 'dicta-action' || e.source !== ov.contentWindow) return;
+    document.getElementById('lastAct').textContent = "action('" + d.action + "')";
+    hovBtn.setAttribute('aria-pressed', 'false');
+    clearScenario();
+    if (d.action === 'dictate') {
+      if (state === 'recording') {
+        [['transcribing', 0], ['cleaning', 900], ['inserting', 2200], ['done', 2500], ['idle', 3500]].forEach(function (s) {
+          scenarioTimers.push(setTimeout(function () { setState(s[0]); }, s[1]));
+        });
+      } else setState('recording');
+    } else {
+      if (state === 'note' || state === 'pause') {
+        [['transcribing', 0], ['done', 1400], ['idle', 2400]].forEach(function (s) {
+          scenarioTimers.push(setTimeout(function () { setState(s[0]); }, s[1]));
+        });
+      } else setState('note');
+    }
+  });
+
+  ov.addEventListener('load', function () { setState('idle'); });
+})();
+</script>
+</body>
+</html>

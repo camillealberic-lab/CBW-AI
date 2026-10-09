@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Préchargement C</title>
+<!-- CBW AI — proposition de préchargement C « Vague liquide ». Autonome : aucun fichier externe.
+     ?t=NNN fige l'image à NNN ms · ?embed=1 masque les commandes · ?reduced=1 simule « réduire les animations » · ?theme=dark -->
+<style>
+:root{
+  --orange:#FF5A1F; --bleu:#2B3BFF; --vert:#1FD26A; --encre:#1C1C1E; --noir:#1E1E1C;
+  --fond:#FFFFFF; --fond-2:#F4F4F2; --fond-3:#ECECE8; --texte:#1E1E1C; --fil:#DDDDDD; --fil-fort:#C4C4BF; --trait:#1E1E1C;
+  --ease:cubic-bezier(.2,.7,.2,1); --ease-rideau:cubic-bezier(.7,0,.15,1);
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --fond:#1A1B1D; --fond-2:#202124; --fond-3:#2C2D31; --texte:#ECECEA; --fil:#3A3B3E; --fil-fort:#55565B; --trait:#D9D9D6;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:var(--fond)}
+body{font:15px/1.5 system-ui,-apple-system,sans-serif;color:var(--texte)}
+
+/* ── Application factice (sans texte : blocs) ── */
+#app{position:fixed;inset:0;display:grid;grid-template-columns:clamp(150px,19vw,232px) 1fr;grid-template-rows:52px 1fr;background:var(--fond)}
+#app .tb{grid-column:1/-1;border-bottom:2px solid var(--trait);display:flex;align-items:center;gap:8px;padding:0 18px}
+#app .tb b{width:12px;height:12px;border-radius:50%;background:var(--fil-fort)}
+#app .tb .sp{flex:1}
+#app .tb .bars{display:grid;grid-template-columns:repeat(3,14px);gap:4px}
+#app .tb .bars i{height:8px}
+#app nav{background:var(--fond-2);border-right:2px solid var(--trait);padding:22px 14px;display:grid;align-content:start;gap:8px}
+#app nav i{height:34px;background:var(--fond-3)}
+#app nav i:first-child{background:var(--fond-3);box-shadow:inset 3px 0 0 var(--texte)}
+#app nav i:not(:first-child){background:transparent;border-bottom:1px solid var(--fil)}
+#app main{padding:clamp(18px,4vw,44px);display:grid;align-content:start;gap:clamp(12px,2.4vw,22px);min-width:0}
+#app .h1{height:clamp(18px,3.4vw,40px);width:58%;background:var(--texte)}
+#app .p{height:10px;width:40%;background:var(--fil-fort)}
+#app .row{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(8px,1.4vw,16px);margin-top:8px}
+#app .card{border:2px solid var(--trait);height:clamp(70px,16vw,170px);padding:clamp(8px,1.6vw,20px);display:grid;align-content:start;gap:10px}
+#app .card i{height:8px;width:44px}
+#app .card s{height:8px;width:70%;background:var(--fil)}
+#app .card s+s{width:45%}
+#app .big{border:2px solid var(--trait);height:clamp(60px,14vw,200px);box-shadow:8px 8px 0 var(--trait)}
+.o{background:var(--orange)} .b{background:var(--bleu)} .v{background:var(--vert)}
+#app [data-in]{will-change:transform,opacity}
+
+/* ── Préchargement ── */
+#pl{position:fixed;inset:0;z-index:10;background:var(--fond);overflow:hidden;cursor:pointer}
+#pl.gone{display:none}
+#pl.skip{opacity:0;transition:opacity 120ms linear}
+#pl .r{position:absolute;left:0;top:0;width:100px;height:100px;transform-origin:50% 50%;will-change:transform,opacity}
+
+
+/* ── Commandes de démo ── */
+.ctl{position:fixed;right:12px;bottom:12px;z-index:50;display:flex;gap:6px}
+.ctl button{width:34px;height:34px;border:2px solid var(--trait);background:var(--fond);color:var(--texte);display:grid;place-items:center;cursor:pointer;padding:0}
+.ctl button:hover{background:var(--fond-3)}
+.ctl button:focus-visible{outline:3px solid var(--bleu);outline-offset:2px}
+.ctl svg{width:16px;height:16px}
+html.embed .ctl{display:none}
+</style>
+</head>
+<body>
+<div id="app" aria-hidden="true">
+  <div class="tb"><b></b><b></b><b></b><span class="sp"></span><span class="bars"><i class="o"></i><i class="b"></i><i class="v"></i></span></div>
+  <nav><i data-in></i><i data-in></i><i data-in></i><i data-in></i><i data-in></i></nav>
+  <main>
+    <div class="h1" data-in></div>
+    <div class="p" data-in></div>
+    <div class="row">
+      <div class="card" data-in><i class="o"></i><s></s><s></s></div>
+      <div class="card" data-in><i class="b"></i><s></s><s></s></div>
+      <div class="card" data-in><i class="v"></i><s></s><s></s></div>
+    </div>
+    <div class="big" data-in></div>
+  </main>
+</div>
+
+<div id="pl" aria-hidden="true"></div>
+
+<div class="ctl">
+  <button id="replay" type="button" aria-label="Rejouer" title="Rejouer (R)"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13 2v3.5H9.5" stroke-linecap="square"/></svg></button>
+  <button id="theme" type="button" aria-label="Clair / sombre" title="Clair / sombre (T)"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></button>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const Q = new URLSearchParams(location.search);
+  const root = document.documentElement;
+  if (Q.get('embed') === '1') root.classList.add('embed');
+  if (Q.get('theme') === 'dark') root.dataset.theme = 'dark';
+  const FREEZE = Q.has('t') ? +Q.get('t') : null;
+  const REDUCED = Q.get('reduced') === '1' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const pl = document.getElementById('pl');
+  const app = document.getElementById('app');
+  const ins = [...app.querySelectorAll('[data-in]')];
+
+  /* ── Outils de mouvement ── */
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const lerp = (a, b, k) => a + (b - a) * k;
+  const prog = (t, a, b) => clamp((t - a) / (b - a));
+  function bezier(x1, y1, x2, y2) {           // cubic-bezier CSS, résolu par Newton + bissection
+    const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+    const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+    const X = (s) => ((ax * s + bx) * s + cx) * s, Y = (s) => ((ay * s + by) * s + cy) * s;
+    const dX = (s) => (3 * ax * s + 2 * bx) * s + cx;
+    return (x) => {
+      if (x <= 0) return 0; if (x >= 1) return 1;
+      let s = x;
+      for (let i = 0; i < 6; i++) { const e = X(s) - x, d = dX(s); if (Math.abs(e) < 1e-5) return Y(s); if (Math.abs(d) < 1e-6) break; s -= e / d; }
+      let lo = 0, hi = 1; s = x;
+      for (let i = 0; i < 24; i++) { const v = X(s); if (Math.abs(v - x) < 1e-5) break; if (v < x) lo = s; else hi = s; s = (lo + hi) / 2; }
+      return Y(s);
+    };
+  }
+  const E = {
+    rideau: bezier(.7, 0, .15, 1), sortie: bezier(.16, 1, .3, 1), ease: bezier(.2, .7, .2, 1),
+    inOut: bezier(.65, 0, .35, 1), in: bezier(.55, 0, .9, .3), snap: bezier(.45, 0, .1, 1),
+  };
+  // Ressort amorti normalisé (u = 0 → 0, u = 1 → ≈ 1). z = amortissement, w = pulsation.
+  function spring(u, z = .42, w = 15) {
+    if (u <= 0) return 0; if (u >= 1.6) return 1;
+    const wd = w * Math.sqrt(1 - z * z);
+    return 1 - Math.exp(-z * w * u) * (Math.cos(wd * u) + (z * w / wd) * Math.sin(wd * u));
+  }
+  // Place un carré de 100 px : centre (x, y), taille (w, h), rotation r (deg)
+  function put(el, x, y, w, h, r = 0, o = 1) {
+    el.style.transform = `translate(${(x - 50).toFixed(2)}px,${(y - 50).toFixed(2)}px) rotate(${r.toFixed(2)}deg) scale(${(w / 100).toFixed(4)},${(h / 100).toFixed(4)})`;
+    el.style.opacity = o;
+  }
+  const css = (n) => getComputedStyle(root).getPropertyValue(n).trim();
+
+  /* ── Entrée de l'appli (montée 10 px + fondu, décalage 40 ms) ── */
+  function appIn(t, at) {
+    ins.forEach((el, i) => {
+      const k = E.sortie(prog(t, at + i * 30, at + i * 30 + 420));
+      el.style.transform = `translateY(${((1 - k) * 14).toFixed(2)}px)`;
+      el.style.opacity = (0.0 + k).toFixed(3);
+    });
+  }
+
+  const P = (function () {
+    /* C · Vague liquide (canvas)
+       0–240   un filet tricolore s'étale sur la ligne de base depuis le centre
+       120–620 il se resserre et remplit trois colonnes de bas en haut : crête sinusoïdale, vague arrière translucide, léger rebond du niveau
+       560–680 la surface se calme, les barres sont nettes
+       660–810 les barres fondent en une seule ligne horizontale tricolore (pleine largeur), qui ondule
+       800–1000 la ligne se dédouble et balaie vers le haut et le bas comme une ligne de scan → l'appli apparaît */
+    const W = 30, G = 14, H = [84, 140, 106];
+    const ST = [45, 0, 85];
+    let cv, g, dpr = 1;
+    function setup(c) {
+      c.pl.innerHTML = '<canvas></canvas>';
+      cv = c.pl.firstChild; g = cv.getContext('2d');
+      dpr = Math.min(2, devicePixelRatio || 1);
+      cv.width = Math.round(c.vw * dpr); cv.height = Math.round(c.vh * dpr);
+      cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+      c.pl.style.background = 'transparent';
+    }
+    const BASE = (c) => c.cy + 70;
+    const X = (c, i) => c.cx + (i - 1) * (W + G);
+    const COL = (c, i) => [c.O, c.B, c.V][i];
+    const TINT = (c, i) => ['#FFAC8F', '#959DFF', '#8FE9B5'][i];
+    // rectangle (gauche, haut, largeur, hauteur) avec bord supérieur ondulé : amplitude a, longueur d'onde lam, phase ph
+    function wavyRect(x, y, w, h, a, lam, ph, aBot = 0, phB = 0) {
+      const step = Math.max(2, Math.min(10, w / 12));
+      g.beginPath();
+      g.moveTo(x, y + h + aBot * Math.sin(ph + phB));
+      for (let px = 0; px <= w + .01; px += step) g.lineTo(x + px, y + a * Math.sin((px / lam) * 2 * Math.PI + ph));
+      g.lineTo(x + w, y + a * Math.sin((w / lam) * 2 * Math.PI + ph));
+      for (let px = w; px >= -.01; px -= step) g.lineTo(x + px, y + h + aBot * Math.sin((px / lam) * 2 * Math.PI + ph + phB));
+      g.closePath(); g.fill();
+    }
+    function render(t, c) {
+      const { vw, vh } = c, b0 = BASE(c);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, vw, vh);
+      const LY = c.cy;
+      if (t < 800) {
+        g.fillStyle = c.fond; g.fillRect(0, 0, vw, vh);
+        const kSpread = E.sortie(prog(t, 0, 240));
+        const merge = E.rideau(prog(t, 660, 810));
+        for (let i = 0; i < 3; i++) {
+          const st = ST[i] + 120;
+          // niveau : remplissage avec léger rebond
+          const s = spring(prog(t, st, st + 520), .55, 11);
+          const lvl = lerp(6, H[i], s);
+          // filet initial : segments contigus qui se resserrent vers la colonne
+          const tight = E.inOut(prog(t, 120 + ST[i] * .5, 300 + ST[i] * .5));
+          const segW = lerp(W + G + .5, W, tight);
+          const half = (3 * (W + G)) / 2 * kSpread;            // étalement depuis le centre
+          let x = X(c, i) - segW / 2, w = segW;
+          const L = Math.max(x, c.cx - half), R = Math.min(x + w, c.cx + half);
+          x = L; w = Math.max(0, R - L);
+          let y = b0 - lvl, h = lvl;
+          // vague : forte pendant le remplissage, calme à l'arrivée
+          const u = prog(t, st, st + 460);
+          const amp = 9 * Math.sin(Math.PI * Math.min(1, u * 1.15)) ** .8 * (1 - prog(t, 520, 640)) + (u > 0 && u < 1 ? .6 : 0);
+          const ph = t * .022 + i * 1.9;
+          // fusion → segment de ligne pleine largeur
+          if (merge > 0) {
+            const tw = vw / 3 + 1, tx = (vw / 3) * i;
+            x = lerp(x, tx, merge); w = lerp(w, tw, merge); y = lerp(y, LY - 2.5, merge); h = lerp(h, 5, merge);
+          }
+          const wob = 5 * Math.sin(Math.PI * merge);
+          if (w <= 0) continue;
+          // vague arrière (translucide, déphasée, un peu plus haute)
+          if (amp > .3 && merge === 0) {
+            g.fillStyle = TINT(c, i);                          // écume : teinte claire opaque (lisible clair et sombre)
+            wavyRect(x, y - 4 * Math.min(1, amp / 3), w, h + 4, amp * .85, W * 1.6, -ph * 1.3 + 2.2);
+          }
+          g.fillStyle = COL(c, i);
+          wavyRect(x, y, w, h, merge > 0 ? wob : amp, merge > 0 ? 260 : W * 1.25, merge > 0 ? t * .03 + i * 2 : ph, merge > 0 ? wob : 0, 0);
+        }
+      } else {
+        // balayage : deux lignes partent du centre vers le haut et le bas
+        const k = E.rideau(prog(t, 800, 1000));
+        const top = lerp(LY - 2, -10, k), bot = lerp(LY + 2, vh + 10, k);
+        const a = 6 * (1 - k) * Math.sin(Math.PI * Math.min(1, k * 3)) + 1.5 * (1 - k);
+        const ph = t * .03;
+        g.fillStyle = c.fond;
+        wavyRect(0, -20, vw, top + 20, 0, 260, 0, a, ph);              // zone haute, bord bas ondulé
+        wavyRect(0, bot, vw, vh - bot + 20, a, 260, ph);                // zone basse, bord haut ondulé
+        const th = lerp(5, 9, Math.min(1, k * 2.5));
+        for (let i = 0; i < 3; i++) {
+          g.fillStyle = COL(c, i);
+          const x = (vw / 3) * i, w = vw / 3 + 1;
+          // ligne haute : suit le bord bas de la zone haute
+          wavyRect(x, top - th / 2, w, th, a, 260, ph + (x / 260) * 2 * Math.PI, a, 0);
+          wavyRect(x, bot - th / 2, w, th, a, 260, ph + (x / 260) * 2 * Math.PI, a, 0);
+        }
+      }
+    }
+    function reducedLayout(c) {
+      const b0 = BASE(c);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.fillStyle = c.fond; g.fillRect(0, 0, c.vw, c.vh);
+      for (let i = 0; i < 3; i++) { g.fillStyle = COL(c, i); g.fillRect(X(c, i) - W / 2, b0 - H[i], W, H[i]); }
+    }
+    return { DUR: 1000, APP_AT: 820, setup, render, reducedLayout };
+
+  })();
+  // P = { DUR, APP_AT, setup(ctx), render(t, ctx), reducedLayout(ctx) }
+
+  /* ── Lecture ── */
+  let raf = 0, timer = 0, t0 = 0, ctx = null;
+  function context() {
+    return { vw: innerWidth, vh: innerHeight, cx: innerWidth / 2, cy: innerHeight / 2, pl, app,
+      O: css('--orange'), B: css('--bleu'), V: css('--vert'), fond: css('--fond'), texte: css('--texte'),
+      dark: root.dataset.theme === 'dark', E, clamp, lerp, prog, spring, put };
+  }
+  function reset() {
+    cancelAnimationFrame(raf); clearTimeout(timer);
+    pl.classList.remove('gone', 'skip'); pl.style.opacity = '';
+    pl.style.clipPath = ''; pl.style.background = '';
+    ctx = context(); P.setup && P.setup(ctx);
+  }
+  function finish() {
+    pl.classList.add('gone');
+  }
+  function frame(t) {
+    if (REDUCED) {                                   // barres statiques puis fondu
+      P.reducedLayout(ctx);
+      pl.style.opacity = (1 - prog(t, 450, 650)).toFixed(3);
+      ins.forEach((el) => { el.style.transform = 'none'; el.style.opacity = 1; });
+      return t >= 650;
+    }
+    P.render(Math.min(t, P.DUR), ctx);
+    appIn(t, P.APP_AT);
+    return t >= P.DUR;
+  }
+  function play() {
+    reset();
+    t0 = performance.now();
+    let ended = false;
+    const loop = (now) => {
+      const t = now - t0;
+      if (!ended && frame(t)) { ended = true; finish(); }
+      if (ended) appIn(t, REDUCED ? -1e4 : P.APP_AT);
+      if (t < 1600) raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    if (FREEZE === null) timer = setTimeout(play, 2500);
+  }
+  function skip() {
+    if (pl.classList.contains('gone')) return;
+    pl.classList.add('skip');
+    setTimeout(() => { finish(); appIn(1e4, 0); }, 130);
+  }
+  function setTheme(d) { root.dataset.theme = d ? 'dark' : 'light'; }
+
+  pl.addEventListener('pointerdown', skip);
+  document.getElementById('replay').addEventListener('click', play);
+  document.getElementById('theme').addEventListener('click', () => { setTheme(root.dataset.theme !== 'dark'); play(); });
+  addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') play();
+    else if (e.key === 't' || e.key === 'T') { setTheme(root.dataset.theme !== 'dark'); play(); }
+    else skip();
+  });
+  addEventListener('message', (e) => {
+    const m = e.data || {};
+    if (m.theme) setTheme(m.theme === 'dark');
+    if (m.replay) play();
+  });
+  addEventListener('resize', () => { if (ctx) { ctx = context(); P.setup && P.setup(ctx); if (FREEZE !== null) frame(FREEZE); } });
+
+  if (FREEZE !== null) {
+    reset();
+    if (frame(FREEZE)) finish();
+    window.__ready = true;
+  } else play();
+})();
+</script>
+</body>
+</html>
