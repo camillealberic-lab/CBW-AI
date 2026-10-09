@@ -17,6 +17,8 @@ on:
       - 'site-*/**'
       - 'design/**/shots/**'
       - '**/*.md'
+      - 'vercel.json'
+      - '.vercelignore'
   workflow_dispatch:
 
 permissions:

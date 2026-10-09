@@ -1,0 +1,5 @@
+# Vercel ne sert que le site (site-2) : on n'envoie pas l'app.
+/*
+!/site-2
+!/vercel.json
+site-2/shots
