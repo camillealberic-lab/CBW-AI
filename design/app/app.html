@@ -1229,20 +1229,20 @@ details.disc:not([open]) > summary:hover .pm, details.disc:not([open]) > summary
    bascule, fil d'Ariane, boutons de la barre d'outils. Fenêtré : bande des feux (52 px, = barre d'outils) puis bande de marque
    (64 px), logo centré dans la largeur de la barre (suit le séparateur). Plein écran : plus de feux → la marque prend la bande
    de 52 px, centrée sur l'axe de la barre d'outils. Rail replié : pile verticale centrée sur la colonne d'icônes (x = 42). */
-.side-brand { --by: 17px; --bw: 138px; height: 64px; margin-bottom: 8px; transition: height 240ms var(--ease); }
-.side-brand .wordmark { left: max(0px, calc((var(--side-w) - var(--bw)) / 2 - 12px)); right: auto; width: var(--bw); transition: left 240ms var(--ease); }
-html.side-drag .side-brand .wordmark { transition: none; }
+.side-brand { --by: 26px; height: 76px; margin-bottom: 8px; transition: height 240ms var(--ease); }
+/* retour 9 oct. : logo calé à gauche (x = 12, bord des feux et de l'indicateur de nav), sans « AI », plus d'air en haut */
+.side-brand .wordmark .ai { display: none; }
 .side-brand .wordmark .lc { transform: translate(12px, var(--by)); }
 .side-brand .wordmark .lb { transform: translate(45px, var(--by)); }
 .side-brand .wordmark .lw { transform: translate(78px, var(--by)); }
 .side-brand .wordmark .ai { top: calc(var(--by) + 15px); }
 .side-top { height: 52px; }
 html.fs .side-top { height: 0; }
-html.fs .side-brand { --by: 11px; height: 52px; margin-bottom: 20px; }
+html.fs .side-top { height: 0; }
+html.fs .side-brand { --by: 28px; height: 76px; margin-bottom: 8px; }
 html.side-c .side-top { height: 52px; }
 html.fs.side-c .side-top { height: 12px; }
 html.side-c .side-brand { height: 66px; margin-bottom: 8px; }
-html.side-c .side-brand .wordmark { left: 0; }
 html.side-c .side-brand .wordmark .lc { transform: translate(32px, 0) scale(.6667); }
 html.side-c .side-brand .wordmark .lb { transform: translate(32px, 22px) scale(.6667); }
 html.side-c .side-brand .wordmark .lw { transform: translate(32px, 44px) scale(.6667); }
