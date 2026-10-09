@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Placement du logo CBW</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root { --orange: #FF5A1F; --bleu: #2B3BFF; --vert: #1FD26A; --noir: #1C1C1E; --blanc: #fff;
+  --fond: #fff; --fond-2: #F4F4F2; --sel: #ECECE8; --texte: #1C1C1E; --texte-sec: #5A5A57; --texte-3: #6E6E6A; --fil: #E2E2DE; --trait: #1C1C1E; }
+* { box-sizing: border-box; margin: 0; }
+body { background: var(--fond); color: var(--texte); font: 15px/1.5 Archivo, system-ui, sans-serif; padding: 56px 40px 80px; max-width: 1360px; margin: 0 auto; }
+.k { font: 500 11px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--texte-3); }
+h1 { font: 900 64px/.92 Archivo; font-stretch: 80%; letter-spacing: -.045em; margin: 10px 0 14px; }
+h2 { font: 900 32px/1 Archivo; font-stretch: 80%; letter-spacing: -.03em; }
+.lede { max-width: 44em; color: var(--texte-sec); }
+section { border-top: 2px solid var(--trait); padding-top: 20px; margin-top: 56px; }
+/* audit */
+.audit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin-top: 20px; border-top: 1px solid var(--fil); }
+.audit div { padding: 16px 20px 18px 0; border-bottom: 1px solid var(--fil); }
+.audit b { display: block; font-weight: 800; margin-bottom: 4px; }
+.audit span { color: var(--texte-sec); font-size: 14px; }
+.rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 28px; }
+.rules div { border-left: 3px solid var(--k); padding-left: 14px; }
+.rules b { font-weight: 800; }
+/* options */
+.opt { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; padding: 32px 0; border-bottom: 1px solid var(--fil); }
+.opt .name { display: flex; align-items: baseline; gap: 10px; }
+.opt .n { font: 500 12px 'JetBrains Mono', monospace; color: var(--texte-3); }
+.opt p { margin-top: 10px; color: var(--texte-sec); font-size: 14px; }
+.opt .pro { margin-top: 12px; font-size: 13.5px; display: grid; gap: 4px; }
+.opt .pro i { font-style: normal; font-weight: 800; }
+.reco { display: inline-block; margin-top: 12px; background: var(--noir); color: #fff; font: 500 10.5px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; padding: 5px 8px; }
+.frames { display: grid; grid-template-columns: 1.35fr 1.35fr .9fr; gap: 20px; }
+.fr .cap { margin-bottom: 8px; }
+/* maquette fidèle à l'app (barre 232 px, barre d'outils 52 px, axe y = 26) — échelle 1 */
+.win { position: relative; height: 290px; border: 1px solid #CFCFCA; border-radius: 10px 10px 0 0; overflow: hidden; background: var(--fond); display: grid; grid-template-columns: var(--sw, 232px) 1fr; }
+.win.fs { border-radius: 0; border-top: 14px solid #000; }
+.side { position: relative; background: var(--fond-2); border-right: 1px solid var(--fil); }
+.tb { height: 52px; border-bottom: 2px solid var(--trait); display: flex; align-items: center; gap: 12px; padding-left: 12px; font-weight: 800; font-size: 15px; white-space: nowrap; }
+.tg { width: 18px; height: 14px; border: 1.5px solid var(--texte-sec); position: relative; flex: none; margin: 0 6px; }
+.tg::after { content: ""; position: absolute; left: 2px; top: 2px; bottom: 2px; width: 4px; background: var(--texte-sec); }
+.tb .sep { width: 1px; height: 28px; background: var(--fil); }
+.page { padding: 26px 0 0 28px; font: 900 34px/1 Archivo; font-stretch: 75%; letter-spacing: -.04em; color: var(--texte); white-space: nowrap; overflow: hidden; }
+.lights { position: absolute; left: 12px; top: 19px; display: flex; gap: 8px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; background: #FF5F57; }
+.lights i:nth-child(2) { background: #FEBC2E; } .lights i:nth-child(3) { background: #28C840; }
+.fs .lights { display: none; }
+.nav { position: absolute; left: 12px; right: 12px; display: grid; gap: 2px; }
+.nav div { height: 34px; display: flex; align-items: center; gap: 12px; padding-left: 18px; font-weight: 600; font-size: 13.5px; color: var(--texte-sec); }
+.nav div::before { content: ""; width: 14px; height: 14px; border: 1.5px solid currentColor; flex: none; }
+.nav div.on { background: var(--sel); box-shadow: inset 3px 0 0 var(--texte); color: var(--texte); font-weight: 800; }
+.c .nav div { justify-content: center; padding: 0; font-size: 0; gap: 0; }
+.cbw { position: absolute; display: flex; gap: var(--g, 3px); }
+.cbw.v { flex-direction: column; }
+.cbw b { width: var(--q); height: var(--q); display: grid; place-items: center; font: 900 calc(var(--q) * .57)/1 Archivo; }
+.cbw b:nth-child(1) { background: var(--orange); color: var(--noir); }
+.cbw b:nth-child(2) { background: var(--bleu); color: #fff; }
+.cbw b:nth-child(3) { background: var(--vert); color: var(--noir); }
+.hair { position: absolute; left: 12px; right: 12px; height: 1px; background: var(--fil); }
+.foot { position: absolute; left: 12px; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 10px; font: 500 10px 'JetBrains Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--texte-3); border-top: 1px solid var(--fil); padding-top: 10px; }
+.foot .cbw { position: static; }
+.verdict { margin-top: 56px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+.verdict b { font-weight: 800; }
+@media (max-width: 1100px) { .opt { grid-template-columns: 1fr; } .audit, .rules { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) { body { padding: 32px 16px; } h1 { font-size: 44px; } .frames { grid-template-columns: 1fr; } .audit, .rules, .verdict { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="k">CBW AI · Audit design · 9 oct.</div>
+<h1>Où placer le logo&nbsp;CBW</h1>
+<p class="lede">5 dispositions du logo C·B·W en haut à gauche, chacune montrée en fenêtre, en plein écran et menu replié. Les maquettes sont à l'échelle réelle de l'app : barre latérale de 232 px, barre d'outils de 52 px, feux macOS centrés à 26 px du haut.</p>
+
+<section>
+  <div class="k">01 · Ce que font les apps Mac de référence</div>
+  <div class="audit">
+    <div><b>Linear</b><span>Espace de travail (icône ~20 px + nom) en haut de la barre, calé à gauche, juste sous les feux.</span></div>
+    <div><b>Notion</b><span>Même principe : petite icône + nom sur une ligne, à gauche, en tête de barre.</span></div>
+    <div><b>Slack</b><span>Logo de l'espace dans une colonne séparée tout à gauche, jamais en grand.</span></div>
+    <div><b>Arc</b><span>Aucun logo : la première ligne = feux + commandes, le contenu commence tout de suite.</span></div>
+    <div><b>Things 3 · Notes · Mail</b><span>Aucun logo dans la fenêtre. La marque vit dans le Dock et la barre des menus.</span></div>
+    <div><b>Raycast · Craft</b><span>Pas de logo dans la barre ; une identité portée par la couleur et la typo.</span></div>
+  </div>
+  <div class="rules">
+    <div style="--k: var(--orange)"><b>Petit.</b> 18–24 px : le logo signe, il ne pousse pas le contenu vers le bas.</div>
+    <div style="--k: var(--bleu)"><b>Sur un axe existant.</b> Ligne des feux (y = 26) ou bord gauche de la nav (x = 12), jamais flottant.</div>
+    <div style="--k: var(--vert)"><b>Stable.</b> Même place en fenêtre, plein écran et menu replié : l'œil ne le cherche pas.</div>
+  </div>
+</section>
+
+<section>
+  <div class="k">02 · Cinq dispositions</div>
+  <div id="opts"></div>
+</section>
+
+<section>
+  <div class="k">03 · Recommandation</div>
+  <div class="verdict">
+    <p><b>Option A — sur la ligne des feux.</b> C'est la plus « Mac » : le logo partage l'axe des feux, de la bascule et du titre de page (y = 26). La navigation remonte de ~80 px. En plein écran, il glisse simplement à la place des feux, sur le même axe. Petit (20 px), il signe sans crier.</p>
+    <p><b>Alternative — Option C (en-tête avec filet)</b> si tu veux un logo plus présent : 24 px, calé à gauche, séparé de la nav par un filet. Ça fait « en-tête de marque », comme Notion ou Linear.</p>
+  </div>
+</section>
+
+<script>
+const sq = (q, g, v) => `<div class="cbw${v ? ' v' : ''}" style="--q:${q}px;--g:${g}px;LEFT;TOP"><b>C</b><b>B</b><b>W</b></div>`;
+const at = (html, x, y) => html.replace('LEFT', 'left:' + x + 'px').replace('TOP', 'top:' + y + 'px');
+const nav = (y) => `<div class="nav" style="top:${y}px"><div class="on">Accueil</div><div>Notes</div><div>Brainstorm</div><div>Dictionnaire</div></div>`;
+// chaque option : nom, texte, avantages, et le contenu de la barre pour 3 états (w = fenêtre, f = plein écran, c = replié)
+const OPTS = [
+  { id: 'A', name: 'Sur la ligne des feux', reco: true,
+    txt: 'Carrés de 20 px, à droite des feux, centrés sur l\'axe y = 26. En plein écran, le logo prend la place des feux.',
+    pro: ['+ le plus natif, aligné sur la barre d\'outils', '+ la nav remonte de ~80 px', '− discret : la marque est moins présente'],
+    w: at(sq(20, 2), 84, 16) + nav(64), f: at(sq(20, 2), 12, 16) + nav(64), c: at(sq(16, 3, 1), 34, 48) + nav(118) },
+  { id: 'B', name: 'Bloc sous les feux (actuel)',
+    txt: 'Carrés de 30 px, calés à gauche sous les feux, avec de l\'air au-dessus.',
+    pro: ['+ marque bien visible', '− grand bloc qui repousse la nav', '− ne s\'aligne sur aucun axe de la barre d\'outils'],
+    w: at(sq(30, 3), 12, 78) + nav(144), f: at(sq(30, 3), 12, 28) + nav(92), c: at(sq(20, 2, 1), 32, 52) + nav(128) },
+  { id: 'C', name: 'En-tête avec filet',
+    txt: 'Carrés de 24 px, calés à gauche, dans une bande d\'en-tête fermée par un filet fin.',
+    pro: ['+ « en-tête de marque » façon Notion / Linear', '+ structure claire : marque · navigation', '− ~40 px de plus que l\'option A'],
+    w: at(sq(24, 3), 12, 60) + '<div class="hair" style="top:100px"></div>' + nav(112), f: at(sq(24, 3), 12, 14) + '<div class="hair" style="top:52px"></div>' + nav(64), c: at(sq(16, 3, 1), 34, 48) + '<div class="hair" style="top:110px"></div>' + nav(120) },
+  { id: 'D', name: 'Pile verticale',
+    txt: 'Les trois carrés empilés (20 px), identiques menu ouvert ou replié : aucune transformation.',
+    pro: ['+ signature forte et constante', '+ cohérent avec le rail replié', '− prend de la hauteur'],
+    w: at(sq(20, 2, 1), 12, 60) + nav(140), f: at(sq(20, 2, 1), 12, 16) + nav(96), c: at(sq(20, 2, 1), 32, 52) + nav(128) },
+  { id: 'E', name: 'En pied de barre',
+    txt: 'Le haut reste vide (feux seuls) ; le logo signe en bas, à côté de l\'état du moteur.',
+    pro: ['+ haut ultra épuré, contenu prioritaire', '+ l\'approche d\'Arc / Things', '− marque peu visible'],
+    w: nav(64) + '<div class="foot">' + sq(14, 2).replace('LEFT;TOP', '') + 'Prêt</div>', f: nav(20) + '<div class="foot">' + sq(14, 2).replace('LEFT;TOP', '') + 'Prêt</div>', c: nav(64) + '<div class="foot" style="justify-content:center">' + sq(10, 2, 1).replace('LEFT;TOP', '') + '</div>' },
+];
+const frame = (cls, side, sw) => `<div class="win ${cls}" style="--sw:${sw}px"><div class="side">${cls.includes('fs') ? '' : '<div class="lights"><i></i><i></i><i></i></div>'}${side}</div><div><div class="tb"><span class="tg"></span><span class="sep"></span>Accueil</div><div class="page">Bonjour</div></div></div>`;
+document.getElementById('opts').innerHTML = OPTS.map((o) => `
+  <div class="opt">
+    <div><div class="name"><span class="n">${o.id}</span><h2>${o.name}</h2></div>
+      <p>${o.txt}</p><div class="pro">${o.pro.map((t) => '<span>' + t + '</span>').join('')}</div>
+      ${o.reco ? '<span class="reco">Recommandé</span>' : ''}</div>
+    <div class="frames">
+      <div class="fr"><div class="k cap">Fenêtre</div>${frame('', o.w, 232)}</div>
+      <div class="fr"><div class="k cap">Plein écran</div>${frame('fs', o.f, 232)}</div>
+      <div class="fr"><div class="k cap">Menu replié</div>${frame('c', o.c, 84)}</div>
+    </div>
+  </div>`).join('');
+</script>
+</body>
+</html>

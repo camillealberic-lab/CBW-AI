@@ -9,6 +9,10 @@ DEST="/Applications/$NAME.app"
 OLD="/Applications/Dicta AI.app"
 [ -d "$SRC" ] || { echo "✗ $SRC introuvable (lancez npm run dist)"; exit 1; }
 
+# Build local : retire la mise à jour en attente, sinon l'updater l'installe à la fermeture par-dessus ce build
+UPD="${DICTA_AI_HOME:-$HOME/.dicta-ai}/updates"
+rm -rf "$UPD"/*-app 2>/dev/null || true
+
 # Quitte les instances en cours (nouveau et ancien nom)
 for APP in "$DEST" "$OLD"; do
   if pgrep -f "$APP/Contents/MacOS/" >/dev/null 2>&1; then
@@ -18,6 +22,8 @@ for APP in "$DEST" "$OLD"; do
   fi
 done
 
+# attend une installation de mise à jour déjà lancée (script détaché de l'updater)
+for _ in $(seq 1 60); do pgrep -f "$UPD/install.sh" >/dev/null 2>&1 || break; sleep 0.5; done
 rm -rf "$DEST" "$OLD"
 ditto "$SRC" "$DEST"
 xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true

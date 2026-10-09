@@ -1225,27 +1225,26 @@ details.disc:not([open]) > summary:hover .pm, details.disc:not([open]) > summary
 .cbwc-kpi:hover { background: none !important; }
 .stat:hover, .cbwc-kpi:hover > * { translate: none !important; }
 .cbwc-kpi:hover .cbwc-lab i, .stat:hover .l::before { transform: none !important; }
-/* 2 · en-tête de la barre latérale (audit 9 oct.) — un seul axe horizontal à y = 26 px : feux macOS (trafficLightPosition),
-   bascule, fil d'Ariane, boutons de la barre d'outils. Fenêtré : bande des feux (52 px, = barre d'outils) puis bande de marque
-   (64 px), logo centré dans la largeur de la barre (suit le séparateur). Plein écran : plus de feux → la marque prend la bande
-   de 52 px, centrée sur l'axe de la barre d'outils. Rail replié : pile verticale centrée sur la colonne d'icônes (x = 42). */
-.side-brand { --by: 26px; height: 76px; margin-bottom: 8px; transition: height 240ms var(--ease); }
-/* retour 9 oct. : logo calé à gauche (x = 12, bord des feux et de l'indicateur de nav), sans « AI », plus d'air en haut */
+/* 2 · en-tête de marque (option C, design/brand/logo-placement.html) : carrés C·B·W de 24 px calés à gauche (x = 12, bord des
+   feux et de l'indicateur de nav), bande fermée par un filet, nav 12 px dessous. Fenêtré : sous la bande des feux (52 px,
+   feux sur l'axe y = 26 de la barre d'outils). Plein écran : la marque prend la bande de 52 px, centrée sur ce même axe.
+   Rail replié : pile 3 × 16 px centrée sur la colonne d'icônes (x = 42). Pas de « AI ». */
+.side-brand { --sq: 24px; --by: 8px; height: 48px; margin: 0 12px 4px; border-bottom: 1px solid var(--fil); transition: height 240ms var(--ease); }
 .side-brand .wordmark .ai { display: none; }
-.side-brand .wordmark .lc { transform: translate(12px, var(--by)); }
-.side-brand .wordmark .lb { transform: translate(45px, var(--by)); }
-.side-brand .wordmark .lw { transform: translate(78px, var(--by)); }
-.side-brand .wordmark .ai { top: calc(var(--by) + 15px); }
+.side-brand .wordmark .lt { font-size: 14px; }
+.side-brand .wordmark .lc { transform: translate(0, var(--by)); }
+.side-brand .wordmark .lb { transform: translate(27px, var(--by)); }
+.side-brand .wordmark .lw { transform: translate(54px, var(--by)); }
 .side-top { height: 52px; }
 html.fs .side-top { height: 0; }
-html.fs .side-top { height: 0; }
-html.fs .side-brand { --by: 28px; height: 76px; margin-bottom: 8px; }
-html.side-c .side-top { height: 52px; }
-html.fs.side-c .side-top { height: 12px; }
-html.side-c .side-brand { height: 66px; margin-bottom: 8px; }
-html.side-c .side-brand .wordmark .lc { transform: translate(32px, 0) scale(.6667); }
-html.side-c .side-brand .wordmark .lb { transform: translate(32px, 22px) scale(.6667); }
-html.side-c .side-brand .wordmark .lw { transform: translate(32px, 44px) scale(.6667); }
+html.fs .side-brand { --by: 14px; height: 52px; }
+html.side-c .side-top { height: 44px; }
+html.side-c .side-brand { height: 74px; }
+html.fs.side-c .side-top { height: 0; }
+html.fs.side-c .side-brand { --by: 14px; height: 80px; }
+html.side-c .side-brand .wordmark .lc { transform: translate(22px, var(--by)) scale(.6667); }
+html.side-c .side-brand .wordmark .lb { transform: translate(22px, calc(var(--by) + 19px)) scale(.6667); }
+html.side-c .side-brand .wordmark .lw { transform: translate(22px, calc(var(--by) + 38px)) scale(.6667); }
 /* 3 · séparateur barre latérale ↔ contenu : poignée au survol, glisser pour régler la largeur (repli si très étroit) */
 .side-resize { position: fixed; z-index: 40; top: 0; bottom: 0; left: calc(var(--side-w) - 5px); width: 10px; cursor: col-resize; -webkit-app-region: no-drag; touch-action: none; transition: left 240ms var(--ease); }
 html.side-c .side-resize { left: calc(var(--rail-w) - 5px); }
