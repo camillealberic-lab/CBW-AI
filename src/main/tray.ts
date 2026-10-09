@@ -1,8 +1,9 @@
-import { Menu, nativeImage, Tray } from 'electron';
+import { BrowserWindow, ipcMain, Menu, nativeImage, nativeTheme, screen, Tray } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DictaState } from '../shared/types';
-import { distDir, resourcesDir } from './paths';
+import { distDir, log, resourcesDir } from './paths';
+import { isTrustedSender } from './security';
 
 const LABEL: Record<DictaState, string> = {
   idle: 'Prêt',
@@ -63,44 +64,225 @@ function placeholderIcon(): Electron.NativeImage {
   return img;
 }
 
-export interface TrayHandlers {
-  openApp(): void;
-  openSettings(): void;
-  quit(): void;
-  extraItems(): Electron.MenuItemConstructorOptions[];
+/** État affiché par le popover de la barre de menus (design/tray/tray.html). */
+export interface TrayPopoverState {
+  /** Code couleur : 'rec' orange (dictée / note), 'ia' bleu (transcription / nettoyage), 'ready' vert, 'error'. */
+  tone: 'ready' | 'rec' | 'ia' | 'error';
+  label: string;
+  detail: string;
+  dictating: boolean;
+  canDictate: boolean;
+  note: { active: boolean; paused: boolean; elapsedMs: number; busy: boolean };
+  canNote: boolean;
+  shortcuts: { dictate: string; note: string };
+  today: { words: number; dictations: number; savedMin: number };
+  last: { text: string; at: string } | null;
+  alerts: { id: string; label: string; action?: string }[];
+  version: string;
+  update: { ready: boolean; version?: string };
+  theme: 'light' | 'dark' | 'system';
 }
 
+/** Actions acceptées depuis le popover (liste fermée). */
+export const TRAY_ACTIONS = [
+  'dictate',
+  'note',
+  'notePause',
+  'openApp',
+  'settings',
+  'quit',
+  'install',
+  'grantAx',
+  'grantMic',
+  'downloadModel',
+] as const;
+export type TrayAction = (typeof TRAY_ACTIONS)[number];
+
+export interface TrayHandlers {
+  getState(): TrayPopoverState;
+  action(name: TrayAction): void;
+  copyLast(): boolean;
+  /** Menu natif de secours (clic droit). */
+  contextMenu(): Electron.MenuItemConstructorOptions[];
+}
+
+const W = 320;
+
+/**
+ * Icône de barre de menus : clic → popover au design de l'app (design/tray/tray.html, pont preload-tray),
+ * clic droit → menu natif de secours.
+ */
 export class AppTray {
   private tray: Tray;
   private state: DictaState = 'idle';
   private message = '';
+  private pop: BrowserWindow | null = null;
+  private ready = false;
+  private lastSent = '';
+  private hiddenAt = 0;
+  private height = 420;
 
   constructor(private h: TrayHandlers) {
     this.tray = new Tray(iconFor('idle'));
     this.tray.setToolTip('CBW AI');
-    this.rebuild();
+    this.tray.setIgnoreDoubleClickEvents(true);
+    this.tray.on('click', () => this.toggle());
+    this.tray.on('right-click', () => this.tray.popUpContextMenu(Menu.buildFromTemplate(this.h.contextMenu())));
+    ipcMain.handle('tray:getState', (e) => (this.trusted(e) ? this.h.getState() : null));
+    ipcMain.handle('tray:copyLast', (e) => (this.trusted(e) ? this.h.copyLast() : false));
+    ipcMain.on('tray:action', (e, name: unknown) => {
+      if (!this.trusted(e) || typeof name !== 'string') return;
+      if (name === 'hide') return this.hide();
+      if (!(TRAY_ACTIONS as readonly string[]).includes(name)) return;
+      // Fenêtres / dictée : on referme d'abord (le collage vise l'app au premier plan).
+      if (name !== 'notePause' && name !== 'install') this.hide();
+      this.h.action(name as TrayAction);
+    });
+    ipcMain.on('tray:resize', (e, hgt: unknown) => {
+      if (!this.trusted(e) || typeof hgt !== 'number' || !Number.isFinite(hgt)) return;
+      const next = Math.max(160, Math.min(720, Math.ceil(hgt)));
+      if (next === this.height) return;
+      this.height = next;
+      if (this.pop && !this.pop.isDestroyed()) {
+        const b = this.pop.getBounds();
+        this.pop.setBounds({ ...b, height: next });
+        if (this.pop.isVisible()) this.place();
+      }
+    });
+  }
+
+  private trusted(e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean {
+    return !!this.pop && !this.pop.isDestroyed() && isTrustedSender(e, this.pop.webContents);
   }
 
   setState(state: DictaState, message = ''): void {
-    if (state === this.state && message === this.message) return;
-    const iconChanged = iconName(state) !== iconName(this.state);
-    this.state = state;
-    this.message = message;
-    if (iconChanged) this.tray.setImage(iconFor(state));
-    this.tray.setToolTip(`CBW AI — ${LABEL[state]}${message ? ` (${message})` : ''}`);
-    this.rebuild();
+    if (state !== this.state || message !== this.message) {
+      const iconChanged = iconName(state) !== iconName(this.state);
+      this.state = state;
+      this.message = message;
+      if (iconChanged) this.tray.setImage(iconFor(state));
+      this.tray.setToolTip(`CBW AI — ${LABEL[state]}${message ? ` (${message})` : ''}`);
+    }
+    this.refresh();
   }
 
+  /** Compatibilité : anciennement reconstruction du menu ; pousse désormais l'état au popover visible. */
   rebuild(): void {
-    const menu = Menu.buildFromTemplate([
-      { label: `État : ${LABEL[this.state]}${this.message ? ` — ${this.message}` : ''}`, enabled: false },
-      ...this.h.extraItems(),
-      { type: 'separator' },
-      { label: 'Ouvrir CBW AI', click: () => this.h.openApp() },
-      { label: 'Réglages…', accelerator: 'Command+,', click: () => this.h.openSettings() },
-      { type: 'separator' },
-      { label: 'Quitter CBW AI', accelerator: 'Command+Q', click: () => this.h.quit() },
-    ]);
-    this.tray.setContextMenu(menu);
+    this.refresh();
   }
+
+  /** Envoie l'état au popover s'il est visible et a changé. */
+  refresh(): void {
+    if (!this.pop || this.pop.isDestroyed() || !this.pop.isVisible() || !this.ready) return;
+    let st: TrayPopoverState;
+    try {
+      st = this.h.getState();
+    } catch (e) {
+      return void log('tray: état', e);
+    }
+    const key = JSON.stringify(st);
+    if (key === this.lastSent) return;
+    this.lastSent = key;
+    this.pop.webContents.send('tray:state', st);
+  }
+
+  get visible(): boolean {
+    return !!this.pop && !this.pop.isDestroyed() && this.pop.isVisible();
+  }
+
+  toggle(): void {
+    if (this.visible) return this.hide();
+    // Le clic sur l'icône fait d'abord perdre le focus (blur → hide) : ne pas rouvrir aussitôt.
+    if (Date.now() - this.hiddenAt < 300) return;
+    this.show();
+  }
+
+  hide(): void {
+    if (!this.visible) return;
+    this.hiddenAt = Date.now();
+    this.pop!.hide();
+  }
+
+  show(): void {
+    const win = this.ensure();
+    this.lastSent = '';
+    this.place();
+    win.show();
+    win.focus();
+    this.refresh();
+  }
+
+  private place(): void {
+    if (!this.pop || this.pop.isDestroyed()) return;
+    const tb = this.tray.getBounds();
+    const disp = tb.width ? screen.getDisplayMatching(tb) : screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const wa = disp.workArea;
+    const anchorX = tb.width ? tb.x + tb.width / 2 : wa.x + wa.width - W / 2 - 8;
+    const x = Math.round(Math.max(wa.x + 8, Math.min(anchorX - W / 2, wa.x + wa.width - W - 8)));
+    const y = Math.round(tb.height ? Math.max(wa.y, tb.y + tb.height) + 6 : wa.y + 6);
+    this.pop.setBounds({ x, y, width: W, height: this.height });
+  }
+
+  private ensure(): BrowserWindow {
+    if (this.pop && !this.pop.isDestroyed()) return this.pop;
+    const theme = String(this.h.getState().theme);
+    const dark = theme === 'dark' || (theme === 'system' && nativeDark());
+    const win = new BrowserWindow({
+      width: W,
+      height: this.height,
+      show: false,
+      frame: false,
+      roundedCorners: false,
+      transparent: false,
+      backgroundColor: dark ? '#1A1B1D' : '#FFFFFF',
+      hasShadow: true,
+      resizable: false,
+      movable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      skipTaskbar: true,
+      alwaysOnTop: true,
+      // NSPanel non activable : au-dessus des apps en plein écran, sans voler l'app au premier plan.
+      type: 'panel',
+      hiddenInMissionControl: true,
+      webPreferences: {
+        preload: path.join(distDir(), 'main', 'preload-tray.js'),
+        contextIsolation: true,
+        sandbox: true,
+        nodeIntegration: false,
+        webSecurity: true,
+        spellcheck: false,
+      },
+    });
+    win.setAlwaysOnTop(true, 'pop-up-menu');
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+    // CBW_TRAY_OPEN=1 (test) : reste ouvert même sans focus, pour la capture d'écran.
+    win.on('blur', () => process.env.CBW_TRAY_OPEN !== '1' && this.hide());
+    win.on('closed', () => {
+      this.pop = null;
+      this.ready = false;
+    });
+    win.webContents.on('did-finish-load', () => {
+      this.ready = true;
+      this.lastSent = '';
+      this.refresh();
+    });
+    const query: Record<string, string> = theme === 'light' || theme === 'dark' ? { theme } : {};
+    void win.loadFile(path.join(distDir(), 'design', 'tray', 'tray.html'), { query }).catch((e) => log('tray: chargement', e));
+    this.pop = win;
+    return win;
+  }
+
+  /** Thème changé : la page relit `theme` dans l'état ; le fond natif suit. */
+  setTheme(theme: string): void {
+    if (!this.pop || this.pop.isDestroyed()) return;
+    const dark = theme === 'dark' || (theme === 'system' && nativeDark());
+    this.pop.setBackgroundColor(dark ? '#1A1B1D' : '#FFFFFF');
+    this.refresh();
+  }
+}
+
+function nativeDark(): boolean {
+  return nativeTheme.shouldUseDarkColors;
 }

@@ -1,4 +1,4 @@
-import { app, ipcMain, Menu, nativeImage, Notification, shell, systemPreferences } from 'electron';
+import { app, clipboard, ipcMain, Menu, nativeImage, Notification, shell, systemPreferences } from 'electron';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DictaStatus } from '../shared/types';
@@ -16,7 +16,8 @@ import { playSound } from './sounds';
 import { secureStartup } from './privacy';
 import { hardenProcess, isTrustedSender } from './security';
 import { initSettingsIpc, setLastDictation } from './settingsWindow';
-import { AppTray } from './tray';
+import { getRecent, getStats } from './history';
+import { AppTray, type TrayAction, type TrayPopoverState } from './tray';
 import { updater } from './updater';
 import { downloadWhisper, ensureWhisperModel, whisperBin, whisperModel, whisperModelExact, whisperServer } from './whisper';
 import { CATALOG, modelDownloader } from './whisperModels';
@@ -76,83 +77,143 @@ async function main(): Promise<void> {
   /** Micro occupé par une prise de notes : la dictée est suspendue. */
   const longCapture = (): boolean => notes.busy;
 
-  const tray = new AppTray({
-    openApp: () => openAppWindow(),
-    openSettings: () => openAppWindow('reglages'),
-    quit: () => app.quit(),
-    extraItems: () => {
-      const items: Electron.MenuItemConstructorOptions[] = [
-        notes.active
-          ? { label: 'Terminer la note', click: () => void notes.stop() }
-          : { label: 'Prise de notes', enabled: !longCapture(), click: () => void startNote() },
-        ...(notes.active
-          ? [
-              notes.state === 'paused'
-                ? { label: 'Reprendre la note', click: () => notes.resume() }
-                : { label: 'Mettre la note en pause', click: () => notes.pause() },
-            ]
-          : []),
-        { type: 'separator' },
-        {
-          label:
-            hotkey.mode === 'fn'
-              ? 'Raccourci : fn ×2 (mains libres) ou fn maintenue'
-              : `Raccourci : ${hotkey.fnFallback ? `${PushToTalk.FALLBACK} — fn indisponible sans Accessibilité` : settings.get('general.shortcut')} ${hotkey.mode === 'hold' ? '(maintenir)' : '(appuyer pour démarrer / arrêter)'}`,
-          enabled: false,
-        },
-      ];
-      if (!trusted())
-        items.push({
-          label: 'Autoriser l’Accessibilité…',
-          click: () => {
-            hotkey.isTrusted(true);
-            void shell.openExternal(AX_URL);
-          },
-        });
-      if (systemPreferences.getMediaAccessStatus('microphone') !== 'granted')
-        items.push({
-          label: 'Autoriser le micro…',
-          click: async () => {
-            if (!(await recorder.ensureMicPermission())) void shell.openExternal(MIC_URL);
-            tray.rebuild();
-          },
-        });
-      if (!whisperBin()) items.push({ label: 'Moteur de transcription absent (réinstallez CBW AI)', enabled: false });
-      else if (!whisperModel(String(settings.get('whisper.model'))))
-        items.push({
-          label: modelDownloader.downloading
-            ? `Téléchargement du modèle de transcription… ${modelDownloader.current?.percent ?? 0} %`
-            : 'Télécharger le modèle de transcription',
-          enabled: !modelDownloader.downloading,
-          click: () => ensureWhisperModel(String(settings.get('whisper.model'))),
-        });
-      if (!routerAvailable()) items.push({ label: 'Nettoyage LLM indisponible (texte brut)', enabled: false });
-      items.push(
-        { type: 'separator' },
-        {
-          label: 'Presse-papiers seulement (pas de collage auto)',
-          type: 'checkbox',
-          checked: settings.get('general.insertMode') === 'clipboard',
-          click: (mi) => settings.set('general.insertMode', mi.checked ? 'clipboard' : 'paste'),
-        },
-        { label: 'Ouvrir le journal', click: () => void shell.openPath(logFile()) },
+  // Barre de menus : clic → popover au design de l'app (design/tray/tray.html), clic droit → menu natif de secours.
+  const shortcutLabel = (): string =>
+    hotkey.mode === 'fn' ? '⌃⌃' : hotkey.fnFallback ? PushToTalk.FALLBACK.replace('Alt+Space', '⌥ Espace') : String(settings.get('general.shortcut'));
+  let todayCache: { words: number; dictations: number; savedMin: number } | null = null;
+  const today = (): { words: number; dictations: number; savedMin: number } => {
+    if (todayCache) return todayCache;
+    const d = getStats().daily.at(-1);
+    const words = d?.words ?? 0;
+    // Gain estimé : frappe à 40 mots/min contre ~150 mots/min dictés.
+    todayCache = { words, dictations: d?.dictations ?? 0, savedMin: Math.max(0, Math.round(words / 40 - words / 150)) };
+    return todayCache;
+  };
+  const trayState = (): TrayPopoverState => {
+    const cur = pipeline.current;
+    const noteOn = notes.active;
+    const paused = notes.state === 'paused';
+    const el = notes.elapsed();
+    const mmss = `${String(Math.floor(el / 60000)).padStart(2, '0')}:${String(Math.floor(el / 1000) % 60).padStart(2, '0')}`;
+    let tone: TrayPopoverState['tone'] = 'ready';
+    let label = 'Prêt à dicter';
+    let detail = '';
+    if (noteOn) {
+      tone = 'rec';
+      label = paused ? `Note en pause ${mmss}` : `Note en cours ${mmss}`;
+    } else if (notes.busy) {
+      tone = 'ia';
+      label = notes.state === 'organizing' ? 'Compte rendu…' : 'Transcription de la note…';
+    } else if (cur === 'recording') {
+      tone = 'rec';
+      label = 'Écoute…';
+    } else if (cur === 'transcribing') {
+      tone = 'ia';
+      label = 'Transcription…';
+    } else if (cur === 'cleaning' || cur === 'inserting') {
+      tone = 'ia';
+      label = 'Nettoyage…';
+    } else if (cur === 'done') label = 'Collé ✓';
+    else if (cur === 'error') {
+      tone = 'error';
+      label = 'Erreur';
+      detail = lastError;
+    }
+    const alerts: TrayPopoverState['alerts'] = [];
+    if (!trusted()) alerts.push({ id: 'ax', label: 'Accessibilité requise pour coller', action: 'grantAx' });
+    if (systemPreferences.getMediaAccessStatus('microphone') !== 'granted') alerts.push({ id: 'mic', label: 'Micro non autorisé', action: 'grantMic' });
+    if (!whisperBin()) alerts.push({ id: 'bin', label: 'Moteur de transcription absent — réinstallez CBW AI' });
+    else if (!whisperModel(String(settings.get('whisper.model'))))
+      alerts.push(
+        modelDownloader.downloading
+          ? { id: 'model', label: `Téléchargement du modèle… ${modelDownloader.current?.percent ?? 0} %` }
+          : { id: 'model', label: 'Modèle de transcription manquant', action: 'downloadModel' },
       );
-      // Mises à jour (src/main/updater.ts)
-      const up = updater.get();
-      if (up.state !== 'disabled') {
-        items.push({ type: 'separator' });
-        if (up.state === 'ready' || up.state === 'installing')
-          items.push({ label: `Redémarrer pour mettre à jour (v${up.version})`, enabled: up.state === 'ready', click: () => void updater.install() });
-        else if (up.state === 'downloading')
-          items.push({ label: `Téléchargement de la mise à jour… ${up.percent ?? 0} %`, enabled: false });
-        items.push({
-          label: up.state === 'checking' ? 'Recherche de mises à jour…' : up.state === 'up-to-date' ? `CBW AI est à jour (v${up.current})` : 'Vérifier les mises à jour',
-          enabled: up.state !== 'checking' && up.state !== 'downloading' && up.state !== 'ready' && up.state !== 'installing',
-          click: () => void updater.check(),
-        });
-      }
-      return items;
+    if (!routerAvailable()) alerts.push({ id: 'llm', label: 'Nettoyage IA indisponible (texte brut)' });
+    const last = getRecent()[0];
+    const up = updater.get();
+    const sc = shortcutLabel();
+    return {
+      tone,
+      label,
+      detail,
+      dictating: cur === 'recording',
+      canDictate: !longCapture(),
+      note: { active: noteOn, paused, elapsedMs: Math.floor(el / 1000) * 1000, busy: notes.busy },
+      canNote: noteOn || !longCapture(),
+      shortcuts: { dictate: sc, note: sc === '⌃⌃' ? '⌃⌃⌃' : '' },
+      today: today(),
+      last: last ? { text: (last.text || last.raw || '').slice(0, 400), at: last.at } : null,
+      alerts,
+      version: app.getVersion(),
+      update: { ready: up.state === 'ready', version: up.version },
+      theme: (['light', 'dark', 'system'].includes(String(settings.get('general.theme'))) ? settings.get('general.theme') : 'light') as TrayPopoverState['theme'],
+    };
+  };
+  let lastError = '';
+  const tray = new AppTray({
+    getState: trayState,
+    copyLast: () => {
+      const last = getRecent()[0];
+      const text = last ? last.text || last.raw : '';
+      if (!text) return false;
+      clipboard.writeText(text);
+      return true;
     },
+    action: (name: TrayAction) => {
+      switch (name) {
+        case 'dictate':
+          return void setTimeout(toggleDictation, 120); // popover refermé avant d'ouvrir le micro
+        case 'note':
+          return toggleNote();
+        case 'notePause':
+          if (notes.state === 'paused') notes.resume();
+          else if (notes.state === 'recording') notes.pause();
+          return tray.refresh();
+        case 'openApp':
+          return void openAppWindow();
+        case 'settings':
+          return void openAppWindow('reglages');
+        case 'quit':
+          return app.quit();
+        case 'install':
+          if (updater.get().state === 'ready') updater.prompt(); // fenêtre de mise à jour centrée (design/update)
+          return;
+        case 'grantAx':
+          hotkey.isTrusted(true);
+          return void shell.openExternal(AX_URL);
+        case 'grantMic':
+          return void recorder.ensureMicPermission().then((ok) => {
+            if (!ok) void shell.openExternal(MIC_URL);
+            tray.refresh();
+          });
+        case 'downloadModel':
+          return ensureWhisperModel(String(settings.get('whisper.model')));
+      }
+    },
+    contextMenu: () => [
+      { label: 'Ouvrir CBW AI', click: () => openAppWindow() },
+      { label: 'Réglages…', click: () => openAppWindow('reglages') },
+      { type: 'separator' },
+      {
+        label: 'Presse-papiers seulement (pas de collage auto)',
+        type: 'checkbox',
+        checked: settings.get('general.insertMode') === 'clipboard',
+        click: (mi) => settings.set('general.insertMode', mi.checked ? 'clipboard' : 'paste'),
+      },
+      { label: 'Ouvrir le journal', click: () => void shell.openPath(logFile()) },
+      ...(updater.get().state !== 'disabled'
+        ? [
+            {
+              label: updater.get().state === 'checking' ? 'Recherche de mises à jour…' : 'Vérifier les mises à jour',
+              enabled: ['idle', 'up-to-date', 'error'].includes(updater.get().state),
+              click: () => void updater.check(),
+            },
+          ]
+        : []),
+      { type: 'separator' },
+      { label: 'Quitter CBW AI', accelerator: 'Command+Q', click: () => app.quit() },
+    ],
   });
 
   // Sons : début (dès l'état « recording », avant l'ouverture du micro), fin au relâchement, erreur.
@@ -166,20 +227,24 @@ async function main(): Promise<void> {
       prevDicta = s.state;
     }
     overlay.setStatus(s);
+    if (s.state === 'error') lastError = s.message ?? '';
     tray.setState(s.state, s.state === 'error' ? s.message : '');
   });
-  pipeline.on('result', (r) =>
+  pipeline.on('result', (r) => {
+    todayCache = null;
+    setTimeout(() => tray.refresh(), 300); // historique écrit par appWindow
     setLastDictation(r.raw, r.provider === 'passthrough' ? '' : r.text, {
       provider: r.provider,
       model: r.model,
       latencyMs: r.timings.cleanMs,
-    }),
-  );
+    });
+  });
 
   // Prise de notes : pastille + menu ; un simple appui sur la touche de dictée l'arrête.
   notes.on('status', (s: DictaStatus) => {
     if (s.state === 'error') playSound('error');
     overlay.setStatus(s);
+    if (s.state === 'error') lastError = s.message ?? '';
     tray.setState(s.state, s.state === 'error' ? s.message : s.mode === 'note' ? s.message : '');
   });
   notes.on('active', (on: boolean) => {
@@ -204,7 +269,7 @@ async function main(): Promise<void> {
   }
 
   initAppIpc({ hotkey, recorder, pipeline, notes });
-  // Mises à jour : 30 s après le lancement, toutes les heures et au réveil ; installation seule quand le Mac est inactif (ou au Quitter).
+  // Mises à jour : 30 s après le lancement, toutes les heures et au réveil ; fenêtre centrée « Mettre à jour » quand une version est prête (ou installation au Quitter).
   let lastUpKey = '';
   updater.on('update', (u: { state: string; percent?: number }) => {
     const key = `${u.state}|${u.state === 'downloading' ? Math.floor((u.percent ?? 0) / 10) : ''}`;
@@ -330,6 +395,7 @@ async function main(): Promise<void> {
     if (k === 'overlay.position') overlay.reposition(); // Réglages › Réinitialiser la position de la pastille
     if (k === 'general.launchAtLogin') syncLoginItem(!!v);
     if (k === 'updates.auto' && v !== false) void updater.check();
+    if (k === 'general.theme') tray.setTheme(String(v));
     tray.rebuild();
   });
 
@@ -355,6 +421,8 @@ async function main(): Promise<void> {
   // Premier lancement : onboarding (permissions, raccourci, moteur IA) dans la fenêtre principale.
   if (!NO_PROMPT && settings.get('onboarding.done') !== true) openAppWindow();
   tray.rebuild();
+  // Test : CBW_TRAY_OPEN=1 ouvre le popover de la barre de menus au lancement.
+  if (process.env.CBW_TRAY_OPEN === '1') setTimeout(() => tray.show(), 1500);
 }
 
 /** DICTA_SELFTEST=/chemin/test.wav : whisper + nettoyage + capture de l'overlay, puis quitte. */

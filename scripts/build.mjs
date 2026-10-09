@@ -16,9 +16,10 @@ await Promise.all([
   build({ ...node, entryPoints: ['src/main/main.ts'], outfile: 'dist/main/main.js' }),
   // diarisation (processus utilitaire, addon natif sherpa-onnx chargé depuis node_modules)
   build({ ...node, entryPoints: ['src/main/diarize-worker.ts'], outfile: 'dist/main/diarize-worker.js' }),
-  ...['preload-recorder', 'preload-overlay', 'preload-settings', 'preload-app'].map((n) =>
-    build({ ...node, entryPoints: [`src/main/${n}.ts`], outfile: `dist/main/${n}.js` }),
-  ),
+  // preload-update : ajouté par le popup de mise à jour ; ignoré tant que le fichier n'existe pas.
+  ...['preload-recorder', 'preload-overlay', 'preload-settings', 'preload-app', 'preload-tray', 'preload-update']
+    .filter((n) => existsSync(join(root, `src/main/${n}.ts`)))
+    .map((n) => build({ ...node, entryPoints: [`src/main/${n}.ts`], outfile: `dist/main/${n}.js` })),
   build({ ...common, platform: 'browser', target: 'chrome130', format: 'iife', entryPoints: ['src/renderer/recorder.ts'], outfile: 'dist/renderer/recorder.js' }),
 ]);
 
@@ -49,7 +50,7 @@ if (existsSync(router)) {
 // Fichiers statiques
 for (const f of ['recorder.html', 'overlay-fallback.html', 'settings-fallback.html', 'app-placeholder.html'])
   cpSync(join(root, 'src/renderer', f), join(dist, 'renderer', f));
-for (const d of ['design/overlay', 'design/settings', 'design/app', 'design/brand', 'assets'])
+for (const d of ['design/overlay', 'design/settings', 'design/app', 'design/brand', 'design/tray', 'design/update', 'assets'])
   if (existsSync(join(root, d))) cpSync(join(root, d), join(dist, d), { recursive: true });
 
 console.log('✓ build → dist/');

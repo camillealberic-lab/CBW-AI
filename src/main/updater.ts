@@ -6,19 +6,23 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { dataDir, log } from './paths';
 import { settings } from './settings';
+import { clickUpdatePopup, closeUpdatePopup, showUpdatePopup } from './updatePopup';
 import { verifyManifest } from './updateVerify';
 
 /**
  * Mises à jour sans Developer ID (pas de Squirrel / electron-updater) :
  *   latest.json (GitHub Releases, signé Ed25519 → updateVerify.ts) → zip téléchargé dans ~/.dicta-ai/updates (reprise + SHA-256)
  *   → `ditto -x -k` → vérif `codesign` + identifiant + exigence désignée → « prête ».
- * Installation (automatique quand le Mac est inactif, « Redémarrer pour mettre à jour », ou au Quitter) : script détaché
+ * Prête → fenêtre « Nouvelle version » centrée (updatePopup.ts, design/update) : « Mettre à jour » relance tout de suite,
+ * « Plus tard » la ré-affiche dans 4 h ou au prochain lancement. Pas affichée pendant une dictée / note (re-essai chaque minute).
+ * Installation (« Mettre à jour », « Redémarrer pour mettre à jour », ou au Quitter) : script détaché
  * qui attend la fin de l'app, remplace le bundle par `ditto` (sauvegarde .previous, restaurée en cas
  * d'échec), retire la quarantaine et relance. Même bundle id + même exigence désignée
  * (`identifier "com.dicta-ai.app"`, cf. scripts/after-pack.cjs) → Micro / Accessibilité conservés.
  *
  * Env (tests) : CBW_UPDATE_URL (latest.json), CBW_INSTALL_PATH (bundle à remplacer),
- *               CBW_UPDATE_DELAY_MS (1re vérification, défaut 30 s), CBW_AUTO_IDLE_S / CBW_AUTO_EVERY_MS (installation auto).
+ *               CBW_UPDATE_DELAY_MS (1re vérification, défaut 30 s),
+ *               CBW_UPDATE_POPUP_DEMO=1 (fenêtre avec données factices, captures), CBW_UPDATE_POPUP_CLICK_MS (clic auto sur « Mettre à jour »).
  */
 
 export type UpdateState = 'disabled' | 'idle' | 'checking' | 'up-to-date' | 'downloading' | 'ready' | 'installing' | 'error';
@@ -44,9 +48,8 @@ const DR = 'identifier "com.dicta-ai.app"';
 const APP_NAME = 'CBW AI.app';
 const PLACEHOLDER = /^OWNER\//i;
 const EVERY_MS = 3600_000; // vérification toutes les heures (+ au réveil du Mac)
-/** Mise à jour prête : installée seule (avec relance) dès que le Mac est inactif depuis 3 min, sans dictée ni note en cours. */
-const AUTO_IDLE_S = Number(process.env.CBW_AUTO_IDLE_S ?? 180); // env : tests
-const AUTO_EVERY_MS = Number(process.env.CBW_AUTO_EVERY_MS) || 60_000;
+const BUSY_RETRY_MS = 60_000; // fenêtre repoussée pendant une dictée / note
+const SNOOZE_MS = 4 * 3600_000; // « Plus tard »
 
 /** "1.2.10" > "1.2.9" ; suffixes (-beta…) ignorés. */
 export function semverGt(a: string, b: string): boolean {
@@ -144,6 +147,7 @@ class Updater extends EventEmitter {
   /** À appeler une fois après app.whenReady(). `busy` : raison de refuser l'installation (note en cours…). */
   init(opts: { busy?: () => string | null } = {}): void {
     if (opts.busy) this.busy = opts.busy;
+    if (process.env.CBW_UPDATE_POPUP_DEMO) this.demo();
     if (!this.enabled) {
       this.set({ state: 'disabled', message: app.isPackaged ? 'Dépôt de mise à jour non configuré' : 'Mode développement' });
       return;
@@ -169,16 +173,53 @@ class Updater extends EventEmitter {
     if (last !== app.getVersion()) settings.set('updates.lastVersion', app.getVersion());
   }
 
-  private autoTimer: NodeJS.Timeout | null = null;
-  /** Installe seule la mise à jour prête quand personne n'utilise le Mac (sinon on retente chaque minute). */
-  private autoInstall(): void {
-    if (this.status.state !== 'ready' || settings.get('updates.auto') === false) return;
-    if (this.busy()) return;
-    const idle = powerMonitor.getSystemIdleTime();
-    if (idle < AUTO_IDLE_S) return;
-    log('update: installation automatique', this.status.version, `(Mac inactif depuis ${idle} s)`);
-    const r = this.install();
-    if (!r.ok) log('update: installation automatique refusée —', r.message);
+  private offerTimer: NodeJS.Timeout | null = null;
+  private snoozedUntil = 0;
+
+  private schedule(ms: number): void {
+    if (this.offerTimer) clearTimeout(this.offerTimer);
+    this.offerTimer = setTimeout(() => {
+      this.offerTimer = null;
+      this.offer();
+    }, ms);
+    this.offerTimer.unref?.();
+  }
+
+  /** Propose la mise à jour prête (fenêtre centrée) — pas pendant une dictée / note, pas avant la fin d'un « Plus tard ». */
+  private offer(force = false): void {
+    if (this.status.state !== 'ready') return;
+    const wait = this.snoozedUntil - Date.now();
+    if (!force && wait > 0) return this.schedule(wait);
+    if (this.busy()) return this.schedule(BUSY_RETRY_MS);
+    this.snoozedUntil = 0;
+    showUpdatePopup(
+      { current: app.getVersion(), version: this.status.version ?? '', notes: this.status.notes },
+      {
+        install: () => this.install(),
+        later: () => {
+          closeUpdatePopup();
+          this.snoozedUntil = Date.now() + SNOOZE_MS;
+          log('update: plus tard (dans 4 h ou au prochain lancement)');
+          this.schedule(SNOOZE_MS);
+        },
+      },
+    );
+    log('update: fenêtre « Nouvelle version »', this.status.version);
+    const click = Number(process.env.CBW_UPDATE_POPUP_CLICK_MS);
+    if (click > 0) setTimeout(() => clickUpdatePopup(), click);
+  }
+
+  /** Ouvre la fenêtre tout de suite (menu de la barre des menus, réglages). */
+  prompt(): void {
+    this.offer(true);
+  }
+
+  /** CBW_UPDATE_POPUP_DEMO : fenêtre avec données factices (captures d'écran), aucun téléchargement. */
+  private demo(): void {
+    showUpdatePopup(
+      { current: app.getVersion(), version: '9.9.9' },
+      { install: () => ({ ok: false, message: 'Démo : aucune mise à jour réelle.' }), later: () => closeUpdatePopup() },
+    );
   }
 
   /** Supprime les mises à jour déjà installées / périmées (≤ version courante). */
@@ -284,15 +325,7 @@ class Updater extends EventEmitter {
     this.readyApp = extracted;
     this.set({ state: 'ready', version: m.version, notes: m.notes, percent: 100 });
     log('update: prête', m.version, extracted);
-    if (!this.autoTimer) {
-      this.autoTimer = setInterval(() => this.autoInstall(), AUTO_EVERY_MS);
-      this.autoTimer.unref?.();
-    }
-    if (Notification.isSupported()) {
-      const n = new Notification({ title: `Mise à jour v${m.version} prête`, body: 'Elle s’installera toute seule dès que ton Mac sera inactif quelques minutes (ou via « Redémarrer pour mettre à jour »).' });
-      n.on('click', () => this.emit('open'));
-      n.show();
-    }
+    this.offer();
   }
 
   /** « Redémarrer pour mettre à jour ». */
@@ -300,6 +333,7 @@ class Updater extends EventEmitter {
     if (this.status.state !== 'ready' || !this.readyApp) return { ok: false, message: 'Aucune mise à jour prête' };
     const why = this.busy();
     if (why) return { ok: false, message: why };
+    if (this.offerTimer) clearTimeout(this.offerTimer);
     const target = installTarget();
     try {
       fs.accessSync(path.dirname(target), fs.constants.W_OK);
@@ -361,7 +395,7 @@ else
 fi
 if [ "$RELAUNCH" = 1 ]; then
   ENVS=()
-  for V in DICTA_AI_HOME CBW_UPDATE_URL CBW_INSTALL_PATH CBW_UPDATE_DELAY_MS CBW_AUTO_IDLE_S CBW_AUTO_EVERY_MS DICTA_NO_PROMPT OLLAMA_HOST DICTA_WHISPER_MODEL DICTA_WHISPER_SERVER_BIN; do
+  for V in DICTA_AI_HOME CBW_UPDATE_URL CBW_INSTALL_PATH CBW_UPDATE_DELAY_MS DICTA_NO_PROMPT OLLAMA_HOST DICTA_WHISPER_MODEL DICTA_WHISPER_SERVER_BIN; do
     [ -n "\${!V:-}" ] && ENVS+=(--env "$V=\${!V}")
   done
   if [ \${#ENVS[@]} -gt 0 ]; then open -n "$DEST" "\${ENVS[@]}"; else open "$DEST"; fi

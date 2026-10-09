@@ -1216,6 +1216,40 @@ details.disc:not([open]) > summary:hover .pm, details.disc:not([open]) > summary
 .welcome .hero .mark rect:nth-child(2) { fill: var(--orange, #FF5A1F); }
 .welcome .hero .mark rect:nth-child(3) { fill: var(--bleu, #2B3BFF); }
 .welcome .hero .mark rect:nth-child(4) { fill: var(--vert, #1FD26A); }
+/* Guide « clés API manquantes » : bandeau dans Réglages › Nettoyage IA + fenêtre avec le prompt à copier */
+.kg-sq { display: inline-flex; gap: 3px; flex: none; }
+.kg-sq i { width: 10px; height: 10px; background: var(--orange); }
+.kg-sq i:nth-child(2) { background: var(--bleu); } .kg-sq i:nth-child(3) { background: var(--vert); }
+.kg-cta { display: flex; align-items: center; gap: 16px; padding: var(--s3); margin-bottom: var(--s3); border: 2px solid var(--trait); background: var(--fond-2); }
+.kg-cta[hidden] { display: none; }
+.kg-t { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.kg-t b { font-size: 15px; font-weight: 800; }
+.kg-t span { font-size: 13px; color: var(--texte-sec); }
+dialog.keyguide { border: 2px solid var(--trait); padding: var(--s4); width: min(640px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow-y: auto; background: var(--surface); color: var(--texte); box-shadow: var(--ombre-dure); }
+dialog.keyguide::backdrop { background: color-mix(in srgb, var(--fond) 72%, transparent); }
+dialog.keyguide[open] { animation: rise var(--d-2) var(--ease-sortie); }
+.kg-head { display: flex; align-items: center; gap: 12px; margin-bottom: var(--s3); }
+.kg-k { font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--texte-3); flex: 1; }
+.kg-x { width: 32px; height: 32px; font-size: 13px; }
+.keyguide h2 { font-size: 34px; line-height: .95; font-weight: 900; font-stretch: 80%; letter-spacing: -.035em; margin-bottom: 10px; }
+.kg-lede { font-size: 14.5px; color: var(--texte-sec); margin: 0 0 var(--s3); }
+.kg-lede b { color: var(--texte); }
+.kg-steps { list-style: none; padding: 0; margin: 0 0 var(--s3); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid var(--trait); }
+.kg-steps li { display: grid; gap: 4px; padding: 12px 14px 12px 0; border-right: 1px solid var(--fil); }
+.kg-steps li + li { padding-left: 14px; }
+.kg-steps li:last-child { border-right: 0; }
+.kg-steps .n { width: 22px; height: 22px; display: grid; place-items: center; background: var(--k); color: #fff; font: 900 12px var(--police); margin-bottom: 4px; }
+.kg-steps li:nth-child(1) .n, .kg-steps li:nth-child(3) .n { color: var(--noir, #1C1C1E); }
+.kg-steps b { font-size: 13.5px; font-weight: 800; line-height: 1.25; }
+.kg-steps span:not(.n) { font-size: 12.5px; color: var(--texte-sec); }
+.kg-prompt { border: 1px solid var(--fil-fort); background: var(--fond-2); }
+.kg-ph { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--fil); font: 500 10.5px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--texte-3); }
+.kg-ph .btn { font: 700 13px var(--police); letter-spacing: 0; text-transform: none; }
+.kg-prompt textarea { display: block; width: 100%; height: 190px; resize: vertical; border: 0; background: transparent; padding: 12px 14px; font: 12px/1.55 var(--mono); color: var(--texte); outline: none; }
+.kg-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: var(--s3); font-size: 13px; color: var(--texte-sec); }
+.kg-foot .sp { flex: 1; }
+.kg-safe { font: 500 10.5px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--texte-3); }
+@media (max-width: 720px) { .kg-steps { grid-template-columns: 1fr; } .kg-steps li { border-right: 0; border-bottom: 1px solid var(--fil); padding-left: 0 !important; } }
 /* Retours utilisateur (9 oct.) */
 /* 1 · accueil : aucun effet au survol des KPI (mode dictée, temps gagné, série, vitesse) */
 .stat::before, .cbwc-kpi::before { display: none !important; }
@@ -1680,6 +1714,11 @@ body:not([data-view="hub"]) .side-resize { display: none; }
         <div class="row"><div class="label">Local d'abord (0 €)<span class="hint">Essayer Ollama avant le cloud</span></div>
           <label class="switch"><input type="checkbox" data-setting="providers.localFirst" aria-label="Local d'abord"><span></span></label></div>
       </div>
+      <div class="kg-cta" id="kgCta" hidden>
+        <span class="kg-sq" aria-hidden="true"><i></i><i></i><i></i></span>
+        <div class="kg-t"><b id="kgCtaTitle">Clés manquantes</b><span>Un assistant IA te guide pas à pas pour les créer. Gratuit, environ 5 minutes.</span></div>
+        <button class="btn primary" id="kgOpen">Ouvrir le guide</button>
+      </div>
       <div class="group" id="provList"></div>
       <div class="group" style="margin-top:var(--s3)">
         <div class="row"><div class="label">Niveau de nettoyage<span class="hint">Détails et exemples dans Style</span></div>
@@ -1714,6 +1753,32 @@ body:not([data-view="hub"]) .side-resize { display: none; }
 <script src="notes.js"></script>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <dialog class="palette" id="palette" aria-label="Recherche"><input type="text" id="palInput" placeholder="Rechercher une page, un réglage, une note…" spellcheck="false" aria-label="Rechercher"><div class="pal-list" id="palList" role="listbox"></div></dialog>
+<dialog class="keyguide" id="keyGuide" aria-labelledby="kgTitle">
+  <div class="kg-head">
+    <span class="kg-sq" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="kg-k">Guide · clés API gratuites</span>
+    <button class="icon-btn kg-x" id="kgClose" aria-label="Fermer">✕</button>
+  </div>
+  <h2 id="kgTitle">Connecte tes moteurs IA en 5&nbsp;minutes</h2>
+  <p class="kg-lede">Copie ce prompt, colle-le dans un assistant IA : il te guidera écran par écran pour créer <b id="kgWhich">tes clés</b>. Tu colles ensuite chaque clé ici.</p>
+  <ol class="kg-steps">
+    <li style="--k:var(--orange)"><span class="n">1</span><b>Copie le prompt</b><span>Bouton « Copier » ci-dessous.</span></li>
+    <li style="--k:var(--bleu)"><span class="n">2</span><b>Colle-le dans une nouvelle conversation</b><span>Claude, ChatGPT ou Gemini, dans ton navigateur.</span></li>
+    <li style="--k:var(--vert)"><span class="n">3</span><b>Colle chaque clé ici</b><span>Réglages › Nettoyage IA › « Clé » › Tester.</span></li>
+  </ol>
+  <div class="kg-prompt">
+    <div class="kg-ph"><span>Prompt</span><button class="btn primary" id="kgCopy">Copier le prompt</button></div>
+    <textarea id="kgText" readonly spellcheck="false" aria-label="Prompt à copier"></textarea>
+  </div>
+  <div class="kg-foot">
+    <span>Ouvrir dans :</span>
+    <button class="btn" data-ext="https://claude.ai/new">Claude</button>
+    <button class="btn" data-ext="https://chatgpt.com/">ChatGPT</button>
+    <button class="btn" data-ext="https://gemini.google.com/app">Gemini</button>
+    <span class="sp"></span>
+    <span class="kg-safe">Ne colle jamais une clé dans la conversation.</span>
+  </div>
+</dialog>
 <dialog class="cbw-modal" id="cbwModal" aria-labelledby="mTitle"><div class="mb"><h3 id="mTitle"></h3><p id="mBody"></p></div>
   <div class="mf"><button class="btn ghost" id="mCancel">Annuler</button><button class="btn primary" id="mOk">Confirmer</button></div></dialog>
 
@@ -3166,7 +3231,51 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     });
     renderProvStatusOnly();
   }
+  // Guide « clés manquantes » : prompt adapté aux clés absentes, à coller dans Claude / ChatGPT / Gemini
+  const KG_INFO = {
+    groq: 'Groq — https://console.groq.com/keys — connexion Google ou e-mail, puis « Create API Key » ; la clé commence par gsk_. Le plus rapide, à faire en premier.',
+    gemini: 'Gemini (Google AI Studio) — https://aistudio.google.com/apikey — connexion avec un compte Google, puis « Create API key » (accepter les conditions si demandé).',
+    zai: 'Z.ai — https://z.ai/manage-apikey/apikey-list — créer un compte, puis « Create API Key ». Serveurs hors UE : à utiliser en secours.',
+    openrouter: 'OpenRouter — https://openrouter.ai/keys — créer un compte, puis « Create Key » ; laisser la limite de crédit à 0 pour n\u2019utiliser que les modèles gratuits.'
+  };
+  function kgMissing() { return CLOUD.filter((id) => stOf(id).ui === 'missing_key'); }
+  function kgPrompt(ids) {
+    const list = ids.map((id, i) => (i + 1) + '. ' + KG_INFO[id]).join('\n');
+    return 'Tu es mon guide pas à pas. J\u2019utilise CBW AI, une app Mac gratuite de dictée vocale qui nettoie mes dictées avec des moteurs IA gratuits. ' +
+      'Il me manque ' + (ids.length > 1 ? ids.length + ' clés API gratuites' : 'une clé API gratuite') + ' :\n\n' + list + '\n\n' +
+      'Guide-moi pour créer ' + (ids.length > 1 ? 'chaque clé, une par une, dans cet ordre' : 'cette clé') + ' :\n' +
+      '- une seule étape à la fois, avec le bouton exact sur lequel cliquer, puis attends que je te dise « fait » ;\n' +
+      '- si l\u2019écran ne correspond pas, demande-moi ce que je vois et adapte-toi ;\n' +
+      '- une fois la clé créée, dis-moi de la copier puis de la coller dans CBW AI › Réglages › Nettoyage IA › « Clé » du bon fournisseur, puis de cliquer « Tester » ;\n' +
+      '- tout doit rester gratuit : si une carte bancaire ou un abonnement est demandé, arrête-toi et propose-moi une alternative ;\n' +
+      '- ne me demande JAMAIS de te donner ou de coller une clé ici : elle reste uniquement dans CBW AI.\n\n' +
+      'Commence par la première clé.';
+  }
+  function renderKeyGuideCta() {
+    const cta = $('#kgCta'); if (!cta) return;
+    const miss = kgMissing();
+    cta.hidden = !miss.length;
+    if (miss.length) $('#kgCtaTitle').textContent = miss.length === 1 ? 'Clé ' + provName(miss[0]) + ' manquante' : miss.length + ' clés manquantes : ' + miss.map(provName).join(', ');
+  }
+  function openKeyGuide() {
+    let ids = kgMissing(); if (!ids.length) ids = CLOUD.slice();
+    $('#kgWhich').textContent = ids.length === 1 ? 'ta clé ' + provName(ids[0]) : 'tes clés ' + ids.map(provName).join(', ');
+    $('#kgText').value = kgPrompt(ids);
+    $('#kgCopy').textContent = 'Copier le prompt';
+    $('#keyGuide').showModal();
+  }
+  $('#kgOpen').addEventListener('click', openKeyGuide);
+  $('#kgClose').addEventListener('click', () => $('#keyGuide').close());
+  $('#keyGuide').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+  $('#kgCopy').addEventListener('click', async () => {
+    const txt = $('#kgText').value;
+    try { await navigator.clipboard.writeText(txt); } catch (err) { $('#kgText').select(); document.execCommand('copy'); }
+    $('#kgCopy').textContent = 'Copié ✓'; toast('Prompt copié : colle-le dans Claude, ChatGPT ou Gemini');
+    setTimeout(() => { $('#kgCopy').textContent = 'Copier le prompt'; }, 2200);
+  });
+
   function renderProvStatusOnly() {
+    renderKeyGuideCta();
     $$('#provList .prov').forEach((r) => {
       const s = stOf(r.dataset.prov);
       $('.st .dot', r).className = 'dot ' + (ST_DOT[s.ui] || '');
