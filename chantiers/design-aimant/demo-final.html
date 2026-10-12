@@ -1,0 +1,761 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="CBW AI : emplacement aimanté de la pastille, version finale (piste C corrigée).">
+<title>CBW AI : emplacement aimanté, version finale</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --encre: #1C1C1E;
+    --noir: #1E1E1C;
+    --blanc: #FFFFFF;
+    --gris: #F4F4F2;
+    --fil: #DDDDDD;
+    --fil-fort: #C4C4BF;
+    --texte-sec: #5F5F5A;
+    --orange: #FF5A1F;
+    --accent: var(--orange);          /* = --accent de l'overlay (surchargeable par ?accent=) */
+    --bleu: #2B3BFF;
+    --bleu-vif: #5A67FF;
+    --vert: #1FD26A;
+    --rec: #FF3B1F;
+    --fantome: #8C8C88;               /* contour des carrés fantômes : 5,0:1 sur l'encre */
+    --ease: cubic-bezier(.2, .7, .2, 1);
+    --ease-sortie: cubic-bezier(.16, 1, .3, 1);
+    --ease-rideau: cubic-bezier(.7, 0, .15, 1);
+    --police: 'Archivo', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --systeme: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--blanc);
+    color: var(--noir);
+    font: 400 15px/1.55 var(--police);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1180px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  /* ---------- En-tête ---------- */
+  .tete { display: grid; gap: 8px; padding-bottom: 20px; border-bottom: 2px solid var(--noir); }
+  h1 { margin: 0; font: 900 44px/.95 var(--police); font-stretch: 85%; letter-spacing: -.035em; }
+  .tete p { margin: 0; max-width: 68ch; color: var(--texte-sec); }
+
+  /* ---------- Commandes ---------- */
+  .outils { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; padding: 16px 0; }
+  fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+  legend, .etiquette {
+    display: block; padding: 0; margin-bottom: 8px;
+    font: 500 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--texte-sec);
+  }
+  .seg { display: inline-flex; border: 2px solid var(--noir); }
+  .seg label { position: relative; display: flex; }
+  .seg label + label span { border-left: 2px solid var(--noir); }
+  .seg input { position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer; }
+  .seg span {
+    min-height: 40px; padding: 0 14px; display: flex; align-items: center;
+    font: 700 14px/1 var(--police); background: var(--blanc);
+    transition: background-color 200ms var(--ease), color 200ms var(--ease);
+  }
+  .seg label:hover span { background: var(--gris); }
+  .seg input:checked + span { background: var(--encre); color: var(--blanc); }
+  .seg input:focus-visible + span { outline: 3px solid var(--bleu); outline-offset: 2px; position: relative; z-index: 1; }
+
+  .btn {
+    min-height: 44px; padding: 0 16px; border-radius: 0; cursor: pointer;
+    font: 800 15px/1 var(--police);
+    background: var(--blanc); color: var(--noir); border: 1px solid var(--fil-fort);
+    transition: background-color 200ms var(--ease), border-color 200ms var(--ease), transform 120ms var(--ease);
+  }
+  .btn:hover { background: var(--gris); border-color: var(--noir); }
+  .btn:active { transform: scale(.98); }
+  .btn.prim { background: var(--encre); color: var(--blanc); border-color: var(--encre); }
+  .btn.prim:hover { background: #33333A; }
+  .btn:focus-visible, .case input:focus-visible { outline: 3px solid var(--bleu); outline-offset: 2px; }
+  .grp { display: flex; flex-wrap: wrap; gap: 8px; }
+  .case { display: flex; align-items: center; gap: 10px; min-height: 44px; font: 700 14px/1.2 var(--police); cursor: pointer; }
+  .case input { width: 18px; height: 18px; margin: 0; accent-color: var(--encre); cursor: pointer; }
+
+  .lecture {
+    display: grid; grid-template-columns: auto auto; gap: 6px 12px; margin: 0 0 0 auto;
+    padding: 8px 12px; border: 2px solid var(--noir); min-width: 248px;
+  }
+  .lecture dt { font: 500 12px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--texte-sec); }
+  .lecture dd { margin: 0; font: 700 13px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+
+  .aide { margin: 12px 0 0; color: var(--texte-sec); font-size: 13px; line-height: 1.45; max-width: 92ch; }
+  .aide kbd { font: 500 12px/1 var(--mono); border: 1px solid var(--noir); padding: 2px 6px; color: var(--noir); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+  /* ---------- Faux bureau 16:10 ---------- */
+  .ecran {
+    position: relative; width: 100%; aspect-ratio: 16 / 10; overflow: hidden;
+    border: 2px solid var(--noir);
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .fond { position: absolute; inset: 0; display: none; }
+  .fond i { position: absolute; display: block; }
+  .ecran[data-bg="clair"] .fond.clair,
+  .ecran[data-bg="sombre"] .fond.sombre,
+  .ecran[data-bg="aplats"] .fond.aplats { display: block; }
+
+  .fond.clair { background: #E6E6E1; }
+  .fond.clair i:nth-child(1) { left: 0; top: 0; width: 46%; height: 70%; background: #F7F7F5; }
+  .fond.clair i:nth-child(2) { left: 34%; top: 58%; width: 34%; height: 42%; background: #FFFFFF; }
+  .fond.clair i:nth-child(3) { left: 72%; top: 10%; width: 28%; height: 52%; background: #D3D3CD; }
+
+  .fond.sombre { background: #1A1B1D; }
+  .fond.sombre i:nth-child(1) { left: 0; top: 30%; width: 40%; height: 70%; background: #232427; }
+  .fond.sombre i:nth-child(2) { left: 50%; top: 52%; width: 50%; height: 48%; background: #141517; }
+  .fond.sombre i:nth-child(3) { left: 62%; top: 0; width: 22%; height: 40%; background: #2C2D31; }
+
+  /* Aplats vifs : la place par défaut chevauche le gris moyen (#656565, pire cas de la piste C) et le jaune */
+  .fond.aplats { background: #2F6FEB; }
+  .fond.aplats i:nth-child(1) { left: 28%; top: 66%; width: 22%; height: 34%; background: #656565; }
+  .fond.aplats i:nth-child(2) { left: 50%; top: 66%; width: 24%; height: 34%; background: #F2C200; }
+  .fond.aplats i:nth-child(3) { left: 0; top: 0; width: 30%; height: 46%; background: #E5484D; }
+  .fond.aplats i:nth-child(4) { left: 70%; top: 0; width: 30%; height: 36%; background: #F7B6D2; }
+  .fond.aplats i:nth-child(5) { left: 0; top: 74%; width: 22%; height: 26%; background: #18A058; }
+  .fond.aplats i:nth-child(6) { left: 40%; top: 18%; width: 16%; height: 28%; background: #1C1C1E; }
+  .fond.aplats i:nth-child(7) { left: 74%; top: 66%; width: 26%; height: 34%; background: #7D7D7D; } /* pire cas théorique de la version finale */
+
+  .menu {
+    position: absolute; left: 0; right: 0; top: 0; height: 24px; z-index: 2;
+    display: flex; align-items: center; gap: 18px; padding: 0 14px;
+    font: 500 13px/1 var(--systeme);
+    background: #F4F4F2; color: #1E1E1C; white-space: nowrap; overflow: hidden;
+  }
+  .menu b { font-weight: 700; }
+  .menu .droite { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  .tray { display: inline-flex; align-items: center; gap: 1.5px; height: 12px; }
+  .tray i { width: 2px; background: currentColor; display: block; }
+  .tray i:nth-child(1), .tray i:nth-child(5) { height: 4px; }
+  .tray i:nth-child(2), .tray i:nth-child(4) { height: 8px; }
+  .tray i:nth-child(3) { height: 12px; }
+  .ecran[data-bg="sombre"] .menu { background: #202124; color: #ECECEA; }
+  .ecran[data-bg="aplats"] .menu { background: #FFFFFF; }
+
+  .dock {
+    position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 2;
+    height: 58px; padding: 7px; display: flex; gap: 8px;
+    background: #FFFFFF; border: 1px solid #DDDDDD; border-radius: 16px; /* squircle macOS : seule forme arrondie admise */
+  }
+  .ecran[data-bg="sombre"] .dock { background: #2C2D31; border-color: #3A3B3E; }
+  .dock span { width: 42px; height: 42px; border-radius: 10px; display: block; }
+  .dock span:nth-child(1) { background: #7A8C99; }
+  .dock span:nth-child(2) { background: #C9B79C; }
+  .dock span:nth-child(3) { background: #9DB4A0; }
+  .dock span:nth-child(5) { background: #4A4A48; }
+  .dock span:nth-child(6) { background: #B4B9C9; }
+  .dock .cbw { background: #1C1C1E; display: flex; align-items: center; justify-content: center; gap: 3px; }
+  .dock .cbw i { width: 4px; background: #fff; display: block; }
+  .dock .cbw i:nth-child(1), .dock .cbw i:nth-child(5) { height: 10px; }
+  .dock .cbw i:nth-child(2), .dock .cbw i:nth-child(4) { height: 17px; }
+  .dock .cbw i:nth-child(3) { height: 24px; background: var(--orange); }
+
+  /* Aide de lecture (désactivée par défaut) : fenêtre 520×64 + rayons 60 / 260 px */
+  .rayons { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; display: none; z-index: 4; }
+  .ecran.debug .rayons { display: block; }
+  .rayons i { position: absolute; border-radius: 50%; border: 1px solid #5F5F5A; }
+  .rayons i:nth-child(1) { width: 120px; height: 120px; left: -60px; top: -60px; }
+  .rayons i:nth-child(2) { width: 520px; height: 520px; left: -260px; top: -260px; }
+  .ecran.debug .slotwin { outline: 1px solid #5F5F5A; }
+  .ecran.debug .slotwin::after {
+    content: "fenêtre 520 × 64"; position: absolute; left: 4px; top: 4px;
+    font: 500 10px/1 var(--mono); color: #fff; background: #5F5F5A; padding: 2px 4px;
+  }
+
+  /* =====================================================================
+     EMPLACEMENT : bloc à reprendre tel quel dans la fenêtre 520×64.
+     En production, « .slotwin » = <body> et « .plaque » = #s.
+     ===================================================================== */
+  .slotwin {
+    position: absolute; left: 0; top: 0; width: 520px; height: 64px;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 3;          /* SOUS la pastille (z-index 5) : obligatoire */
+  }
+
+  /* Plaque encre = taille réelle de la pastille + 4 px de chaque côté.
+     Bord : 1 px encre, puis filet blanc --l (2 px), puis encre. Lisible sur tout fond uni (≥ 4,1:1). */
+  .plaque {
+    --l: 2px;
+    position: relative; flex: none;
+    width: calc(var(--w, 44px) + 8px);
+    height: calc(var(--h, 16px) + 8px);
+    display: flex; align-items: center; justify-content: center;
+    background: var(--encre);
+    box-shadow: inset 0 0 0 1px var(--encre), inset 0 0 0 calc(1px + var(--l)) var(--blanc);
+  }
+  .plaque[data-s="off"]   { visibility: hidden; clip-path: inset(100% 0 0 0); transition: none; }
+  .plaque[data-s="in"]    { visibility: visible; clip-path: inset(0);
+                            transition: clip-path 200ms var(--ease-sortie), box-shadow 120ms var(--ease); }
+  .plaque[data-s="out"]   { visibility: visible; clip-path: inset(100% 0 0 0);
+                            transition: clip-path 160ms var(--ease-rideau); }
+  .plaque[data-s="close"] { visibility: visible; clip-path: inset(4px);
+                            transition: clip-path 140ms var(--ease-rideau); }
+
+  /* Empreinte des 3 carrés de la pastille (5×5, écart 3 px), au trait, aux mêmes coordonnées */
+  .marque { display: flex; align-items: center; gap: 3px; }
+  .marque span {
+    position: relative; display: block; width: 5px; height: 5px; overflow: hidden;
+    box-shadow: inset 0 0 0 1px var(--fantome);
+    transition: transform 120ms var(--ease-sortie);
+  }
+  .marque span i {
+    position: absolute; inset: 0; display: block; background: var(--c);
+    transform: scaleX(0); transform-origin: 0 50%;      /* remplissage de gauche à droite */
+    transition: transform 70ms linear;
+  }
+  .marque span:nth-child(1) { --c: var(--accent); }
+  .marque span:nth-child(2) { --c: var(--bleu-vif); transition-delay: 20ms; }
+  .marque span:nth-child(3) { --c: var(--vert); transition-delay: 40ms; }
+
+  /* 1. Apparition : la plaque monte (200 ms), puis les carrés se tracent de gauche à droite */
+  .plaque[data-s="in"] .marque span { animation: trace 120ms var(--ease-sortie) both; }
+  .plaque[data-s="in"] .marque span:nth-child(1) { animation-delay: 60ms; }
+  .plaque[data-s="in"] .marque span:nth-child(2) { animation-delay: 80ms; }
+  .plaque[data-s="in"] .marque span:nth-child(3) { animation-delay: 100ms; }
+  @keyframes trace { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+
+  /* 2. Proche (< 60 px, armé) : filet blanc 2 → 3 px, carrés qui se dressent en barres 5×10 */
+  .plaque.proche { --l: 3px; }
+  .plaque.proche .marque span { transform: scaleY(2); }
+
+  /* 3. Aimanté : plaque verte « terminé », liseré encre 1 px ; puis elle se resserre sous la pastille */
+  .plaque.ok { background: var(--vert); box-shadow: inset 0 0 0 1px var(--encre); transition: none; }
+  .plaque.ok .marque { visibility: hidden; }
+  .plaque.ok[data-s="close"] { transition: clip-path 140ms var(--ease-rideau); }
+
+  /* Mouvement réduit (production : @media (prefers-reduced-motion: reduce) { … }) */
+  .rm .plaque, .rm .plaque[data-s], .rm .plaque.ok[data-s="close"] { transition: none !important; }
+  .rm .marque span, .rm .marque span i { transition: none !important; animation: none !important; }
+  /* ===================== fin du bloc EMPLACEMENT ===================== */
+
+  /* ---------- Pastille (fidèle à design/overlay/overlay.html) ---------- */
+  .pos { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 5; }
+  .pill {
+    position: absolute; left: 0; top: 0;
+    width: 44px; height: 16px; transform: translate(-50%, -50%);
+    background: var(--encre); border: 1px solid rgba(255, 255, 255, .25);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 4px 16px rgba(0, 0, 0, .30); /* ombre de la pastille réelle */
+    overflow: hidden; color: #fff; cursor: grab; outline: none;
+    transition: width 240ms var(--ease-sortie), height 240ms var(--ease-sortie);
+  }
+  /* Focus : double anneau blanc + bleu, visible sur tout fond (y compris un fond bleu) */
+  .pill:focus-visible { outline: 2px solid var(--blanc); outline-offset: 1px; box-shadow: 0 0 0 5px var(--bleu); }
+  .pill.drag { cursor: grabbing; }
+  .carres {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 3px;
+    transition: opacity 240ms var(--ease-sortie);
+  }
+  .carres i { display: block; width: 5px; height: 5px; }
+  .carres i:nth-child(1) { background: var(--accent); }
+  .carres i:nth-child(2) { background: var(--bleu-vif); }
+  .carres i:nth-child(3) { background: var(--vert); }
+
+  /* Note en cours : 30 px de haut, largeur selon le contenu */
+  .inner {
+    position: absolute; left: 0; top: 0; height: 100%; width: max-content;
+    display: flex; align-items: center; padding: 0 12px 0 11px;
+    opacity: 0; transition: opacity 240ms var(--ease-sortie);
+  }
+  .bars { width: 23px; height: 16px; flex: none; display: flex; align-items: center; justify-content: space-between; }
+  .bars i { display: block; width: 3px; height: 6px; background: var(--orange); animation: niveau 620ms ease-in-out infinite alternate; }
+  .bars i:nth-child(2) { animation-duration: 540ms; animation-delay: -200ms; }
+  .bars i:nth-child(3) { animation-duration: 700ms; animation-delay: -90ms; }
+  .bars i:nth-child(4) { animation-duration: 580ms; animation-delay: -330ms; }
+  .bars i:nth-child(5) { animation-duration: 660ms; animation-delay: -150ms; }
+  @keyframes niveau { from { height: 4px; } to { height: 15px; } }
+  .rule { width: 1px; height: 14px; margin: 0 10px; background: rgba(255, 255, 255, .16); flex: none; }
+  .mark { width: 8px; height: 8px; margin-right: 8px; flex: none; background: var(--rec);
+          box-shadow: 0 0 0 1px rgba(255, 255, 255, .18); animation: recSlow 2000ms ease-in-out infinite; }
+  @keyframes recSlow { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+  .txt, .clock { font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding-top: 1px; white-space: nowrap; }
+  .clock { margin-left: 8px; letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+  .pill.note { height: 30px; }
+  .pill.note .carres { opacity: 0; }
+  .pill.note .inner { opacity: 1; }
+
+  /* Survol (au repos) : barre d'actions 220×38 */
+  .acts {
+    position: absolute; inset: 0; display: flex; align-items: stretch;
+    opacity: 0; visibility: hidden;
+    font: 500 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: #fff;
+    transition: opacity 100ms var(--ease), visibility 0s linear 100ms;
+  }
+  .acts span.a { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
+  .acts .r { width: 1px; height: 18px; align-self: center; background: rgba(255, 255, 255, .16); }
+  .ico { display: inline-flex; align-items: center; gap: 1.5px; height: 12px; }
+  .ico i { width: 2px; background: #fff; display: block; }
+  .ico i:nth-child(1), .ico i:nth-child(5) { height: 4px; }
+  .ico i:nth-child(2), .ico i:nth-child(4) { height: 8px; }
+  .ico i:nth-child(3) { height: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rec); } /* voyant d'enregistrement : seul rond admis */
+  .pill.hover { width: 220px; height: 38px; }
+  .pill.hover .carres { opacity: 0; transition-duration: 90ms; }
+  .pill.hover .acts { opacity: 1; visibility: visible; transition: opacity 180ms var(--ease-sortie) 60ms, visibility 0s; }
+
+  .rm .pill, .rm .carres, .rm .acts, .rm .inner { transition-duration: 1ms !important; transition-delay: 0ms !important; }
+  .rm .bars i, .rm .mark { animation: none !important; }
+  .rm .bars i:nth-child(odd) { height: 7px; }
+  .rm .bars i:nth-child(even) { height: 11px; }
+  .rm .seg span, .rm .btn { transition: none; }
+
+  /* ---------- Planche des états ---------- */
+  .planche { margin-top: 48px; border-top: 2px solid var(--noir); }
+  .planche h2 { margin: 24px 0 8px; font: 900 34px/.95 var(--police); font-stretch: 85%; letter-spacing: -.035em; }
+  .planche > p { margin: 0 0 24px; color: var(--texte-sec); max-width: 70ch; }
+  .grille { display: grid; grid-template-columns: 112px repeat(4, minmax(0, 1fr)); gap: 12px; }
+  .grille .tete-col { font: 500 12px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--texte-sec); align-self: end; }
+  .grille .tete-lig { font: 700 14px/1.2 var(--police); align-self: center; }
+  .cell { height: 128px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--fil); position: relative; overflow: hidden; }
+  .cell[data-bg="clair"] { background: #FFFFFF; }
+  .cell[data-bg="sombre"] { background: #1A1B1D; }
+  .cell[data-bg="aplats"] { background: linear-gradient(90deg, #2F6FEB 50%, #F2C200 50%); } /* deux aplats à bord net */
+  .cell[data-bg="gris"] { background: #656565; }
+  .spec { transform: scale(3); position: relative; display: flex; }
+  .spec .plaque, .spec .plaque * { transition: none !important; animation: none !important; }
+  .spec .pill { left: 50%; top: 50%; cursor: default; box-shadow: none; }
+
+  .notes { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); border-top: 1px solid var(--fil); }
+  .notes div { padding: 16px 16px 16px 0; border-bottom: 1px solid var(--fil); }
+  .notes b { display: block; font: 800 16px/1.3 var(--police); margin-bottom: 4px; }
+  .notes p { margin: 0; font-size: 14px; color: var(--texte-sec); }
+
+  @media (max-width: 760px) {
+    h1 { font-size: 34px; }
+    .lecture { margin-left: 0; width: 100%; }
+    .grille { grid-template-columns: 64px repeat(4, minmax(0, 1fr)); gap: 6px; }
+    .grille .tete-col { font-size: 10px; letter-spacing: .02em; }
+    .spec { transform: scale(1.25); }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <header class="tete">
+    <h1>Emplacement aimanté</h1>
+    <p>Version finale (piste C corrigée). Glissez la pastille : sa place apparaît au-dessus du Dock, à sa taille réelle, et ses trois carrés se remplissent à mesure que vous approchez. À moins de 60 px, les carrés se dressent : lâchez, la pastille se colle et sa place s'encadre de vert un instant.</p>
+  </header>
+
+  <form class="outils" id="outils" aria-label="Réglages de la démo" onsubmit="return false">
+    <fieldset>
+      <legend>Fond d'écran</legend>
+      <div class="seg">
+        <label><input type="radio" name="bg" value="clair" checked><span>Clair</span></label>
+        <label><input type="radio" name="bg" value="sombre"><span>Sombre</span></label>
+        <label><input type="radio" name="bg" value="aplats"><span>Aplats vifs</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Pastille</legend>
+      <div class="seg">
+        <label><input type="radio" name="mode" value="repos" checked><span>Au repos</span></label>
+        <label><input type="radio" name="mode" value="note"><span>Note en cours</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Mouvement</legend>
+      <div class="seg">
+        <label><input type="radio" name="mvt" value="normal" checked><span>Normal</span></label>
+        <label><input type="radio" name="mvt" value="reduit"><span>Réduit</span></label>
+      </div>
+    </fieldset>
+    <div>
+      <span class="etiquette">Démo</span>
+      <div class="grp">
+        <button type="button" class="btn prim" id="seq">Voir la séquence</button>
+        <button type="button" class="btn" id="bas">Remettre en bas</button>
+      </div>
+    </div>
+    <label class="case"><input type="checkbox" id="debug"> Afficher la fenêtre et les rayons 60 / 260 px</label>
+    <dl class="lecture">
+      <dt>État</dt><dd id="etat">À sa place</dd>
+      <dt>Distance</dt><dd id="dist">0 px</dd>
+    </dl>
+  </form>
+
+  <div class="ecran" id="ecran" data-bg="clair">
+    <div class="fond clair" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="fond sombre" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="fond aplats" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+    <div class="menu" aria-hidden="true">
+      <b>Finder</b><span>Fichier</span><span>Édition</span><span>Présentation</span><span>Fenêtre</span>
+      <span class="droite"><span class="tray"><i></i><i></i><i></i><i></i><i></i></span><span>ven. 10 oct. 14:32</span></span>
+    </div>
+
+    <div class="rayons" id="rayons" aria-hidden="true"><i></i><i></i></div>
+
+    <!-- Fenêtre de l'emplacement : 520×64, ignore la souris, placée SOUS la pastille -->
+    <div class="slotwin" id="slotwin" aria-hidden="true">
+      <div class="plaque" id="plaque" data-s="off">
+        <div class="marque"><span><i></i></span><span><i></i></span><span><i></i></span></div>
+      </div>
+    </div>
+
+    <div class="pos" id="pos">
+      <div class="pill" id="pill" tabindex="0" role="button"
+           aria-label="Pastille CBW AI. Espace pour la saisir, flèches pour la déplacer, Espace pour la poser, Échap pour annuler."
+           aria-describedby="aideClavier">
+        <span class="carres" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="inner" id="inner" aria-hidden="true">
+          <span class="bars"><i></i><i></i><i></i><i></i><i></i></span><span class="rule"></span><span class="mark"></span><span class="txt">Note</span><span class="clock">12:34</span>
+        </span>
+        <span class="acts" aria-hidden="true">
+          <span class="a"><span class="ico"><i></i><i></i><i></i><i></i><i></i></span>Dicter</span>
+          <span class="r"></span>
+          <span class="a"><span class="dot"></span>Note</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="dock" id="dock" aria-hidden="true">
+      <span></span><span></span><span></span><span class="cbw"><i></i><i></i><i></i><i></i><i></i></span><span></span><span></span>
+    </div>
+  </div>
+
+  <p class="aide" id="aideClavier">À la souris : glissez la pastille où vous voulez, puis ramenez-la près de sa place ; lâchée à moins de 60 px, elle s'y colle. Au clavier : <kbd>Tab</kbd> jusqu'à la pastille, <kbd>Espace</kbd> pour la saisir, flèches pour la déplacer (<kbd>Maj</kbd> pour aller plus vite), <kbd>Espace</kbd> pour la poser, <kbd>Échap</kbd> pour annuler.</p>
+  <p class="sr" id="annonce" aria-live="polite"></p>
+
+  <section class="planche" aria-labelledby="t-planche">
+    <h2 id="t-planche">Les états, à l'arrêt</h2>
+    <p>Agrandi trois fois, pastille au repos (44×16). Le remplissage suit la distance : vide au-delà de 260 px, plein à 60 px, de gauche à droite. La dernière ligne est le gris moyen où la piste C d'origine tombait sous 3:1.</p>
+    <div class="grille" id="grille"></div>
+
+    <div class="notes">
+      <div><b>Apparition</b><p>La plaque monte en 200 ms, puis les trois carrés se tracent de gauche à droite (120 ms). Ensuite, le remplissage suit la main.</p></div>
+      <div><b>Proche</b><p>Sous 60 px : les carrés se dressent en barres et le filet blanc s'épaissit (120 ms). Aucun changement de couleur.</p></div>
+      <div><b>Aimanté</b><p>La pastille glisse à sa place (120 ms au plus), un cadre vert la borde 200 ms, puis il se resserre sous elle (140 ms).</p></div>
+      <div><b>Mouvement réduit</b><p>Rien ne glisse ni ne se trace : les carrés sont pleins ou vides, le vert reste 400 ms puis tout disparaît d'un coup.</p></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var ecran = $('#ecran'), pos = $('#pos'), pill = $('#pill'), win = $('#slotwin'), plaque = $('#plaque');
+  var dock = $('#dock'), rayons = $('#rayons'), inner = $('#inner');
+  var fills = [].slice.call(plaque.querySelectorAll('.marque i'));
+  var etatEl = $('#etat'), distEl = $('#dist'), annonce = $('#annonce');
+  var root = document.documentElement;
+
+  // Seuils (px, centre à centre) : identiques à overlay.ts
+  var SNAP = 60, FAR = 260, SEUIL = 5;
+
+  var home = { x: 0, y: 0 }, cur = { x: 0, y: 0 };
+  var drag = null, kb = null, seqOn = false, busy = false, armed = false, near = false;
+  var atHome = true, lastKey = '', timers = [], mode = 'repos', noteW = 150;
+
+  // ---------- Mouvement réduit ----------
+  var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  function setRm(on) {
+    root.classList.toggle('rm', on);
+    var r = document.querySelector('input[name="mvt"][value="' + (on ? 'reduit' : 'normal') + '"]');
+    if (r) r.checked = true;
+  }
+  function rm() { return root.classList.contains('rm'); }
+  if (mq) {
+    setRm(mq.matches);
+    var onMq = function (e) { setRm(e.matches); };
+    if (mq.addEventListener) mq.addEventListener('change', onMq); else if (mq.addListener) mq.addListener(onMq);
+  }
+
+  // ---------- Minuteries ----------
+  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+  function clearT() { timers.forEach(clearTimeout); timers = []; }
+
+  /* ---------- API de l'emplacement (même forme qu'en production : window.S) ----------
+     S.show(w, h)   début du glisser : taille AU REPOS de la pastille dans son état courant
+     S.set(p, near) p quantifié au 0,05 (0 → 1), near = armé et d < 60
+     S.snap()       vert « terminé »   S.close()  se resserre sous la pastille
+     S.out()        redescend (lâchée ailleurs)   S.hide()  remise à zéro */
+  var S = {
+    show: function (w, h) {
+      plaque.style.setProperty('--w', w + 'px');
+      plaque.style.setProperty('--h', h + 'px');
+      plaque.className = 'plaque';
+      plaque.dataset.s = 'off';
+      fills.forEach(function (f) { f.style.transform = 'scaleX(0)'; });
+      void plaque.offsetWidth;                         // repart de l'état caché
+      plaque.dataset.s = 'in';
+    },
+    set: function (p, isNear) {
+      for (var i = 0; i < fills.length; i++) {
+        var f = Math.max(0, Math.min(1, 3 * p - i));   // carré 1 puis 2 puis 3
+        if (rm()) f = f >= 0.5 ? 1 : 0;                // mouvement réduit : plein ou vide
+        fills[i].style.transform = 'scaleX(' + f.toFixed(2) + ')';
+      }
+      plaque.classList.toggle('proche', isNear);
+    },
+    snap: function () { plaque.classList.remove('proche'); plaque.classList.add('ok'); },
+    close: function () { plaque.dataset.s = rm() ? 'off' : 'close'; },
+    out: function () { plaque.classList.remove('proche'); plaque.dataset.s = rm() ? 'off' : 'out'; },
+    hide: function () { plaque.dataset.s = 'off'; plaque.className = 'plaque'; }
+  };
+
+  // ---------- Géométrie ----------
+  function measureNote() { noteW = Math.ceil(inner.scrollWidth + 2); }
+  function restSize() { return mode === 'note' ? { w: noteW, h: 30 } : { w: 44, h: 16 }; }
+  function clampX(x) { var h = restSize().w / 2; return Math.max(h, Math.min(ecran.clientWidth - h, x)); }
+  function clampY(y) { var h = restSize().h / 2; return Math.max(24 + h, Math.min(ecran.clientHeight - h, y)); }
+  function layoutHome() {
+    var r = ecran.getBoundingClientRect(), d = dock.getBoundingClientRect();
+    // centre de la fenêtre 520×64 : une pastille de 30 px y serait à 5 px au-dessus du Dock (overlayBounds)
+    home.x = Math.round(ecran.clientWidth / 2);
+    home.y = Math.round(d.top - r.top - ecran.clientTop - 5 - 15);
+    win.style.transform = 'translate(' + (home.x - 260) + 'px,' + (home.y - 32) + 'px)';
+    rayons.style.transform = 'translate(' + home.x + 'px,' + home.y + 'px)';
+  }
+  function place(x, y) {
+    cur.x = Math.round(x); cur.y = Math.round(y);
+    pos.style.transform = 'translate3d(' + cur.x + 'px,' + cur.y + 'px,0)';
+  }
+  function distance() { return Math.hypot(cur.x - home.x, cur.y - home.y); }
+  function proximite(d) {
+    var p = Math.max(0, Math.min(1, (FAR - d) / (FAR - SNAP)));
+    return Math.round(p * 20) / 20;                    // quantifiée : peu de messages vers la fenêtre
+  }
+
+  // ---------- Lecture et annonces ----------
+  var LIB = { place: 'À sa place', affiche: 'Emplacement affiché', proche: 'Proche : lâchez', aimante: 'Aimantée', ailleurs: 'Posée ailleurs', annule: 'Annulé' };
+  var lastLib = '';
+  function say(k) { if (k !== lastLib) { lastLib = k; etatEl.textContent = LIB[k]; } }
+  function dire(msg) { annonce.textContent = ''; setTimeout(function () { annonce.textContent = msg; }, 30); }
+
+  // ---------- Cycle du glisser ----------
+  function startMove() {
+    clearT();
+    hover(false);
+    pill.classList.add('drag');
+    atHome = false; armed = false; near = false; lastKey = '';
+    var s = restSize();                                // taille au repos, pas la taille survolée (220×38)
+    S.show(s.w, s.h);
+    update();
+  }
+  function update() {
+    var d = distance();
+    if (!armed && d >= SNAP) armed = true;             // armé dès qu'on a quitté la zone une fois
+    var n = armed && d < SNAP;
+    var p = proximite(d), key = p + '|' + n;
+    if (key !== lastKey) { lastKey = key; S.set(p, n); }
+    if (n !== near) { near = n; if (n) dire('Proche de sa place. Lâchez pour l’aimanter.'); }
+    distEl.textContent = Math.round(d) + ' px';
+    say(n ? 'proche' : 'affiche');
+  }
+  function finish(k) {
+    S.hide();
+    busy = false; armed = false; near = false; lastKey = '';
+    distEl.textContent = Math.round(distance()) + ' px';
+    say(k);
+  }
+  function release(cancel) {
+    var d = distance(), r = rm();
+    busy = true;
+    pill.classList.remove('drag');
+    if (cancel) dire('Déplacement annulé.');
+    if (d < SNAP) {
+      // 1. la pastille glisse à sa place
+      var t = r ? 0 : Math.round(Math.min(120, 40 + 2 * d));
+      pos.style.transition = t ? 'transform ' + t + 'ms var(--ease-sortie)' : 'none';
+      place(home.x, home.y);
+      atHome = true;
+      later(function () {
+        pos.style.transition = '';
+        if (armed && !cancel) {
+          // 2. cadre vert « terminé », tenu 200 ms (400 ms en mouvement réduit)
+          S.snap(); say('aimante'); dire('Pastille aimantée à sa place.');
+          later(function () {
+            // 3. il se resserre sous la pastille
+            S.close();
+            later(function () { finish('aimante'); }, r ? 0 : 150);
+          }, r ? 400 : 200);
+        } else {
+          // retour sur place sans avoir quitté la zone, ou annulation : pas de vert
+          S.close();
+          later(function () { finish(cancel ? 'annule' : 'place'); }, r ? 0 : 150);
+        }
+      }, t);
+    } else {
+      S.out();
+      if (!cancel) dire('Pastille posée ailleurs. Elle restera ici. Ramenez-la près de sa place pour l’aimanter.');
+      later(function () { finish(cancel ? 'annule' : 'ailleurs'); }, r ? 0 : 170);
+    }
+  }
+
+  // ---------- Survol (barre d'actions, au repos seulement) ----------
+  var hoverT = 0;
+  function hover(on) {
+    clearTimeout(hoverT);
+    if (!on) { pill.classList.remove('hover'); return; }
+    hoverT = setTimeout(function () {
+      if (!drag && !busy && !seqOn && !kb && mode === 'repos') pill.classList.add('hover');
+    }, rm() ? 0 : 120);
+  }
+  pill.addEventListener('pointerenter', function () { hover(true); });
+  pill.addEventListener('pointerleave', function () {
+    if (drag) return;
+    clearTimeout(hoverT);
+    hoverT = setTimeout(function () { pill.classList.remove('hover'); }, rm() ? 0 : 250);
+  });
+
+  // ---------- Glisser à la souris ----------
+  pill.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || busy || seqOn || kb) return;
+    drag = { sx: e.clientX, sy: e.clientY, ox: cur.x, oy: cur.y, on: false };
+    try { pill.setPointerCapture(e.pointerId); } catch (err) { /* */ }
+  });
+  pill.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.on) {
+      if (Math.abs(dx) + Math.abs(dy) < SEUIL) return;  // en dessous : c'est un clic
+      drag.on = true;
+      startMove();
+    }
+    place(clampX(drag.ox + dx), clampY(drag.oy + dy));
+    update();
+  });
+  function up() {
+    var g = drag;
+    drag = null;
+    if (g && g.on) release(false);
+  }
+  pill.addEventListener('pointerup', up);
+  pill.addEventListener('pointercancel', up);
+  pill.addEventListener('lostpointercapture', up);
+
+  // ---------- Clavier : Espace saisit / pose, flèches déplacent, Échap annule ----------
+  function cancelKb() {
+    var f = kb.from;
+    kb = null;
+    place(f.x, f.y);                                   // retour au point de départ, sans signal vert
+    release(true);
+  }
+  pill.addEventListener('keydown', function (e) {
+    var k = e.key;
+    if (k === ' ' || k === 'Enter') {
+      e.preventDefault();
+      if (drag || busy || seqOn) return;
+      if (!kb) {
+        kb = { from: { x: cur.x, y: cur.y } };
+        startMove();
+        dire('Pastille saisie. Flèches pour la déplacer, Espace pour la poser, Échap pour annuler.');
+      } else { kb = null; release(false); }
+      return;
+    }
+    if (!kb) return;
+    if (k === 'Escape') { e.preventDefault(); cancelKb(); return; }
+    var step = e.shiftKey ? 40 : 8, dx = 0, dy = 0;
+    if (k === 'ArrowLeft') dx = -step;
+    else if (k === 'ArrowRight') dx = step;
+    else if (k === 'ArrowUp') dy = -step;
+    else if (k === 'ArrowDown') dy = step;
+    if (dx || dy) { e.preventDefault(); place(clampX(cur.x + dx), clampY(cur.y + dy)); update(); }
+  });
+  pill.addEventListener('blur', function () { if (kb) cancelKb(); });   // perdre le focus = annuler, jamais déposer
+
+  // ---------- Séquence de démonstration ----------
+  $('#seq').addEventListener('click', function () {
+    if (busy || drag || seqOn || kb) return;
+    seqOn = true;
+    var a = { x: clampX(home.x - 320), y: clampY(home.y - 200) };
+    var b = { x: home.x + 24, y: home.y - 12 };
+    place(a.x, a.y);
+    startMove();
+    function fin() { setTimeout(function () { release(false); seqOn = false; }, 400); }
+    if (rm()) {
+      // mouvement réduit : trois positions fixes, sans trajet animé
+      var L = Math.hypot(a.x - home.x, a.y - home.y), k = (L - 160) / L;
+      var mid = { x: a.x + (home.x - a.x) * k, y: a.y + (home.y - a.y) * k };
+      setTimeout(function () { place(mid.x, mid.y); update(); }, 700);
+      setTimeout(function () { place(b.x, b.y); update(); fin(); }, 1400);
+      return;
+    }
+    var D = 1700, t0 = 0;
+    function step(ts) {
+      if (!t0) t0 = ts;
+      var q = Math.min(1, (ts - t0) / D);
+      var e = q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2;
+      place(a.x + (b.x - a.x) * e, a.y + (b.y - a.y) * e);
+      update();
+      if (q < 1) requestAnimationFrame(step); else fin();
+    }
+    requestAnimationFrame(step);
+  });
+
+  $('#bas').addEventListener('click', function () {
+    if (busy || drag || seqOn || kb) return;
+    place(home.x, home.y); atHome = true;
+    distEl.textContent = '0 px'; say('place');
+    dire('Pastille remise à sa place.');
+  });
+
+  // ---------- Réglages de la démo ----------
+  $('#outils').addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.name === 'bg') ecran.dataset.bg = t.value;
+    else if (t.name === 'mvt') setRm(t.value === 'reduit');
+    else if (t.id === 'debug') ecran.classList.toggle('debug', t.checked);
+    else if (t.name === 'mode') {
+      if (busy || drag || seqOn || kb) return;
+      mode = t.value;
+      hover(false);
+      measureNote();
+      pill.classList.toggle('note', mode === 'note');
+      pill.style.width = mode === 'note' ? noteW + 'px' : '';
+      relayout();
+    }
+  });
+
+  // ---------- Init + redimensionnement ----------
+  function relayout() {
+    layoutHome();
+    if (atHome) place(home.x, home.y); else place(clampX(cur.x), clampY(cur.y));
+  }
+  function safeRelayout() {
+    if (drag || busy || seqOn || kb) return;
+    measureNote();
+    if (mode === 'note') pill.style.width = noteW + 'px';
+    relayout();
+  }
+  layoutHome(); place(home.x, home.y);
+  if (window.ResizeObserver) new ResizeObserver(safeRelayout).observe(ecran);
+  else window.addEventListener('resize', safeRelayout);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(safeRelayout);
+
+  // ---------- Planche statique ----------
+  function fillsFor(p) { return [0, 1, 2].map(function (i) { return Math.max(0, Math.min(1, 3 * p - i)); }); }
+  function moldHTML(cls, p, withPill) {
+    var sq = fillsFor(p).map(function (f) { return '<span><i style="transform:scaleX(' + f.toFixed(2) + ')"></i></span>'; }).join('');
+    var pl = withPill ? '<div class="pill" aria-hidden="true"><span class="carres"><i></i><i></i><i></i></span></div>' : '';
+    return '<div class="spec"><div class="plaque ' + cls + '" data-s="in"><div class="marque">' + sq + '</div></div>' + pl + '</div>';
+  }
+  var COLS = [
+    { t: 'Apparition, loin', h: moldHTML('', 0, false) },
+    { t: 'À mi-chemin, 160 px', h: moldHTML('', 0.5, false) },
+    { t: 'Proche, moins de 60 px', h: moldHTML('proche', 1, false) },
+    { t: 'Aimanté', h: moldHTML('ok', 1, true) }
+  ];
+  var ROWS = [['clair', 'Clair'], ['sombre', 'Sombre'], ['aplats', 'Aplats vifs'], ['gris', 'Gris moyen']];
+  var html = '<span></span>';
+  COLS.forEach(function (c) { html += '<span class="tete-col">' + c.t + '</span>'; });
+  ROWS.forEach(function (r) {
+    html += '<span class="tete-lig">' + r[1] + '</span>';
+    COLS.forEach(function (c) {
+      html += '<div class="cell" data-bg="' + r[0] + '" role="img" aria-label="' + c.t + ', fond ' + r[1].toLowerCase() + '">' + c.h + '</div>';
+    });
+  });
+  $('#grille').innerHTML = html;
+})();
+</script>
+</body>
+</html>

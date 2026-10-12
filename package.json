@@ -74,7 +74,8 @@
         "to": "bin",
         "filter": [
           "whisper-*",
-          "dicta-fnwatch"
+          "dicta-fnwatch",
+          "dicta-fullscreen"
         ]
       },
       {

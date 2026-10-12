@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   settings.migrateV5();
   await app.whenReady();
   app.setName('CBW AI');
-  secureStartup(); // clés API → trousseau, session durcie, permissions des données
+  secureStartup(); // clés API chiffrées (clé locale), session durcie, permissions des données
   // App de Dock (clic → fenêtre principale) + barre de menus + overlay.
   if (!app.isPackaged) {
     const icon = path.join(distDir(), 'assets', 'icon.png');
@@ -342,9 +342,14 @@ async function main(): Promise<void> {
     else if (!longCapture()) void startNote();
   };
   ipcMain.on('overlay:hover', (e, on: boolean) => isTrustedSender(e) && overlay.setInteractive(!!on));
-  ipcMain.on('overlay:drag', (e, phase: string) => {
+  ipcMain.on('overlay:drag', (e, arg: unknown) => {
     if (!isTrustedSender(e)) return;
-    if (phase === 'start') overlay.dragStart();
+    const o = arg && typeof arg === 'object' ? (arg as { phase?: unknown; w?: unknown; h?: unknown }) : { phase: arg };
+    const phase = o.phase;
+    // Taille au repos de la pastille : bornée, repli 44×16 si absente ou invalide.
+    const dim = (v: unknown, min: number, max: number, def: number): number =>
+      typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? Math.round(v) : def;
+    if (phase === 'start') overlay.dragStart(dim(o.w, 8, 440, 44), dim(o.h, 8, 56, 16));
     else if (phase === 'end') overlay.dragEnd();
     else if (phase === 'reset') overlay.resetPosition();
   });

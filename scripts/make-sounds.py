@@ -92,6 +92,11 @@ def main():
     # Erreur : deux notes graves étouffées (sans harmonique), descente d'un demi-ton.
     err = seq([tone(C5 / 2 * 1.5, 70, 1.0, h2=0.0, tau_ms=30), tone(C5 / 2 * 1.414, 90, 0.9, h2=0.0, tau_ms=35)], gap_ms=30)
     write('error.wav', err, PEAK_DBFS - 2)
+    # Aimantation (pastille remise à sa place) : petit « tic » de contact puis quinte montante B5 → E6,
+    # la tonique de la marque une octave plus haut. Bref (≈ 110 ms) et plus doux que la dictée.
+    tick = tone(2637.0, 9, 0.5, h2=0.0, attack_ms=0.5, tau_ms=3, release_ms=3)
+    dock = mix(tick, seq([tone(B5, 40, 0.8, tau_ms=18), tone(E5 * 2, 60, 1.0, tau_ms=28)], gap_ms=8), offset_ms=6)
+    write('dock.wav', dock, PEAK_DBFS - 3)
 
 
 if __name__ == '__main__':

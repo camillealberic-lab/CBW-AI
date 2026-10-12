@@ -165,7 +165,7 @@ class SettingsStore extends EventEmitter {
   }
 
   /**
-   * Après app.whenReady() : chiffre les clés en clair de config.json (trousseau macOS) puis les efface
+   * Après app.whenReady() : chiffre les clés en clair de config.json (AES, clé locale) puis les efface
    * du fichier. Sans chiffrement disponible, rien ne change (clés en clair, 0600) et c'est journalisé.
    */
   initSecrets(): void {
@@ -177,7 +177,7 @@ class SettingsStore extends EventEmitter {
       log('secrets: initialisation impossible', e instanceof Error ? e.message : e);
     }
     if (!secretsEncrypted()) {
-      log('secrets: chiffrement (trousseau) indisponible → clés conservées dans config.json (0600)');
+      log('secrets: chiffrement indisponible → clés conservées dans config.json (0600)');
       return;
     }
     const present = migrated.filter((k) => this.data[k] !== undefined);
@@ -185,7 +185,7 @@ class SettingsStore extends EventEmitter {
     for (const k of present) delete this.data[k];
     this.stripNested();
     this.write();
-    log(`secrets: ${present.length} clé(s) déplacée(s) de config.json vers le trousseau macOS`);
+    log(`secrets: ${present.length} clé(s) déplacée(s) de config.json vers secrets.json (chiffré)`);
   }
 
   /** Forme imbriquée {"providers":{"groq":{"apiKey":…}}} (ancienne config manuelle). */
@@ -220,7 +220,7 @@ class SettingsStore extends EventEmitter {
     this.emit('change', k, v);
   }
 
-  /** Clé API : chiffrée dans le trousseau ; une valeur masquée renvoyée par l'UI est ignorée. */
+  /** Clé API : chiffrée (secrets.json) ; une valeur masquée renvoyée par l'UI est ignorée. */
   private setSecretSetting(k: string, v: unknown): void {
     if (typeof v !== 'string' && v !== null) return;
     const val = String(v ?? '').trim();
@@ -235,7 +235,7 @@ class SettingsStore extends EventEmitter {
       this.emit('change', k, maskedSecret(k));
       return;
     }
-    // Repli sans trousseau : comportement historique (config.json 0600).
+    // Repli sans chiffrement : comportement historique (config.json 0600).
     if (this.data[k] === val) return;
     this.load();
     this.data[k] = val;

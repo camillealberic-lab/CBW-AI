@@ -1,0 +1,686 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="CBW AI : emplacement aimanté de la pastille, proposition A (repérage d'imprimerie).">
+<title>CBW AI : emplacement aimanté, proposition A</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --noir: #1E1E1C;
+    --encre: #1C1C1E;
+    --blanc: #FFFFFF;
+    --gris: #F4F4F2;
+    --fil: #DDDDDD;
+    --texte-sec: #5F5F5A;
+    --orange: #FF5A1F;
+    --bleu: #2B3BFF;
+    --bleu-vif: #5A67FF;
+    --vert: #1FD26A;
+    --ease: cubic-bezier(.2, .7, .2, 1);
+    --ease-sortie: cubic-bezier(.16, 1, .3, 1);
+    --ease-verrou: cubic-bezier(.3, 0, 0, 1);
+    --ease-claque: cubic-bezier(.6, 0, 1, 1);
+    --police: 'Archivo', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --systeme: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--blanc);
+    color: var(--noir);
+    font: 400 15px/1.55 var(--police);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Page de démo ---------- */
+  .page { max-width: 1312px; margin: 0 auto; padding: 24px 16px 48px; }
+  .tete { display: grid; gap: 8px; padding-bottom: 16px; border-bottom: 2px solid var(--noir); }
+  h1 {
+    margin: 0;
+    font: 800 32px/1.04 var(--police);
+    letter-spacing: -.03em;
+  }
+  .tete p { margin: 0; max-width: 68ch; color: var(--texte-sec); }
+
+  .outils {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+    align-items: flex-end;
+    padding: 16px 0;
+  }
+  fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+  legend, .etiquette {
+    display: block;
+    padding: 0;
+    margin-bottom: 8px;
+    font: 500 12px/1 var(--mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--texte-sec);
+  }
+  .seg { display: inline-flex; border: 2px solid var(--noir); }
+  .seg label { position: relative; display: flex; }
+  .seg label + label span { border-left: 2px solid var(--noir); }
+  .seg input {
+    position: absolute; inset: 0; margin: 0; opacity: 0; cursor: pointer;
+  }
+  .seg span {
+    min-height: 40px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    font: 700 14px/1 var(--police);
+    background: var(--blanc);
+    transition: background-color 200ms var(--ease), color 200ms var(--ease);
+  }
+  .seg label:hover span { background: var(--gris); }
+  .seg input:checked + span { background: var(--encre); color: var(--blanc); }
+  .seg input:focus-visible + span { outline: 3px solid var(--bleu); outline-offset: 2px; position: relative; z-index: 1; }
+
+  .case {
+    display: flex; align-items: center; gap: 10px;
+    min-height: 44px; padding: 0 2px;
+    font: 700 14px/1 var(--police);
+    cursor: pointer;
+  }
+  .case input { width: 18px; height: 18px; margin: 0; accent-color: var(--encre); cursor: pointer; }
+  .case input:focus-visible { outline: 3px solid var(--bleu); outline-offset: 2px; }
+
+  .lecture {
+    display: grid;
+    grid-template-columns: auto auto;
+    gap: 6px 12px;
+    margin: 0 0 0 auto;
+    padding: 8px 12px;
+    border: 2px solid var(--noir);
+    min-width: 264px;
+  }
+  .lecture dt { font: 500 12px/1.4 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--texte-sec); }
+  .lecture dd { margin: 0; font: 700 12px/1.4 var(--mono); font-variant-numeric: tabular-nums; }
+
+  .aide { margin: 12px 0 0; color: var(--texte-sec); font-size: 13px; line-height: 1.45; max-width: 90ch; }
+  .aide kbd { font: 500 12px/1 var(--mono); border: 1px solid var(--noir); padding: 2px 6px; color: var(--noir); }
+
+  .etats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 24px 0 0;
+    padding: 0;
+    list-style: none;
+    border-top: 2px solid var(--noir);
+  }
+  .etats li { padding: 16px 16px 0 0; }
+  .etats li + li { padding-left: 16px; border-left: 1px solid var(--fil); }
+  .etats h2 { margin: 0 0 4px; font: 800 22px/1.2 var(--police); letter-spacing: -.01em; }
+  .etats p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--texte-sec); }
+  .etats .num { font: 700 12px/1 var(--mono); color: var(--noir); margin-bottom: 8px; display: block; }
+
+  @media (max-width: 720px) {
+    .lecture { margin-left: 0; width: 100%; }
+    .etats { grid-template-columns: 1fr; }
+    .etats li + li { padding-left: 0; border-left: 0; border-top: 1px solid var(--fil); }
+  }
+
+  /* ---------- Faux bureau 16:10 ---------- */
+  .bureau {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    container-type: inline-size;
+    border: 2px solid var(--noir);
+    background: #E6E8EC;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .papier { position: absolute; inset: 0; }
+  .papier i { position: absolute; display: none; }
+
+  /* Clair */
+  .bureau[data-fond="clair"] { background: #E6E8EC; }
+  .bureau[data-fond="clair"] .papier i:nth-child(1) { display: block; left: 0; top: 0; width: 55%; height: 70%; background: #FFFFFF; }
+  .bureau[data-fond="clair"] .papier i:nth-child(2) { display: block; left: 55%; top: 45%; width: 45%; height: 55%; background: #CFD4DB; }
+  /* Sombre */
+  .bureau[data-fond="sombre"] { background: #121418; }
+  .bureau[data-fond="sombre"] .papier i:nth-child(1) { display: block; left: 0; top: 0; width: 55%; height: 70%; background: #1D2027; }
+  .bureau[data-fond="sombre"] .papier i:nth-child(2) { display: block; left: 55%; top: 45%; width: 45%; height: 55%; background: #2A2F38; }
+  /* Aplats vifs : la place par défaut chevauche gris moyen (pire contraste) | blanc, avec une bande rayée voisine */
+  .bureau[data-fond="vif"] { background: #1E5BFF; }
+  .bureau[data-fond="vif"] .papier i { display: block; }
+  .bureau[data-fond="vif"] .papier i:nth-child(1) { left: 0; top: 0; width: 38%; height: 100%; background: #FFC21A; }
+  .bureau[data-fond="vif"] .papier i:nth-child(2) { left: 38%; top: 0; width: 30%; height: 58%; background: #E8402C; }
+  .bureau[data-fond="vif"] .papier i:nth-child(3) { left: 38%; top: 58%; width: 12%; height: 42%; background: #7A7A7A; }
+  .bureau[data-fond="vif"] .papier i:nth-child(4) { left: 50%; top: 58%; width: 9%; height: 42%; background: #F4F4F2; }
+  .bureau[data-fond="vif"] .papier i:nth-child(5) { left: 59%; top: 58%; width: 9%; height: 42%; background: repeating-linear-gradient(90deg, #1C1C1E 0 4px, #FFFFFF 4px 8px); }
+  .bureau[data-fond="vif"] .papier i:nth-child(6) { left: 68%; top: 0; width: 32%; height: 100%; background: #1E5BFF; }
+  .bureau[data-fond="vif"] .papier i:nth-child(7) { left: 68%; top: 38%; width: 14%; height: 24%; background: #0F7A4A; }
+  .bureau[data-fond="vif"] .papier i:nth-child(8) { left: 12%; top: 22%; width: 16%; height: 26%; background: #1C1C1E; }
+
+  /* Barre des menus */
+  .menus {
+    position: absolute; left: 0; right: 0; top: 0;
+    height: 24px;
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 14px;
+    font: 500 13px/1 var(--systeme);
+    color: #1C1C1E;
+    background: #F1F1F1;
+    white-space: nowrap;
+    overflow: hidden;
+    z-index: 2;
+  }
+  .bureau[data-fond="sombre"] .menus { background: #1E1F22; color: #ECECEA; }
+  .menus b { font-weight: 700; }
+  .menus .droite { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  .plateau { display: flex; align-items: center; gap: 1.5px; height: 12px; }
+  .plateau i { display: block; width: 2px; background: currentColor; }
+  .plateau i:nth-child(1), .plateau i:nth-child(5) { height: 4px; }
+  .plateau i:nth-child(2), .plateau i:nth-child(4) { height: 8px; }
+  .plateau i:nth-child(3) { height: 12px; }
+
+  /* Dock (forme imposée par macOS) */
+  .dock {
+    --ic: clamp(26px, 3.75cqw, 48px);
+    position: absolute; left: 50%; bottom: 4px;
+    translate: -50% 0;
+    display: flex; gap: 6px;
+    padding: 6px;
+    border-radius: 18px;
+    background: rgba(246, 246, 246, .62);
+    border: 1px solid rgba(255, 255, 255, .45);
+    z-index: 2;
+  }
+  .bureau[data-fond="sombre"] .dock { background: rgba(48, 49, 54, .72); border-color: rgba(255, 255, 255, .12); }
+  .dock i { display: block; width: var(--ic); height: var(--ic); border-radius: 23%; }
+  .dock i:nth-child(1) { background: #3D8BFF; }
+  .dock i:nth-child(2) { background: #F2F2F2; box-shadow: inset 0 0 0 1px #D0D0D0; }
+  .dock i:nth-child(3) { background: #34C759; }
+  .dock i:nth-child(4) { background: #FF9F0A; }
+  .dock i:nth-child(5) { background: #8E8E93; }
+  .dock i:nth-child(7) { background: #5E5CE6; }
+  .dock i:nth-child(8) { background: #FF375F; }
+  .dock .cbw {
+    background: #111111;
+    display: flex; align-items: center; justify-content: center; gap: 7%;
+  }
+  .dock .cbw b { display: block; width: 8.6%; background: #FFFFFF; }
+  .dock .cbw b:nth-child(1), .dock .cbw b:nth-child(5) { height: 23%; }
+  .dock .cbw b:nth-child(2), .dock .cbw b:nth-child(4) { height: 39%; }
+  .dock .cbw b:nth-child(3) { height: 55%; background: var(--orange); }
+
+  /* Aide de lecture (désactivée par défaut) : fenêtre 520×64 + rayons 60 / 240 px */
+  .rayons { position: absolute; pointer-events: none; display: none; z-index: 3; }
+  .bureau.debug .rayons { display: block; }
+  .rayons i {
+    position: absolute; left: 0; top: 0; border-radius: 50%;
+    border: 1px dashed rgba(128, 128, 128, .9);
+  }
+  .rayons i:nth-child(1) { width: 120px; height: 120px; margin: -60px 0 0 -60px; }
+  .rayons i:nth-child(2) { width: 480px; height: 480px; margin: -240px 0 0 -240px; }
+  .bureau.debug .emplacement { outline: 1px dashed rgba(128, 128, 128, .9); }
+
+  /* =====================================================================
+     EMPLACEMENT : bloc à reprendre tel quel dans la fenêtre 520×64.
+     En production, « .emplacement » = <body> et « .format » = #s.
+     ===================================================================== */
+  .emplacement {
+    position: absolute;
+    width: 520px; height: 64px;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    z-index: 4;
+  }
+  .emplacement[hidden] { display: none; }
+  .format {
+    position: relative;
+    width: var(--w, 40px);
+    height: var(--h, 30px);
+    --g: calc(10px - 4px * var(--p, 0));   /* écart trait ↔ coin : 10 → 6 px à l'approche */
+    --k: .7;                                /* longueur : 7 px (base 10 px) */
+  }
+  /* Trait de coupe : âme blanche 2 px + contour encre 1 px = 4 px, lisible sur tout fond */
+  .t {
+    position: absolute;
+    display: block;
+    background: #FFFFFF;
+    outline: 1px solid #1C1C1E;
+    opacity: 0;
+    translate: var(--tx, 0px) var(--ty, 0px);
+    scale: var(--sx, 1) var(--sy, 1);
+    transition: translate 80ms linear, scale 90ms var(--ease-verrou), opacity 80ms linear;
+  }
+  .t.h { width: 10px; height: 2px; }
+  .t.v { width: 2px; height: 10px; }
+  /* horizontaux : prolongent les bords haut / bas */
+  .t.h.g { right: 100%; transform-origin: 100% 50%; --tx: calc(-1 * var(--g)); --sx: var(--k); }
+  .t.h.d { left: 100%;  transform-origin: 0 50%;    --tx: var(--g);            --sx: var(--k); }
+  .t.h.hau { top: 0; }
+  .t.h.bas { bottom: 0; }
+  /* verticaux : prolongent les bords gauche / droit */
+  .t.v.hau { bottom: 100%; transform-origin: 50% 100%; --ty: calc(-1 * var(--g)); --sy: var(--k); }
+  .t.v.bas { top: 100%;    transform-origin: 50% 0;    --ty: var(--g);            --sy: var(--k); }
+  .t.v.g { left: 0; }
+  .t.v.d { right: 0; }
+
+  /* Croix de repérage 12×12 : encre 4 px dessous, âme blanche 2 px dessus */
+  .x {
+    position: absolute; left: 50%; top: 50%;
+    width: 12px; height: 12px; margin: -6px 0 0 -6px;
+    opacity: 0;
+    transition: scale 90ms var(--ease-verrou), opacity 80ms linear;
+  }
+  .x i { position: absolute; display: block; }
+  .x i:nth-child(1) { left: 0;   top: 4px; width: 12px; height: 4px;  background: #1C1C1E; }
+  .x i:nth-child(2) { left: 4px; top: 0;   width: 4px;  height: 12px; background: #1C1C1E; }
+  .x i:nth-child(3) { left: 1px; top: 5px; width: 10px; height: 2px;  background: #FFFFFF; }
+  .x i:nth-child(4) { left: 5px; top: 1px; width: 2px;  height: 10px; background: #FFFFFF; }
+
+  /* Remise à zéro sans transition (avant chaque apparition) */
+  .emplacement.nt .t, .emplacement.nt .x { transition: none !important; animation: none !important; }
+
+  /* 1. Apparition : tracé depuis les coins */
+  .emplacement.in .t { opacity: 1; }
+  .emplacement.in .t.h { animation: traceH 140ms var(--ease-sortie); }
+  .emplacement.in .t.v { animation: traceV 140ms var(--ease-sortie); }
+  .emplacement.in .x { opacity: 1; animation: pose 140ms var(--ease-sortie) 40ms backwards; }
+  @keyframes traceH { from { scale: 0 1; } }
+  @keyframes traceV { from { scale: 1 0; } }
+  @keyframes pose { from { scale: 0; } }
+
+  /* 2. Proche (< 60 px) : verrou sec, 2 px, traits de 10 px, croix effacée */
+  .emplacement.hot .format { --g: 2px; --k: 1; }
+  .emplacement.hot .t { transition: translate 90ms var(--ease-verrou), scale 90ms var(--ease-verrou), opacity 80ms linear; }
+  .emplacement.hot .x { scale: 0; }
+
+  /* 3. Aimanté : la pastille glisse (100 ms), les traits claquent au contact (50 ms), puis s'éteignent en 2 crans */
+  .emplacement.snap .format { --g: 0px; --k: 1; }
+  .emplacement.snap .t { transition: translate 50ms var(--ease-claque) 100ms, scale 0ms; }
+  .emplacement.snap .t.h,
+  .emplacement.snap .t.v { animation: eteint 80ms steps(2, end) 150ms forwards; }
+  .emplacement.snap .x { scale: 0; }
+  @keyframes eteint { to { opacity: 0; } }
+
+  /* Lâchée ailleurs : les traits rentrent vers les coins */
+  .emplacement.out .t { opacity: 0; transition: scale 120ms var(--ease), opacity 120ms var(--ease); }
+  .emplacement.out .t.h { --sx: 0; }
+  .emplacement.out .t.v { --sy: 0; }
+  .emplacement.out .x { scale: 0; opacity: 0; transition: scale 120ms var(--ease), opacity 120ms var(--ease); }
+
+  /* Mouvement réduit : paliers instantanés, maintien 120 ms puis extinction */
+  .rm .emplacement .t, .rm .emplacement .x { transition: none !important; animation: none !important; }
+  .rm .emplacement.snap .t.h,
+  .rm .emplacement.snap .t.v { animation: eteint 1ms linear 120ms forwards !important; }
+  /* ===================== fin du bloc EMPLACEMENT ===================== */
+
+  /* ---------- Pastille (fidèle à design/overlay/overlay.html) ---------- */
+  .pastille {
+    position: absolute; left: 0; top: 0;
+    height: 30px;
+    min-width: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--encre);
+    border: 1px solid rgba(255, 255, 255, .25);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 4px 16px rgba(0, 0, 0, .30);
+    color: #FFFFFF;
+    translate: calc(var(--x, 0) * 1px - 50%) calc(var(--y, 0) * 1px - 50%);
+    cursor: grab;
+    touch-action: none;
+    z-index: 5;
+  }
+  .pastille.saisie { cursor: grabbing; }
+  .pastille.glisse { transition: translate 100ms var(--ease); }
+  .pastille:focus-visible { outline: 3px solid var(--bleu); outline-offset: 2px; }
+  .barres { width: 23px; height: 16px; display: flex; align-items: center; justify-content: space-between; flex: none; }
+  .barres i { display: block; width: 3px; background: #FFFFFF; flex: none; }
+  .barres i:nth-child(1), .barres i:nth-child(5) { height: 6px; }
+  .barres i:nth-child(2), .barres i:nth-child(4) { height: 10px; }
+  .barres i:nth-child(3) { height: 14px; }
+  .barres i:nth-child(2) { background: var(--orange); }
+  .barres i:nth-child(3) { background: var(--bleu-vif); }
+  .barres i:nth-child(4) { background: var(--vert); }
+  .suite { display: none; align-items: center; }
+  .filet { width: 1px; height: 14px; margin: 0 10px; background: rgba(255, 255, 255, .16); }
+  .point { width: 6px; height: 6px; margin-right: 8px; background: var(--orange); }
+  .mot { font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; padding-top: 1px; white-space: nowrap; }
+  /* Écoute (enregistrement) */
+  .pastille.ecoute { justify-content: flex-start; padding: 0 12px 0 11px; }
+  .pastille.ecoute .suite { display: flex; }
+  .pastille.ecoute .barres i { background: var(--orange); animation: niveau 620ms ease-in-out infinite alternate; }
+  .pastille.ecoute .barres i:nth-child(2) { animation-duration: 540ms; animation-delay: -200ms; }
+  .pastille.ecoute .barres i:nth-child(3) { animation-duration: 700ms; animation-delay: -90ms; }
+  .pastille.ecoute .barres i:nth-child(4) { animation-duration: 580ms; animation-delay: -330ms; }
+  .pastille.ecoute .barres i:nth-child(5) { animation-duration: 660ms; animation-delay: -150ms; }
+  .pastille.ecoute .point { animation: rec 1100ms steps(1, end) infinite; }
+  @keyframes niveau { from { height: 4px; } to { height: 15px; } }
+  @keyframes rec { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  .rm .pastille { transition: none !important; }
+  .rm .pastille.ecoute .barres i, .rm .pastille.ecoute .point { animation: none !important; }
+  .rm .pastille.ecoute .barres i:nth-child(odd) { height: 7px; }
+  .rm .pastille.ecoute .barres i:nth-child(even) { height: 11px; }
+
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="tete">
+    <h1>Emplacement aimanté</h1>
+    <p>Proposition A : repérage d'imprimerie. Des traits de coupe dessinent la place de la pastille, se resserrent quand elle approche, se verrouillent à moins de 60 px, puis claquent sur ses coins quand on la lâche.</p>
+  </header>
+
+  <form class="outils" id="outils" aria-label="Réglages de la démo" onsubmit="return false">
+    <fieldset>
+      <legend>Fond d'écran</legend>
+      <div class="seg">
+        <label><input type="radio" name="fond" value="clair" checked><span>Clair</span></label>
+        <label><input type="radio" name="fond" value="sombre"><span>Sombre</span></label>
+        <label><input type="radio" name="fond" value="vif"><span>Aplats vifs</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Pastille</legend>
+      <div class="seg">
+        <label><input type="radio" name="etat" value="repos" checked><span>Au repos</span></label>
+        <label><input type="radio" name="etat" value="ecoute"><span>Écoute</span></label>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>Mouvement</legend>
+      <div class="seg">
+        <label><input type="radio" name="mvt" value="normal" checked><span>Normal</span></label>
+        <label><input type="radio" name="mvt" value="reduit"><span>Réduit</span></label>
+      </div>
+    </fieldset>
+    <div>
+      <span class="etiquette">Mesures</span>
+      <label class="case"><input type="checkbox" id="debug"> Afficher les rayons 60 et 240 px</label>
+    </div>
+    <dl class="lecture">
+      <dt>Distance</dt><dd id="lDist">0 px</dd>
+      <dt>État</dt><dd id="lEtat">À sa place</dd>
+    </dl>
+  </form>
+
+  <div class="bureau" id="bureau" data-fond="clair">
+    <div class="papier" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="menus" aria-hidden="true">
+      <b>Finder</b><span>Fichier</span><span>Édition</span><span>Présentation</span><span>Aller</span><span>Fenêtre</span><span>Aide</span>
+      <span class="droite"><span class="plateau"><i></i><i></i><i></i><i></i><i></i></span><span>ven. 10 oct.</span><span>14:32</span></span>
+    </div>
+    <div class="dock" id="dock" aria-hidden="true">
+      <i></i><i></i><i></i><i></i><i></i><i class="cbw"><b></b><b></b><b></b><b></b><b></b></i><i></i><i></i>
+    </div>
+    <div class="rayons" id="rayons" aria-hidden="true"><i></i><i></i></div>
+
+    <!-- Emplacement : fenêtre 520×64 qui ignore la souris -->
+    <div class="emplacement" id="emplacement" hidden aria-hidden="true">
+      <div class="format" id="format">
+        <i class="t h g hau"></i><i class="t v g hau"></i>
+        <i class="t h d hau"></i><i class="t v d hau"></i>
+        <i class="t h g bas"></i><i class="t v g bas"></i>
+        <i class="t h d bas"></i><i class="t v d bas"></i>
+        <b class="x"><i></i><i></i><i></i><i></i></b>
+      </div>
+    </div>
+
+    <div class="pastille" id="pastille" tabindex="0" role="button"
+         aria-label="Pastille CBW AI. Espace pour la saisir, flèches pour la déplacer, Espace pour la poser, Échap pour annuler."
+         aria-describedby="aideClavier">
+      <span class="barres" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="suite" aria-hidden="true"><span class="filet"></span><span class="point"></span><span class="mot">Écoute</span></span>
+    </div>
+  </div>
+
+  <p class="aide" id="aideClavier">Glissez la pastille où vous voulez, puis ramenez-la près de sa place : lâchée à moins de 60 px, elle s'y aimante. Au clavier : <kbd>Tab</kbd> jusqu'à la pastille, <kbd>Espace</kbd> pour la saisir, flèches pour la déplacer (<kbd>Maj</kbd> pour aller plus vite), <kbd>Espace</kbd> pour la poser, <kbd>Échap</kbd> pour annuler.</p>
+  <p class="sr" id="annonce" aria-live="polite"></p>
+
+  <ol class="etats">
+    <li><span class="num">1</span><h2>Apparition</h2><p>Dès le début du glisser, 8 traits de coupe se tracent depuis les coins en 140 ms, avec une croix au centre. Ils encadrent un format vide de la taille de la pastille. Au loin, l'écart est de 10 px, puis il se resserre jusqu'à 6 px quand la pastille approche.</p></li>
+    <li><span class="num">2</span><h2>Proche</h2><p>À moins de 60 px, les traits se verrouillent en 90 ms : écart de 2 px, traits allongés de 7 à 10 px, croix effacée. Ce changement de forme, sans couleur, signifie « lâchez, elle se colle ».</p></li>
+    <li><span class="num">3</span><h2>Aimanté</h2><p>La pastille glisse jusqu'à sa place en 100 ms. Les traits claquent sur ses coins en 50 ms, puis s'éteignent en deux crans : 230 ms au total.</p></li>
+  </ol>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var MAGNET = 60;   // seuil d'aimantation (centre à centre), comme overlay.ts
+  var RANGE = 240;   // début du resserrement
+  var SEUIL_GLISSER = 5;
+
+  var bureau = document.getElementById('bureau');
+  var dock = document.getElementById('dock');
+  var pastille = document.getElementById('pastille');
+  var empl = document.getElementById('emplacement');
+  var format = document.getElementById('format');
+  var rayons = document.getElementById('rayons');
+  var lDist = document.getElementById('lDist');
+  var lEtat = document.getElementById('lEtat');
+  var annonce = document.getElementById('annonce');
+  var root = document.documentElement;
+
+  /* ---------- API de l'emplacement (identique à la production : window.S) ---------- */
+  var timer = 0;
+  var S = {
+    show: function (w, h, p, hot) {
+      clearTimeout(timer);
+      empl.className = 'emplacement nt';
+      format.style.setProperty('--w', w + 'px');
+      format.style.setProperty('--h', h + 'px');
+      format.style.setProperty('--p', p);
+      if (hot) empl.classList.add('hot');
+      empl.hidden = false;
+      void empl.offsetWidth;
+      empl.className = 'emplacement in' + (hot ? ' hot' : '');
+    },
+    p: function (p, hot) {
+      format.style.setProperty('--p', p);
+      empl.classList.toggle('hot', hot);
+    },
+    snap: function () {
+      empl.classList.add('snap');
+      timer = setTimeout(cacher, 240);
+    },
+    out: function () {
+      empl.classList.remove('hot');
+      empl.classList.add('out');
+      timer = setTimeout(cacher, 140);
+    }
+  };
+  function cacher() { empl.hidden = true; empl.className = 'emplacement'; }
+
+  /* ---------- Géométrie ---------- */
+  var W = 0, H = 0;
+  var maison = { x: 0, y: 0 };
+  var pos = { x: 0, y: 0 };
+  var aSaPlace = true;
+  var glisser = null;   // souris
+  var clavier = null;   // saisie au clavier
+  var dernier = '';     // clé (p|hot) déjà envoyée
+
+  function mesurer() {
+    W = bureau.clientWidth;
+    H = bureau.clientHeight;
+    var ph = pastille.offsetHeight;
+    // pastille posée 5 px au-dessus du Dock, centrée
+    maison = { x: W / 2, y: dock.offsetTop - 5 - ph / 2 };
+    empl.style.left = (maison.x - 260) + 'px';
+    empl.style.top = (maison.y - 32) + 'px';
+    rayons.style.left = maison.x + 'px';
+    rayons.style.top = maison.y + 'px';
+    if (aSaPlace && !glisser && !clavier) pos = { x: maison.x, y: maison.y };
+    else borner();
+    poser();
+    rendre();
+  }
+  function borner() {
+    var w = pastille.offsetWidth / 2, h = pastille.offsetHeight / 2;
+    pos.x = Math.min(Math.max(pos.x, w), W - w);
+    pos.y = Math.min(Math.max(pos.y, 24 + h), H - h);
+  }
+  function poser() {
+    pastille.style.setProperty('--x', pos.x.toFixed(1));
+    pastille.style.setProperty('--y', pos.y.toFixed(1));
+  }
+  function distance() { return Math.hypot(pos.x - maison.x, pos.y - maison.y); }
+  function proximite(d) {
+    var p = Math.min(1, Math.max(0, (RANGE - d) / (RANGE - MAGNET)));
+    return Math.round(p * 20) / 20;   // quantifiée : peu d'appels côté main
+  }
+
+  /* ---------- Lecture ---------- */
+  var etatTexte = '';
+  function rendre(force) {
+    var d = distance();
+    lDist.textContent = Math.round(d) + ' px';
+    var t;
+    if ((glisser && glisser.parti) || clavier) t = d < MAGNET ? 'Proche : lâchez' : 'Emplacement affiché';
+    else t = force || (aSaPlace ? 'À sa place' : 'Posée ailleurs');
+    if (t !== etatTexte) { etatTexte = t; lEtat.textContent = t; }
+  }
+  function dire(msg) { annonce.textContent = ''; setTimeout(function () { annonce.textContent = msg; }, 30); }
+
+  /* ---------- Cycle du glisser ---------- */
+  function debut() {
+    pastille.classList.remove('glisse');
+    pastille.classList.add('saisie');
+    aSaPlace = false;
+    var d = distance();
+    var p = proximite(d), hot = d < MAGNET;
+    dernier = p + '|' + hot;
+    S.show(pastille.offsetWidth, pastille.offsetHeight, p, hot);
+    rendre();
+  }
+  function aller(x, y) {
+    pos.x = x; pos.y = y;
+    borner(); poser();
+    var d = distance();
+    var p = proximite(d), hot = d < MAGNET;
+    var cle = p + '|' + hot;
+    if (cle !== dernier) { dernier = cle; S.p(p, hot); }
+    rendre();
+  }
+  function lacher() {
+    pastille.classList.remove('saisie');
+    var d = distance();
+    if (d < MAGNET) {
+      if (!root.classList.contains('rm')) pastille.classList.add('glisse');
+      pos = { x: maison.x, y: maison.y };
+      poser();
+      aSaPlace = true;
+      S.snap();
+      rendre('Aimantée');
+      dire('Pastille aimantée à sa place.');
+    } else {
+      S.out();
+      rendre('Posée ailleurs');
+      dire('Pastille posée ailleurs. Ramenez-la à moins de 60 pixels de sa place pour l’aimanter.');
+    }
+  }
+  pastille.addEventListener('transitionend', function (e) {
+    if (e.propertyName === 'translate') pastille.classList.remove('glisse');
+  });
+
+  /* Souris / tactile */
+  function local(e) {
+    var r = bureau.getBoundingClientRect();
+    return { x: e.clientX - r.left - bureau.clientLeft, y: e.clientY - r.top - bureau.clientTop };
+  }
+  pastille.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0 || clavier) return;
+    var p = local(e);
+    glisser = { ox: p.x - pos.x, oy: p.y - pos.y, sx: p.x, sy: p.y, parti: false, id: e.pointerId };
+    try { pastille.setPointerCapture(e.pointerId); } catch (err) { /* */ }
+  });
+  pastille.addEventListener('pointermove', function (e) {
+    if (!glisser) return;
+    var p = local(e);
+    if (!glisser.parti) {
+      if (Math.abs(p.x - glisser.sx) + Math.abs(p.y - glisser.sy) < SEUIL_GLISSER) return;
+      glisser.parti = true;
+      debut();
+    }
+    aller(p.x - glisser.ox, p.y - glisser.oy);
+  });
+  function finSouris() {
+    if (!glisser) return;
+    var parti = glisser.parti;
+    glisser = null;
+    if (parti) lacher();
+  }
+  pastille.addEventListener('pointerup', finSouris);
+  pastille.addEventListener('pointercancel', finSouris);
+  pastille.addEventListener('lostpointercapture', finSouris);
+
+  /* Clavier */
+  pastille.addEventListener('keydown', function (e) {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      if (glisser) return;
+      if (!clavier) {
+        clavier = { depuis: { x: pos.x, y: pos.y } };
+        debut();
+        dire('Pastille saisie. Flèches pour la déplacer, Espace pour la poser, Échap pour annuler.');
+      } else {
+        clavier = null;
+        lacher();
+      }
+      return;
+    }
+    if (!clavier) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      var f = clavier.depuis;
+      aller(f.x, f.y);
+      clavier = null;
+      lacher();
+      return;
+    }
+    var pas = e.shiftKey ? 40 : 8, dx = 0, dy = 0;
+    if (e.key === 'ArrowLeft') dx = -pas;
+    else if (e.key === 'ArrowRight') dx = pas;
+    else if (e.key === 'ArrowUp') dy = -pas;
+    else if (e.key === 'ArrowDown') dy = pas;
+    if (dx || dy) { e.preventDefault(); aller(pos.x + dx, pos.y + dy); }
+  });
+  pastille.addEventListener('blur', function () { if (clavier) { clavier = null; lacher(); } });
+
+  /* ---------- Réglages de la démo ---------- */
+  var outils = document.getElementById('outils');
+  outils.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.name === 'fond') bureau.setAttribute('data-fond', t.value);
+    else if (t.name === 'etat') {
+      pastille.classList.toggle('ecoute', t.value === 'ecoute');
+      mesurer();
+    } else if (t.name === 'mvt') root.classList.toggle('rm', t.value === 'reduit');
+    else if (t.id === 'debug') bureau.classList.toggle('debug', t.checked);
+  });
+
+  var rmMq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  function appliquerRm(on) {
+    root.classList.toggle('rm', on);
+    var r = outils.querySelector('input[name="mvt"][value="' + (on ? 'reduit' : 'normal') + '"]');
+    if (r) r.checked = true;
+  }
+  if (rmMq) {
+    appliquerRm(rmMq.matches);
+    var onRm = function (e) { appliquerRm(e.matches); };
+    if (rmMq.addEventListener) rmMq.addEventListener('change', onRm); else if (rmMq.addListener) rmMq.addListener(onRm);
+  }
+
+  if (window.ResizeObserver) new ResizeObserver(mesurer).observe(bureau);
+  else window.addEventListener('resize', mesurer);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(mesurer);
+  mesurer();
+})();
+</script>
+</body>
+</html>

@@ -91,7 +91,7 @@ export interface WipeOptions {
  * (ex. ipcMain.handle('app:wipeAllData') dans appWindow.ts, après une confirmation explicite dans l'UI),
  * puis app.relaunch() + app.exit(0). Ne touche pas aux fichiers hors de l'app.
  *
- * Efface : clés API (secrets.json + élément « CBW AI Safe Storage » du trousseau), config.json, historique,
+ * Efface : clés API (secrets.json, secret.key + ancien élément « CBW AI Safe Storage » du trousseau), config.json, historique,
  * compteurs d'usage, notes (transcriptions, segments, audio), anciennes données, journaux, profil Chromium
  * (cache, localStorage) ; en option les modèles et les documents exportés.
  */
@@ -129,7 +129,7 @@ export async function wipeAllUserData(opts: WipeOptions = {}): Promise<{ removed
 
 /**
  * Démarrage sécurisé, juste après app.whenReady() (et avant toute fenêtre / tout appel LLM) :
- * session durcie, clés migrées vers le trousseau, router branché sur les clés déchiffrées,
+ * session durcie, clés chiffrées (clé locale), router branché sur les clés déchiffrées,
  * permissions des données rattrapées, audio temporaire orphelin supprimé.
  */
 export function secureStartup(): void {

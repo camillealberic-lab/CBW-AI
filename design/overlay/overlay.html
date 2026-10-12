@@ -676,7 +676,9 @@
     try { zone.setPointerCapture(dragSt.id); } catch (err) { /* */ }
     pill.classList.add('dragging');
     collapse();
-    bridge('drag', 'start');
+    // Taille au repos de la pastille (l'emplacement aimanté s'y ajuste) ; repli 44×16 côté app.
+    var pw = parseFloat(pill.style.width);
+    bridge('drag', pw > 0 ? { phase: 'start', w: pw, h: 30 } : { phase: 'start', w: 44, h: 16 });
   });
   function endDrag() {
     if (dragSt && dragged) {

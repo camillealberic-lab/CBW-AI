@@ -1,0 +1,681 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Socle mécanique — emplacement aimanté de la pastille CBW AI (proposition B)</title>
+<meta name="description" content="Démo : l'emplacement aimanté de la pastille CBW AI comme un socle mécanique dans lequel elle s'enclenche.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --noir: #1E1E1C;
+    --encre: #1C1C1E;
+    --blanc: #FFFFFF;
+    --gris: #F4F4F2;
+    --fond-3: #ECECE8;
+    --texte-sec: #5F5F5A;
+    --orange: #FF5A1F;
+    --bleu: #2B3BFF;
+    --bleu-vif: #5A67FF;
+    --vert: #1FD26A;
+    --rec: #FF3B1F;
+    --ease: cubic-bezier(.2, .7, .2, 1);
+    --ease-out: cubic-bezier(.16, 1, .3, 1);
+    --police: 'Archivo', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+    /* ---- Socle (proposition B) ---- */
+    --socle: #1E1E1C;      /* corps, filet, ombre dure */
+    --rive: #FFFFFF;       /* bordure 2 px, griffes, empreinte « proche » */
+    --cavite: #2C2D31;     /* fond du creux */
+    --cavite-fil: #55565B; /* fil du creux, empreinte au repos */
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--gris);
+    color: var(--noir);
+    font: 400 15px/1.55 var(--police);
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 1240px; margin: 0 auto; padding: 24px 16px 48px; }
+  @media (min-width: 900px) { .page { padding: 40px 32px 64px; } }
+
+  h1 {
+    font: 900 clamp(34px, 5vw, 56px)/.95 var(--police);
+    font-stretch: 85%;
+    letter-spacing: -.035em;
+    margin: 0 0 12px;
+  }
+  .intro { max-width: 62ch; margin: 0 0 24px; color: var(--texte-sec); }
+  .intro strong { color: var(--noir); }
+
+  /* ---------- Commandes ---------- */
+  .commandes { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: flex-end; margin-bottom: 16px; }
+  .groupe { display: flex; flex-direction: column; min-width: 0; }
+  .lbl {
+    display: block;
+    margin: 0 0 8px;
+    font: 500 12px/1 var(--mono);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .rang { display: flex; flex-wrap: wrap; }
+  .btn {
+    min-height: 44px;
+    padding: 0 16px;
+    border: 2px solid var(--noir);
+    border-radius: 0;
+    background: var(--blanc);
+    color: var(--noir);
+    font: 700 15px/1 var(--police);
+    cursor: pointer;
+    transition: background-color 200ms var(--ease), transform 120ms var(--ease);
+  }
+  .rang .btn + .btn { margin-left: -2px; }
+  .btn:hover { background: var(--fond-3); }
+  .btn[aria-pressed="true"] { background: var(--encre); color: var(--blanc); }
+  .btn[aria-pressed="true"]:hover { background: #2C2D31; }
+  .btn:active { transform: scale(.98); }
+  .btn:focus-visible { outline: 3px solid var(--bleu); outline-offset: 2px; position: relative; z-index: 1; }
+
+  .etat {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    min-height: 44px; margin: 0 0 12px;
+    font: 500 12px/1.3 var(--mono); letter-spacing: .06em; text-transform: uppercase;
+  }
+  .etat::before { content: ""; width: 10px; height: 10px; background: var(--noir); flex: none; }
+  .etat .dist { color: var(--texte-sec); }
+
+  /* ---------- Faux bureau 16:10 ---------- */
+  .ecran {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+    min-height: 300px;
+    overflow: hidden;
+    border: 2px solid var(--noir);
+    background: #E6E4DE;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+  }
+  .papier { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .papier .f { display: none; }
+  .ecran[data-fond="clair"] .f-clair,
+  .ecran[data-fond="sombre"] .f-sombre,
+  .ecran[data-fond="vives"] .f-vives { display: inline; }
+
+  .menubar {
+    position: absolute; left: 0; right: 0; top: 0; height: 24px; z-index: 4;
+    display: flex; align-items: center; gap: 18px; padding: 0 14px;
+    font: 500 13px/1 -apple-system, system-ui, 'Helvetica Neue', sans-serif;
+    background: #F2F1EE; color: #1E1E1C; border-bottom: 1px solid #D9D9D6;
+    white-space: nowrap;
+  }
+  .ecran[data-fond="sombre"] .menubar { background: #1C1D21; color: #ECECEA; border-color: #2C2D31; }
+  .menubar b { font-weight: 700; }
+  .menubar .pomme { width: 11px; height: 11px; background: currentColor; }
+  .menubar .droite { margin-left: auto; display: flex; gap: 14px; align-items: center; }
+  .tray { display: flex; align-items: center; gap: 1.5px; height: 12px; }
+  .tray i { display: block; width: 2px; background: currentColor; }
+  .tray i:nth-child(1), .tray i:nth-child(5) { height: 4px; }
+  .tray i:nth-child(2), .tray i:nth-child(4) { height: 8px; }
+  .tray i:nth-child(3) { height: 12px; }
+  @media (max-width: 760px) { .menubar .opt { display: none; } }
+
+  .dock {
+    position: absolute; left: 50%; bottom: 6px; z-index: 1;
+    transform: translateX(-50%);
+    height: 64px; padding: 7px 8px;
+    display: flex; gap: 8px;
+    border-radius: 18px;              /* chrome macOS, pas du design CBW */
+    background: #F4F4F2; border: 1px solid #CFCFCA;
+  }
+  .ecran[data-fond="sombre"] .dock { background: #2C2D31; border-color: #3A3B3E; }
+  .app { width: 48px; height: 48px; border-radius: 11px; flex: none; display: grid; place-items: center; }
+  .sep { width: 1px; margin: 2px 2px; background: #C4C4BF; flex: none; }
+  .ecran[data-fond="sombre"] .sep { background: #55565B; }
+  .app.cbw { background: #1C1C1E; }
+  .app.cbw span { display: flex; align-items: center; gap: 3px; height: 24px; }
+  .app.cbw i { display: block; width: 4px; background: #fff; }
+  .app.cbw i:nth-child(1), .app.cbw i:nth-child(5) { height: 10px; }
+  .app.cbw i:nth-child(2), .app.cbw i:nth-child(4) { height: 17px; }
+  .app.cbw i:nth-child(3) { height: 24px; background: var(--orange); }
+  @media (max-width: 640px) { .dock .opt { display: none; } }
+
+  /* Rayon d'aimant (aide de lecture, désactivée par défaut) */
+  .rayon {
+    position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; z-index: 1;
+    border: 1px solid #5F5F5A; border-radius: 50%; pointer-events: none; display: none;
+  }
+  .rayon span {
+    position: absolute; left: 50%; top: -18px; transform: translateX(-50%);
+    font: 500 10px/1 var(--mono); letter-spacing: .06em; color: #5F5F5A; white-space: nowrap;
+  }
+  .ecran[data-fond="sombre"] .rayon { border-color: #A3A3A0; }
+  .ecran[data-fond="sombre"] .rayon span { color: #A3A3A0; }
+  .ecran.rayon-on .rayon { display: block; }
+
+  /* =====================================================================
+     SOCLE — à reporter tel quel dans la fenêtre de l'emplacement (520×64)
+     Classes : .on (apparition) · .proche (< 60 px) · .seat (enclenchement)
+               · .depart (lâchée ailleurs) · .seat-rm (mouvement réduit)
+     ===================================================================== */
+  .slotwin {
+    position: absolute; width: 520px; height: 64px; margin: -32px 0 0 -260px; z-index: 2;
+    display: grid; place-items: center; pointer-events: none;
+  }
+  .slot { position: relative; width: 56px; height: 46px; visibility: hidden; --o: 7px; }
+  .slot.on { visibility: visible; }
+  .slot.proche { --o: 3px; }                 /* griffes : 6 px → 2 px du filet */
+
+  .socle {
+    position: absolute; left: 50%; top: 50%;
+    width: 56px; height: 46px;
+    transform: translate(-50%, -50%);
+    background: var(--socle);
+    border: 2px solid var(--rive);
+    box-shadow: 0 0 0 1px var(--socle), 3px 3px 0 1px var(--socle);
+  }
+  .cavite {
+    position: absolute; left: 50%; top: 50%;
+    width: 44px; height: 34px;
+    transform: translate(-50%, -50%);
+    background: var(--cavite);
+    box-shadow: inset 0 0 0 1px var(--cavite-fil), inset 2px 2px 0 1px var(--socle);
+    display: flex; align-items: center; justify-content: center; gap: 2px;
+  }
+  .cavite i { display: block; width: 3px; background: var(--cavite-fil); transition: background-color 40ms steps(1, end); }
+  .cavite i:nth-child(1), .cavite i:nth-child(5) { height: 6px; }
+  .cavite i:nth-child(2), .cavite i:nth-child(4) { height: 10px; }
+  .cavite i:nth-child(3) { height: 14px; }
+  .slot.proche .cavite i { background: var(--rive); }
+
+  .griffe {
+    position: absolute; width: 14px; height: 14px; overflow: visible;
+    transform-origin: 2px 2px; opacity: 0;
+    transition: translate 80ms steps(2, end);
+  }
+  .g-tl { left: -2px; top: -2px;  translate: calc(var(--o) * -1) calc(var(--o) * -1); }
+  .g-tr { left: 54px; top: -2px;  scale: -1 1;  translate: var(--o) calc(var(--o) * -1); }
+  .g-bl { left: -2px; top: 44px;  scale: 1 -1;  translate: calc(var(--o) * -1) var(--o); }
+  .g-br { left: 54px; top: 44px;  scale: -1 -1; translate: var(--o) var(--o); }
+
+  /* 1 · Apparition : 3 crans de 40 ms, puis les griffes */
+  .slot.on .socle  { animation: socle-sort 120ms steps(1, end) both; }
+  .slot.on .griffe { animation: griffe-on 120ms steps(1, end) both; }
+  @keyframes socle-sort {
+    0%            { width: 48px; height: 38px; box-shadow: 0 0 0 1px var(--socle), 1px 1px 0 1px var(--socle); }
+    33.333%       { width: 52px; height: 42px; box-shadow: 0 0 0 1px var(--socle), 2px 2px 0 1px var(--socle); }
+    66.666%, 100% { width: 56px; height: 46px; box-shadow: 0 0 0 1px var(--socle), 3px 3px 0 1px var(--socle); }
+  }
+  @keyframes griffe-on { from { opacity: 0; } to { opacity: 1; } }
+
+  /* 3 · Enclenchement : course 0–80 · choc + tassement 80 · retrait 190 → 220 */
+  .slot.on.seat .socle  { animation: socle-tasse 250ms steps(1, end) both; }
+  .slot.on.seat .griffe { animation: griffe-off 250ms steps(1, end) both; }
+  @keyframes socle-tasse {
+    0%        { width: 56px; height: 46px; opacity: 1; box-shadow: 0 0 0 1px var(--socle), 3px 3px 0 1px var(--socle); }
+    32%       { width: 56px; height: 46px; opacity: 1; box-shadow: 0 0 0 1px var(--socle), 1px 1px 0 1px var(--socle); }
+    76%       { width: 50px; height: 40px; opacity: 1; box-shadow: 0 0 0 1px var(--socle), 0 0 0 1px var(--socle); }
+    88%, 100% { width: 50px; height: 40px; opacity: 0; }
+  }
+  @keyframes griffe-off { 0% { opacity: 1; } 76%, 100% { opacity: 0; } }
+
+  /* 3 bis · Lâchée ailleurs : 2 crans, sans clic */
+  .slot.on.depart .socle  { animation: socle-rentre 90ms steps(1, end) both; }
+  .slot.on.depart .griffe { animation: none; opacity: 0; }
+  @keyframes socle-rentre {
+    0%   { width: 52px; height: 42px; box-shadow: 0 0 0 1px var(--socle), 2px 2px 0 1px var(--socle); }
+    50%  { width: 48px; height: 38px; box-shadow: 0 0 0 1px var(--socle), 1px 1px 0 1px var(--socle); }
+    100% { width: 48px; height: 38px; opacity: 0; }
+  }
+
+  /* Mouvement réduit : états sans mouvement */
+  html[data-rm] .slot.on .socle,
+  html[data-rm] .slot.on .griffe { animation: none; }
+  html[data-rm] .slot.on .griffe { opacity: 1; }
+  html[data-rm] .griffe,
+  html[data-rm] .cavite i { transition: none; }
+  html[data-rm] .slot.on.seat-rm .socle { box-shadow: 0 0 0 1px var(--socle), 1px 1px 0 1px var(--socle); }
+  /* ===================== fin SOCLE ===================== */
+
+  /* ---------- Pastille (fidèle à overlay.html, repos 40×30, 5 barres) ---------- */
+  .pw { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; }
+  .travel, .press { position: absolute; left: 0; top: 0; width: 0; height: 0; }
+  .press { transform-origin: 0 0; }
+  .press.seat { animation: press 250ms both; }
+  @keyframes press {
+    0%, 32% { scale: 1;   animation-timing-function: cubic-bezier(.5, 0, 1, 1); }
+    42%     { scale: .92; animation-timing-function: cubic-bezier(.16, 1, .3, 1); }
+    100%    { scale: 1; }
+  }
+  html[data-rm] .press.seat { animation: none; }
+
+  #zone {
+    position: absolute; left: 0; top: 0;
+    transform: translate(-50%, -50%);
+    padding: 10px 14px; display: flex;
+    cursor: grab; touch-action: none; outline: none;
+  }
+  #zone.drag { cursor: grabbing; }
+  #zone:focus-visible { outline: 3px solid var(--bleu); outline-offset: -4px; }
+  #pill {
+    position: relative;
+    width: 40px; height: 30px;
+    background: var(--encre);
+    border: 1px solid rgba(255, 255, 255, .25);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .35), 0 4px 16px rgba(0, 0, 0, .30);
+    overflow: hidden;
+    transition: width 240ms var(--ease-out), height 240ms var(--ease-out);
+  }
+  #pill .bars {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center; gap: 2px;
+    transition: opacity 240ms var(--ease-out) 80ms;
+  }
+  #pill .bars i { display: block; width: 3px; }
+  #pill .bars i:nth-child(1), #pill .bars i:nth-child(5) { height: 6px; background: #fff; }
+  #pill .bars i:nth-child(2) { height: 10px; background: var(--orange); }
+  #pill .bars i:nth-child(3) { height: 14px; background: var(--bleu-vif); }
+  #pill .bars i:nth-child(4) { height: 10px; background: var(--vert); }
+
+  .actions {
+    position: absolute; inset: 0; display: flex; align-items: stretch;
+    opacity: 0; transition: opacity 100ms var(--ease);
+  }
+  .act {
+    flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 7px;
+    color: #fff; font: 500 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
+  }
+  .act-rule { width: 1px; height: 18px; align-self: center; background: rgba(255, 255, 255, .16); flex: none; }
+  .ico-bars { display: flex; align-items: center; gap: 1.5px; height: 12px; }
+  .ico-bars i { display: block; width: 2px; background: #fff; }
+  .ico-bars i:nth-child(1), .ico-bars i:nth-child(5) { height: 4px; }
+  .ico-bars i:nth-child(2), .ico-bars i:nth-child(4) { height: 8px; }
+  .ico-bars i:nth-child(3) { height: 12px; }
+  .ico-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rec); box-shadow: 0 0 0 1px rgba(255, 255, 255, .18); }
+  #pill[data-hover] { width: 220px; height: 38px; transition-duration: 260ms; }
+  #pill[data-hover] .bars { opacity: 0; transition: opacity 90ms var(--ease-out); }
+  #pill[data-hover] .actions { opacity: 1; transition: opacity 180ms var(--ease-out) 60ms; }
+  html[data-rm] #pill, html[data-rm] #pill .bars, html[data-rm] .actions { transition-duration: 1ms !important; transition-delay: 0ms !important; }
+
+  /* ---------- Lecture des états ---------- */
+  .sequence {
+    list-style: none; padding: 0; margin: 24px 0 0;
+    display: grid; grid-template-columns: 1fr; border-top: 2px solid var(--noir);
+  }
+  @media (min-width: 820px) { .sequence { grid-template-columns: repeat(3, 1fr); } }
+  .sequence li { padding: 16px 0; border-bottom: 1px solid #DDDDDD; }
+  @media (min-width: 820px) {
+    .sequence li { padding: 16px 24px 16px 0; border-bottom: 0; }
+    .sequence li + li { padding-left: 24px; border-left: 1px solid #DDDDDD; }
+  }
+  .sequence h2 { font: 800 22px/1.2 var(--police); letter-spacing: -.01em; margin: 0 0 6px; }
+  .sequence p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--texte-sec); max-width: 46ch; }
+  .sequence .t { display: block; margin-bottom: 8px; font: 500 12px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--noir); }
+</style>
+</head>
+<body>
+<main class="page">
+  <h1>Socle mécanique</h1>
+  <p class="intro">Proposition B. Pendant le glisser, l'emplacement devient <strong>un socle noir à rive blanche</strong>, creusé au gabarit de la pastille. Près de sa place, ses griffes se ferment en deux crans ; lâchée, la pastille s'y enclenche, le socle se tasse puis rentre sous elle. Glissez la pastille, ou sélectionnez-la et utilisez les flèches, puis Entrée.</p>
+
+  <div class="commandes">
+    <div class="groupe" role="group" aria-labelledby="l-fond">
+      <span class="lbl" id="l-fond">Fond d'écran</span>
+      <div class="rang">
+        <button type="button" class="btn" data-fond="clair" aria-pressed="true">Clair</button>
+        <button type="button" class="btn" data-fond="sombre" aria-pressed="false">Sombre</button>
+        <button type="button" class="btn" data-fond="vives" aria-pressed="false">Couleurs vives</button>
+      </div>
+    </div>
+    <div class="groupe" role="group" aria-labelledby="l-opt">
+      <span class="lbl" id="l-opt">Options</span>
+      <div class="rang">
+        <button type="button" class="btn" id="b-rm" aria-pressed="false">Mouvement réduit</button>
+        <button type="button" class="btn" id="b-son" aria-pressed="true">Son du clic</button>
+        <button type="button" class="btn" id="b-rayon" aria-pressed="false">Rayon 60 px</button>
+      </div>
+    </div>
+    <div class="groupe" role="group" aria-labelledby="l-voir">
+      <span class="lbl" id="l-voir">Montrer un état</span>
+      <div class="rang">
+        <button type="button" class="btn" id="v-app">Apparition</button>
+        <button type="button" class="btn" id="v-pro">Proche</button>
+        <button type="button" class="btn" id="v-seat">Rejouer l'enclenchement</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="etat"><span id="etat" aria-live="polite">Repos : glissez la pastille</span><span class="dist" id="dist"></span></p>
+
+  <section class="ecran" id="ecran" data-fond="clair" aria-label="Faux bureau macOS avec la pastille CBW AI">
+    <svg class="papier" viewBox="0 0 1600 1000" preserveAspectRatio="none" aria-hidden="true">
+      <g class="f f-clair">
+        <rect width="1600" height="1000" fill="#E6E4DE"/>
+        <polygon points="0,0 560,0 330,1000 0,1000" fill="#D3CFC6"/>
+        <polygon points="0,610 1600,400 1600,1000 0,1000" fill="#F7F6F3"/>
+        <polygon points="1180,0 1600,0 1600,400 1320,437" fill="#FFFFFF"/>
+      </g>
+      <g class="f f-sombre">
+        <rect width="1600" height="1000" fill="#141518"/>
+        <polygon points="0,0 700,0 420,1000 0,1000" fill="#1F2126"/>
+        <polygon points="760,560 1600,330 1600,1000 640,1000" fill="#2A2D34"/>
+        <polygon points="770,700 840,700 820,1000 750,1000" fill="#0B0B0C"/>
+      </g>
+      <g class="f f-vives">
+        <rect width="1600" height="1000" fill="#1B2A6B"/>
+        <polygon points="0,0 900,0 640,1000 0,1000" fill="#FFD23F"/>
+        <polygon points="900,0 1600,0 1600,420 1050,560" fill="#E8335A"/>
+        <polygon points="1050,560 1600,420 1600,1000 820,1000" fill="#19B5A5"/>
+        <polygon points="760,600 815,600 800,1000 742,1000" fill="#F6F1E7"/>
+        <circle cx="1260" cy="250" r="140" fill="#FF7A1A"/>
+        <polygon points="0,780 380,700 330,1000 0,1000" fill="#0EAD69"/>
+      </g>
+    </svg>
+
+    <div class="menubar" aria-hidden="true">
+      <span class="pomme"></span><b>Finder</b><span>Fichier</span><span>Édition</span>
+      <span class="opt">Présentation</span><span class="opt">Aller</span><span class="opt">Fenêtre</span><span class="opt">Aide</span>
+      <span class="droite"><span class="tray"><i></i><i></i><i></i><i></i><i></i></span><span class="opt">ven. 10 oct.</span><span>14:32</span></span>
+    </div>
+
+    <div class="rayon" id="rayon" aria-hidden="true"><span>60 PX</span></div>
+
+    <!-- Fenêtre de l'emplacement (520×64, non cliquable) -->
+    <div class="slotwin" id="slotwin" aria-hidden="true">
+      <div class="slot" id="slot">
+        <div class="socle"><div class="cavite"><i></i><i></i><i></i><i></i><i></i></div></div>
+        <svg class="griffe g-tl" viewBox="-2 -2 14 14"><path d="M0 10V0H10" fill="none" stroke="#1E1E1C" stroke-width="4" stroke-linecap="square"/><path d="M0 10V0H10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="square"/></svg>
+        <svg class="griffe g-tr" viewBox="-2 -2 14 14"><path d="M0 10V0H10" fill="none" stroke="#1E1E1C" stroke-width="4" stroke-linecap="square"/><path d="M0 10V0H10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="square"/></svg>
+        <svg class="griffe g-bl" viewBox="-2 -2 14 14"><path d="M0 10V0H10" fill="none" stroke="#1E1E1C" stroke-width="4" stroke-linecap="square"/><path d="M0 10V0H10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="square"/></svg>
+        <svg class="griffe g-br" viewBox="-2 -2 14 14"><path d="M0 10V0H10" fill="none" stroke="#1E1E1C" stroke-width="4" stroke-linecap="square"/><path d="M0 10V0H10" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="square"/></svg>
+      </div>
+    </div>
+
+    <!-- Pastille -->
+    <div class="pw" id="pw">
+      <div class="travel" id="travel">
+        <div class="press" id="press">
+          <div id="zone" tabindex="0" role="button" aria-label="Pastille CBW AI. Flèches pour la déplacer, Entrée pour la lâcher, double-clic pour la remettre à sa place.">
+            <div id="pill">
+              <div class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+              <div class="actions" aria-hidden="true">
+                <span class="act"><span class="ico-bars"><i></i><i></i><i></i><i></i><i></i></span>Dicter</span>
+                <span class="act-rule"></span>
+                <span class="act"><span class="ico-dot"></span>Note</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dock" aria-hidden="true">
+      <span class="app" style="background:#2D7FF9"></span>
+      <span class="app" style="background:#34C759"></span>
+      <span class="app opt" style="background:#FFD60A"></span>
+      <span class="app opt" style="background:#FF375F"></span>
+      <span class="app cbw"><span><i></i><i></i><i></i><i></i><i></i></span></span>
+      <span class="app opt" style="background:#8E8E93"></span>
+      <span class="sep"></span>
+      <span class="app" style="background:#E5E5EA"></span>
+    </div>
+  </section>
+
+  <ol class="sequence">
+    <li>
+      <span class="t">1 · 120 ms · 3 crans</span>
+      <h2>Apparition</h2>
+      <p>Dès 5 px de glisser, le socle sort de sous la pastille : 48, 52, puis 56 px, et son ombre dure passe de 1 à 3 px. Les griffes arrivent au quatrième cran.</p>
+    </li>
+    <li>
+      <span class="t">2 · 80 ms · 2 crans</span>
+      <h2>Proche</h2>
+      <p>À moins de 60 px, les griffes se ferment de 6 à 2 px et l'empreinte des barres passe au blanc. Le signal reste visible même quand la pastille couvre le creux.</p>
+    </li>
+    <li>
+      <span class="t">3 · 250 ms · course, choc, retrait</span>
+      <h2>Enclenchée</h2>
+      <p>La pastille est happée en 80 ms, se comprime à 92 %, et l'ombre du socle s'écrase. Puis tout rentre sous elle. Aucun rebond, aucune couleur d'accent.</p>
+    </li>
+  </ol>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var html = document.documentElement;
+  var ecran = $('#ecran'), slotwin = $('#slotwin'), slot = $('#slot'), rayon = $('#rayon');
+  var pw = $('#pw'), travel = $('#travel'), press = $('#press'), zone = $('#zone'), pill = $('#pill');
+  var etat = $('#etat'), distEl = $('#dist');
+
+  var MAGNET = 60, GAP = 5, WIN_H = 64, DOCK_H = 64, DOCK_B = 6, MENU_H = 24;
+  var S = { x: 0, y: 0, W: 0, H: 0, home: { x: 0, y: 0 }, atHome: true, drag: false, kbd: false, hot: false };
+
+  // ---------- Préférences ----------
+  var mq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  var rmOn = !!(mq && mq.matches), sonOn = true;
+  function rm() { return rmOn; }
+  function applyRm() { html.toggleAttribute('data-rm', rmOn); $('#b-rm').setAttribute('aria-pressed', String(rmOn)); }
+  applyRm();
+
+  // ---------- Minuteries (annulables : le geste reste interruptible) ----------
+  var timers = [];
+  function T(fn, ms) { timers.push(setTimeout(fn, ms)); }
+  function clearT() { timers.forEach(clearTimeout); timers = []; }
+
+  // ---------- Géométrie ----------
+  function geo() {
+    S.W = ecran.clientWidth; S.H = ecran.clientHeight;
+    S.home.x = Math.round(S.W / 2);
+    S.home.y = Math.round(S.H - DOCK_B - DOCK_H - GAP - WIN_H / 2);
+    slotwin.style.left = S.home.x + 'px'; slotwin.style.top = S.home.y + 'px';
+    rayon.style.left = S.home.x + 'px'; rayon.style.top = S.home.y + 'px';
+    if (S.atHome) { S.x = S.home.x; S.y = S.home.y; } else clamp();
+    place();
+  }
+  function clamp() {
+    S.x = Math.max(24, Math.min(S.W - 24, S.x));
+    S.y = Math.max(MENU_H + 20, Math.min(S.H - 20, S.y));
+  }
+  function place() { pw.style.left = S.x + 'px'; pw.style.top = S.y + 'px'; }
+  function dist() { return Math.hypot(S.x - S.home.x, S.y - S.home.y); }
+
+  // ---------- Lecture d'état (annoncée seulement quand l'état change) ----------
+  var lastEtat = '';
+  function say(name, extra) {
+    if (name !== lastEtat) { etat.textContent = name; lastEtat = name; }
+    distEl.textContent = extra || '';
+  }
+
+  // ---------- Son : clic-clac (deux transitoires filtrées) ----------
+  var ac = null;
+  function clic() {
+    if (!sonOn) return;
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      var t = ac.currentTime;
+      [[0, 3600, .5], [.014, 2400, .35]].forEach(function (p) {
+        var len = Math.floor(ac.sampleRate * .006);
+        var buf = ac.createBuffer(1, len, ac.sampleRate), ch = buf.getChannelData(0);
+        for (var k = 0; k < len; k++) ch[k] = (Math.random() * 2 - 1) * Math.pow(1 - k / len, 3);
+        var src = ac.createBufferSource(); src.buffer = buf;
+        var f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = p[1]; f.Q.value = 1.2;
+        var g = ac.createGain(); g.gain.value = p[2];
+        src.connect(f); f.connect(g); g.connect(ac.destination);
+        src.start(t + p[0]);
+      });
+    } catch (e) { /* pas de son : sans importance */ }
+  }
+
+  // ---------- Emplacement ----------
+  function hideSlot() { slot.className = 'slot'; S.hot = false; }
+  function showSlot() {
+    slot.className = 'slot';
+    void slot.offsetWidth;            // relance l'apparition
+    slot.classList.add('on');
+    S.hot = false;
+  }
+  function update() {
+    var d = dist(), hot = d < MAGNET;
+    if (hot !== S.hot) { S.hot = hot; slot.classList.toggle('proche', hot); }
+    say(hot ? 'Proche : lâchez, elle s’enclenche' : 'Apparition : sa place est marquée', Math.round(d) + ' px de sa place');
+  }
+
+  // ---------- Glisser ----------
+  function resetPill() {
+    travel.style.transition = 'none';
+    travel.style.translate = '0px 0px';
+    press.classList.remove('seat');
+  }
+  function startDrag() {
+    clearT();
+    S.drag = true; S.atHome = false;
+    collapseHover();
+    zone.classList.add('drag');
+    resetPill();
+    var c = slot.classList;
+    if (!c.contains('on') || c.contains('seat') || c.contains('seat-rm') || c.contains('depart')) showSlot();
+    update();
+  }
+  function endDrag() {
+    if (!S.drag) return;
+    S.drag = false; S.kbd = false;
+    zone.classList.remove('drag');
+    if (S.hot) seat(); else depart();
+  }
+
+  function seat() {
+    clearT();
+    var fx = S.x - S.home.x, fy = S.y - S.home.y;
+    S.x = S.home.x; S.y = S.home.y; S.atHome = true; place();
+    say('Enclenchée : à sa place', '');
+    if (rm()) {
+      slot.classList.add('seat-rm');
+      clic();
+      T(hideSlot, 160);
+      return;
+    }
+    // course 80 ms (happée), puis choc à 80 ms
+    travel.style.transition = 'none';
+    travel.style.translate = fx + 'px ' + fy + 'px';
+    void travel.offsetWidth;
+    travel.style.transition = 'translate 80ms cubic-bezier(.6, 0, 1, 1)';
+    travel.style.translate = '0px 0px';
+    slot.classList.add('seat');
+    press.classList.remove('seat'); void press.offsetWidth; press.classList.add('seat');
+    T(clic, 80);
+    T(function () { hideSlot(); press.classList.remove('seat'); }, 260);
+  }
+  function depart() {
+    clearT();
+    say('Déposée ailleurs', Math.round(dist()) + ' px de sa place');
+    if (rm()) { hideSlot(); return; }
+    slot.classList.add('depart');
+    T(hideSlot, 100);
+  }
+  function goHome() {               // double-clic : retour à sa place, avec le même enclenchement
+    if (S.atHome) return;
+    startDrag(); S.drag = false; zone.classList.remove('drag');
+    slot.classList.add('proche'); S.hot = true;
+    T(seat, rm() ? 0 : 140);
+  }
+
+  // Pointeur
+  var down = null;
+  function local(e) {
+    var r = ecran.getBoundingClientRect();
+    return { x: e.clientX - r.left - ecran.clientLeft, y: e.clientY - r.top - ecran.clientTop };
+  }
+  zone.addEventListener('pointerdown', function (e) {
+    if (e.button !== 0) return;
+    var p = local(e);
+    down = { id: e.pointerId, sx: p.x, sy: p.y, ox: p.x - S.x, oy: p.y - S.y };
+    try { zone.setPointerCapture(e.pointerId); } catch (err) { /* */ }
+  });
+  zone.addEventListener('pointermove', function (e) {
+    if (!down) return;
+    var p = local(e);
+    if (!S.drag) {
+      if (Math.abs(p.x - down.sx) + Math.abs(p.y - down.sy) < 5) return;
+      startDrag();
+    }
+    S.x = p.x - down.ox; S.y = p.y - down.oy; clamp(); place(); update();
+  });
+  function up() { if (S.drag && !S.kbd) endDrag(); down = null; }
+  zone.addEventListener('pointerup', up);
+  zone.addEventListener('pointercancel', up);
+  zone.addEventListener('lostpointercapture', up);
+  zone.addEventListener('dblclick', goHome);
+
+  // Clavier : flèches = glisser, Entrée / Espace / Échap = lâcher
+  zone.addEventListener('keydown', function (e) {
+    var k = e.key, step = e.shiftKey ? 32 : 8, dx = 0, dy = 0;
+    if (k === 'ArrowLeft') dx = -step; else if (k === 'ArrowRight') dx = step;
+    else if (k === 'ArrowUp') dy = -step; else if (k === 'ArrowDown') dy = step;
+    if (dx || dy) {
+      e.preventDefault();
+      if (!S.drag) { startDrag(); S.kbd = true; }
+      S.x += dx; S.y += dy; clamp(); place(); update();
+    } else if ((k === 'Enter' || k === ' ' || k === 'Escape') && S.drag) {
+      e.preventDefault(); endDrag();
+    }
+  });
+  zone.addEventListener('blur', function () { if (S.drag && S.kbd) endDrag(); });
+
+  // Survol (comme la vraie pastille) : déplie Dicter | Note après 120 ms
+  var inT = 0, outT = 0;
+  function collapseHover() { clearTimeout(inT); clearTimeout(outT); pill.removeAttribute('data-hover'); }
+  zone.addEventListener('mouseenter', function () {
+    clearTimeout(outT);
+    if (S.drag || down) return;
+    inT = setTimeout(function () { if (!S.drag) pill.setAttribute('data-hover', ''); }, rm() ? 0 : 120);
+  });
+  zone.addEventListener('mouseleave', function () {
+    clearTimeout(inT);
+    outT = setTimeout(collapseHover, rm() ? 0 : 250);
+  });
+
+  // ---------- Démonstration des états ----------
+  function scene(dx, dy) {
+    clearT(); down = null; S.drag = false; S.kbd = false;
+    collapseHover(); resetPill(); zone.classList.remove('drag');
+    S.x = S.home.x + dx; S.y = S.home.y + dy; S.atHome = false; clamp(); place();
+    showSlot(); update();
+  }
+  $('#v-app').addEventListener('click', function () { scene(170, -150); });
+  $('#v-pro').addEventListener('click', function () { scene(36, -30); });
+  $('#v-seat').addEventListener('click', function () {
+    scene(44, -34);
+    T(seat, rm() ? 300 : 520);
+  });
+
+  // ---------- Commandes ----------
+  Array.prototype.forEach.call(document.querySelectorAll('[data-fond]'), function (b) {
+    if (b === ecran) return;
+    b.addEventListener('click', function () {
+      ecran.setAttribute('data-fond', b.getAttribute('data-fond'));
+      Array.prototype.forEach.call(document.querySelectorAll('button[data-fond]'), function (o) {
+        o.setAttribute('aria-pressed', String(o === b));
+      });
+    });
+  });
+  $('#b-rm').addEventListener('click', function () { rmOn = !rmOn; applyRm(); });
+  $('#b-son').addEventListener('click', function () { sonOn = !sonOn; this.setAttribute('aria-pressed', String(sonOn)); });
+  $('#b-rayon').addEventListener('click', function () {
+    var on = ecran.classList.toggle('rayon-on');
+    this.setAttribute('aria-pressed', String(on));
+  });
+
+  window.addEventListener('resize', geo);
+  geo();
+})();
+</script>
+</body>
+</html>

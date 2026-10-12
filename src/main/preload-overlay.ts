@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('dicta', {
   /** Boutons du mode survol : 'dictate' (écoute) ou 'note' (prise de notes). */
   action: (name: 'dictate' | 'note') => ipcRenderer.send('overlay:action', name),
   /** Glisser la pastille : 'start' | 'end' ; 'reset' (double-clic) = place par défaut. */
-  drag: (phase: 'start' | 'end' | 'reset') => ipcRenderer.send('overlay:drag', phase),
+  drag: (arg: 'start' | 'end' | 'reset' | { phase: 'start' | 'end' | 'reset'; w?: number; h?: number }) =>
+    ipcRenderer.send('overlay:drag', arg),
 });

@@ -5,7 +5,7 @@ import { distDir, firstExisting, log } from './paths';
 import { settings } from './settings';
 
 /** Sons d'identité CBW AI (assets/sounds, régénérés par scripts/make-sounds.py). */
-export type SoundName = 'start' | 'stop' | 'note-start' | 'error';
+export type SoundName = 'start' | 'stop' | 'note-start' | 'error' | 'dock';
 
 const VOLUME = 0.35;
 const THROTTLE_MS = 150;

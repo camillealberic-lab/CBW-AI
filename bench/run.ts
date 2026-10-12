@@ -21,11 +21,20 @@ const only = flag('--only')?.split(',');
 const cat = flag('--cat');
 const vocabulary = flag('--vocab')?.split(',') ?? [];
 const delayMs = Number(flag('--delay') ?? 0);
+const casesFile = flag('--cases') ?? 'cases.jsonl';
 const mark = args.includes('--mark') ? (args.splice(args.indexOf('--mark'), 1), true) : false;
-const targets = args.length ? args : ['ollama:qwen3.5:4b'];
+const targets = args.length ? args : [];
+if (!targets.length) {
+  console.error('Précisez une cible (ex. groq:<modèle>). Plus de cible Ollama par défaut : Mac 16 Go, jamais charger un modèle local en test.');
+  process.exit(1);
+}
+if (targets.some((t) => t.startsWith('ollama:')) && process.env.BENCH_ALLOW_OLLAMA !== '1') {
+  console.error('Cible Ollama refusée (Mac 16 Go). BENCH_ALLOW_OLLAMA=1 pour forcer, uniquement sur accord explicite.');
+  process.exit(1);
+}
 
 const ROOT = new URL('.', import.meta.url).pathname;
-let cases: Case[] = readFileSync(ROOT + 'cases.jsonl', 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+let cases: Case[] = readFileSync(casesFile.startsWith('/') ? casesFile : ROOT + casesFile, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
 if (only) cases = cases.filter((c) => only.includes(c.id));
 if (cat) cases = cases.filter((c) => c.cat === cat);
 
@@ -72,7 +81,9 @@ async function call(target: string, system: string, user: string, maxTokens: num
   const r = await fetch(`${base}/chat/completions`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, temperature: t, max_tokens: maxTokens, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] }),
+    body: JSON.stringify({ model, temperature: t, messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+      // Même réglage que src/llm/providers/groq.ts (gpt-oss : raisonnement bas, masqué, +512 tokens de marge)
+      ...(/gpt-oss/.test(model) ? { reasoning_effort: 'low', include_reasoning: false, max_completion_tokens: maxTokens + 512 } : { max_tokens: maxTokens }) }),
     signal: AbortSignal.timeout(30_000),
   });
   const j: any = await r.json();

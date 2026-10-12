@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aimant · 3 pistes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{--fond:#fff;--fond-2:#F4F4F2;--texte:#1E1E1C;--sec:#5F5F5A;--trait:#1E1E1C;--fil:#DDD}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--fond:#1A1B1D;--fond-2:#202124;--texte:#ECECEA;--sec:#A3A3A0;--trait:#D9D9D6;--fil:#3A3B3E}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fond);color:var(--texte);font-family:Archivo,system-ui,sans-serif}
+header{padding:24px 16px 0;max-width:1400px;margin:0 auto}
+h1{font-size:40px;font-weight:900;font-stretch:85%;letter-spacing:-.035em;margin:0 0 6px;line-height:.95}
+p.lead{color:var(--sec);margin:0 0 18px;max-width:80ch}
+nav{display:flex;border:2px solid var(--trait);width:max-content;max-width:100%;flex-wrap:wrap}
+nav button{font:700 14px 'JetBrains Mono',monospace;padding:12px 16px;border:0;border-right:2px solid var(--trait);background:var(--fond);color:var(--texte);cursor:pointer;text-align:left}
+nav button:last-child{border-right:0}
+nav button small{display:block;font:500 12px Archivo,sans-serif;color:var(--sec);margin-top:2px}
+nav button[aria-selected=true]{background:var(--texte);color:var(--fond)}
+nav button[aria-selected=true] small{color:var(--fond);opacity:.75}
+main{max-width:1400px;margin:16px auto 32px;padding:0 16px}
+iframe{width:100%;height:calc(100vh - 210px);min-height:640px;border:2px solid var(--trait);background:var(--fond-2);display:block}
+.rec{font:700 11px 'JetBrains Mono',monospace;background:#1FD26A;color:#1E1E1C;padding:2px 6px;margin-left:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Emplacement aimanté · 3 pistes</h1>
+  <p class="lead">Chaque onglet est une démo complète : glisse la pastille loin, puis ramène-la vers le bas. Change de fond (clair, sombre, couleurs vives) pour vérifier la lisibilité.</p>
+  <nav role="tablist">
+    <button role="tab" aria-selected="true" data-f="demo-a.html">A · Repérage<small>Traits de coupe d'imprimeur, sans couleur</small></button>
+    <button role="tab" aria-selected="false" data-f="demo-b.html">B · Socle<small>Encoche pleine, clic mécanique</small></button>
+    <button role="tab" aria-selected="false" data-f="demo-c.html">C · Silhouette<small>Barres en creux qui se remplissent</small></button>
+  </nav>
+</header>
+<main><iframe id="f" src="demo-a.html" title="Démo"></iframe></main>
+<script>
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  document.getElementById('f').src=b.dataset.f;
+});
+</script>
+</body>
+</html>
