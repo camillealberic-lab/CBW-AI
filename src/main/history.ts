@@ -1,10 +1,21 @@
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { decryptBlob, encryptBlob, isEncryptedBlob } from './localcrypto';
 import { dataDir, log } from './paths';
 import type { DictationResult } from './pipeline';
+import { settings } from './settings';
 
 /** Historique local (~/.dicta-ai/history.json) : 20 dernières dictées + compteurs cumulés. */
 export interface Dictation {
+  /** Identifiant stable (c3) : sert à retry(id) / pasteRaw(id) ; absent sur les très anciennes entrées. */
+  id?: string;
+  /** 'ok' (collée), 'cancelled' (Échap, c6), 'failed' (erreur de transcription / nettoyage). */
+  status?: 'ok' | 'cancelled' | 'failed';
+  /** Audio conservé dans ~/.dicta-ai/audio/<id>.wav (14 jours). */
+  audio?: boolean;
+  /** Durée de l'enregistrement (ms). */
+  durationMs?: number;
   raw: string;
   text: string;
   provider: string;
@@ -42,7 +53,8 @@ interface HistoryFile {
   perDay: Record<string, DayBucket>;
 }
 
-const MAX_RECENT = 20;
+const MAX_RECENT = 50;
+const AUDIO_DAYS = 14;
 const TYPING_WPM = 40;
 const file = (): string => path.join(dataDir(), 'history.json');
 const empty = (): HistoryFile => ({ recent: [], counters: { words: 0, dictations: 0, recordMs: 0, days: [] }, perDay: {} });
@@ -72,10 +84,152 @@ function save(): void {
   }
 }
 
-export function recordDictation(r: DictationResult): Dictation {
+export function newDictationId(): string {
+  return Date.now().toString(36) + crypto.randomBytes(3).toString('hex');
+}
+const ID_RE = /^[a-z0-9]{6,32}$/;
+
+// ---- Audio des dictées (c3) : ~/.dicta-ai/audio/<id>.wav, dossier 0700, fichiers 0600 ----
+const audioDir = (): string => {
+  const d = path.join(dataDir(), 'audio');
+  fs.mkdirSync(d, { recursive: true, mode: 0o700 });
+  return d;
+};
+export const audioPath = (id: string): string | null => (ID_RE.test(id) ? path.join(audioDir(), `${id}.wav`) : null);
+export const keepAudioEnabled = (): boolean => settings.get('history.keepAudio') !== false;
+
+/** Écrit l'audio d'une dictée ; false si désactivé (`history.keepAudio`) ou en erreur. */
+export function saveAudio(id: string, wav: Buffer): boolean {
+  if (!keepAudioEnabled()) return false;
+  const p = audioPath(id);
+  if (!p) return false;
+  try {
+    // Chiffré au repos (AES-256-GCM, clé locale) ; clé indisponible : on ne garde pas l'audio plutôt que de l'écrire en clair.
+    const enc = encryptBlob(wav);
+    if (!enc) return false;
+    fs.writeFileSync(p, enc, { mode: 0o600 });
+    fs.chmodSync(p, 0o600);
+    return true;
+  } catch (e) {
+    log('history: audio non enregistré', e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+export function readAudio(id: string): Buffer | null {
+  const p = audioPath(id);
+  try {
+    return p ? decryptBlob(fs.readFileSync(p)) : null; // déchiffré en mémoire uniquement
+  } catch {
+    return null;
+  }
+}
+
+/** Chiffre les .wav encore en clair (anciennes versions). Appelé par purgeAudio() (démarrage + toutes les 6 h). */
+export function migrateAudioEncryption(): number {
+  let n = 0;
+  try {
+    for (const f of fs.readdirSync(audioDir())) {
+      if (!f.endsWith('.wav')) continue;
+      const full = path.join(audioDir(), f);
+      const b = fs.readFileSync(full);
+      if (isEncryptedBlob(b)) continue;
+      const enc = encryptBlob(b);
+      if (!enc) return n;
+      const mtime = fs.statSync(full).mtime;
+      const tmp = `${full}.${process.pid}.tmp`;
+      fs.writeFileSync(tmp, enc, { mode: 0o600 });
+      fs.renameSync(tmp, full);
+      fs.utimesSync(full, mtime, mtime); // la purge à 14 jours reste fondée sur la date d'origine
+      n++;
+    }
+    if (n) log(`history: ${n} enregistrement(s) chiffré(s) (migration)`);
+  } catch (e) {
+    log('history: migration du chiffrement échouée', e instanceof Error ? e.message : e);
+  }
+  return n;
+}
+const removeAudio = (id?: string): void => {
+  const p = id ? audioPath(id) : null;
+  if (p) fs.rmSync(p, { force: true });
+};
+
+/** Supprime les audios de plus de 14 jours (`history.audioDays`), ceux sans entrée, et marque les entrées. */
+export function purgeAudio(): number {
+  const days = Math.max(1, Math.min(60, Number(settings.get('history.audioDays')) || AUDIO_DAYS));
+  const limit = Date.now() - days * 86_400_000;
+  const h = load();
+  let n = 0;
+  migrateAudioEncryption();
+  try {
+    const known = new Set(h.recent.filter((d) => d.audio && d.id).map((d) => d.id));
+    for (const f of fs.readdirSync(audioDir())) {
+      const id = f.replace(/\.wav$/, '');
+      const full = path.join(audioDir(), f);
+      if (!f.endsWith('.wav') || !known.has(id) || fs.statSync(full).mtimeMs < limit) {
+        fs.rmSync(full, { force: true });
+        n++;
+      }
+    }
+    for (const d of h.recent) if (d.audio && d.id && !fs.existsSync(path.join(audioDir(), `${d.id}.wav`))) d.audio = false;
+    if (n) save();
+  } catch (e) {
+    log('history: purge audio échouée', e instanceof Error ? e.message : e);
+  }
+  return n;
+}
+/** « Supprimer les enregistrements » : efface tous les audios, garde le texte. */
+export function clearAudio(): void {
+  try {
+    for (const f of fs.readdirSync(audioDir())) fs.rmSync(path.join(audioDir(), f), { force: true });
+  } catch {
+    /* rien à supprimer */
+  }
+  for (const d of load().recent) d.audio = false;
+  save();
+}
+export function getById(id: string): Dictation | undefined {
+  return load().recent.find((d) => d.id === id);
+}
+export function updateDictation(id: string, patch: Partial<Dictation>): Dictation | undefined {
+  const d = getById(id);
+  if (!d) return undefined;
+  Object.assign(d, patch, { id: d.id });
+  save();
+  return d;
+}
+function pushRecent(d: Dictation): void {
+  const h = load();
+  h.recent = [d, ...h.recent];
+  for (const old of h.recent.slice(MAX_RECENT)) removeAudio(old.id);
+  h.recent = h.recent.slice(0, MAX_RECENT);
+}
+/** Entrée sans collage (Échap / échec) : texte et audio gardés pour recoverLast() / retry(id). */
+export function recordPending(e: { id: string; status: 'cancelled' | 'failed'; raw: string; text?: string; audio: boolean; durationMs: number; provider?: string }): Dictation {
+  const d: Dictation = {
+    id: e.id,
+    status: e.status,
+    audio: e.audio,
+    durationMs: e.durationMs,
+    raw: e.raw,
+    text: e.text ?? '',
+    provider: e.provider ?? '',
+    model: '',
+    at: new Date().toISOString(),
+    ms: 0,
+  };
+  pushRecent(d);
+  save();
+  return d;
+}
+
+export function recordDictation(r: DictationResult, extra: { id?: string; audio?: boolean; durationMs?: number } = {}): Dictation {
   const h = load();
   const now = new Date();
   const d: Dictation = {
+    id: extra.id ?? r.id,
+    status: 'ok',
+    audio: extra.audio ?? r.audio,
+    durationMs: extra.durationMs ?? r.durationMs,
     raw: r.raw,
     text: r.text,
     provider: r.provider,
@@ -83,7 +237,7 @@ export function recordDictation(r: DictationResult): Dictation {
     at: now.toISOString(),
     ms: r.timings.totalAfterReleaseMs,
   };
-  h.recent = [d, ...h.recent].slice(0, MAX_RECENT);
+  pushRecent(d);
   h.counters.words += countWords(r.text);
   h.counters.dictations += 1;
   h.counters.recordMs += r.timings.recordMs;
@@ -105,6 +259,7 @@ export function getRecent(): Dictation[] {
 }
 
 export function clearRecent(): void {
+  for (const d of load().recent) removeAudio(d.id);
   load().recent = [];
   save();
 }

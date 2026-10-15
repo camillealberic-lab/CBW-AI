@@ -21,3 +21,11 @@ if ! { [ -x "$FS" ] && [ "$FS" -nt scripts/fullscreen.swift ]; }; then
   codesign --force -s - "$FS"
   echo "✓ $FS"
 fi
+
+# Helper contexte (scripts/context.swift → vendor/bin/dicta-context), même SDK / cible.
+CTX=vendor/bin/dicta-context
+if ! { [ -x "$CTX" ] && [ "$CTX" -nt scripts/context.swift ]; }; then
+  swiftc -O -sdk "$SDK" -target arm64-apple-macos14.0 scripts/context.swift -o "$CTX"
+  codesign --force -s - "$CTX"
+  echo "✓ $CTX"
+fi

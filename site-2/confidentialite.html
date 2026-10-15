@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="fr" data-theme="light" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ce qui sort de votre Mac — CBW AI</title>
+<meta name="description" content="Ce qui reste sur ton Mac et ce qui part vers un moteur IA quand tu dictes avec CBW AI, dit précisément.">
+<meta name="theme-color" content="#FFFFFF">
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="fonts/Archivo-latin.var.woff2" as="font" type="font/woff2" crossorigin>
+<script>(function(){var d=document.documentElement;d.classList.remove('no-js');try{var t=localStorage.getItem('cbw-theme');if(t==='dark'||t==='light')d.setAttribute('data-theme',t)}catch(e){}})();</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="evitement" href="#contenu">Aller au contenu</a>
+<header class="entete">
+  <div class="cadre">
+    <a class="marque" href="./" aria-label="CBW AI, accueil">
+      <span class="lt lt-c" aria-hidden="true">C</span><span class="lt lt-b" aria-hidden="true">B</span><span class="lt lt-w" aria-hidden="true">W</span><span class="marque-ai" aria-hidden="true">AI</span>
+    </a>
+    <nav class="nav" aria-label="Navigation principale">
+      <a class="lien-nav" href="./#fonctions">Fonctions</a>
+      <a class="lien-nav" href="./#installer">Installer</a>
+      <a class="lien-nav" href="./#faq">FAQ</a>
+      <a class="lien-nav" href="aide.html">Aide</a>
+      <a class="lien-nav" href="confidentialite.html" aria-current="page">Confidentialité</a>
+      <button class="theme-btn" type="button" aria-label="Passer au thème sombre" data-theme-toggle>
+        <svg class="soleil" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="8" y="8" width="8" height="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+        <svg class="lune" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z"/></svg>
+      </button>
+      <a class="btn btn-primaire btn-s btn-nav dl" href="/download"><span class="dl-txt"><span class="long">Télécharger</span></span> <span class="fleche" aria-hidden="true">↓</span></a>
+    </nav>
+  </div>
+</header>
+
+<main id="contenu">
+  <div class="aide-tete">
+    <div class="cadre">
+      <p class="sourcil"><span class="pastille p-b"></span>Confidentialité · 4 minutes de lecture</p>
+      <h1>Ce qui sort<span class="o">.</span></h1>
+      <p class="chapeau">Ce qui reste sur ton Mac, ce qui part, vers qui, et comment le couper. Vérifié dans le code de l'app, sans arrondir en notre faveur.</p>
+    </div>
+  </div>
+
+  <div class="cadre aide-corps">
+    <details class="toc-mobile">
+      <summary><span class="sourcil">Sommaire</span><span class="plus" aria-hidden="true"></span></summary>
+      <ol><li><a href="#local">Reste sur ton Mac</a></li><li><a href="#part">Part vers le moteur IA</a></li><li><a href="#couper">Le couper</a></li><li><a href="#pas">Ce qu'on ne fait pas</a></li><li><a href="#wispr">Comparaison</a></li><li><a href="#memoire">Mémoire</a></li></ol>
+    </details>
+    <nav class="toc" aria-label="Sommaire">
+      <ol><li><a href="#local">Reste sur ton Mac</a></li><li><a href="#part">Part vers le moteur IA</a></li><li><a href="#couper">Le couper</a></li><li><a href="#pas">Ce qu'on ne fait pas</a></li><li><a href="#wispr">Comparaison</a></li><li><a href="#memoire">Mémoire</a></li></ol>
+    </nav>
+
+    <article class="doc">
+      <section id="local">
+        <p class="sourcil">01</p>
+        <h2>Ce qui reste sur ton Mac</h2>
+        <ul>
+          <li><strong>Ta voix.</strong> Elle est transcrite par Whisper, en local, sur ta puce Apple. Le serveur de transcription n'écoute que ton Mac (127.0.0.1). Aucun fichier audio n'est envoyé nulle part.</li>
+          <li><strong>Tes clés API.</strong> Chiffrées en AES-256-GCM, avec une clé aléatoire gardée dans <code>~/.dicta-ai</code> (lisible par ton seul compte). Elles ne sont jamais écrites en clair dans les réglages, l'interface ou les journaux. Limite honnête&nbsp;: la clé de chiffrement est sur le même disque que les clés, c'est une protection contre la lecture en clair, pas contre quelqu'un qui contrôle déjà ta session.</li>
+          <li><strong>L'historique.</strong> Les dernières dictées (texte brut et nettoyé) sont gardées sur ton Mac et effaçables. L'audio de chaque dictée est conservé <strong>14 jours</strong> pour pouvoir réessayer, puis supprimé. Ces fichiers sont <strong>chiffrés en AES-256-GCM</strong> avec la même clé locale que tes clés API, dans un dossier réservé à ton compte (<code>~/.dicta-ai/audio</code>) ; ils ne sont déchiffrés qu'en mémoire, pour réessayer. Tu peux désactiver la conservation ou tout supprimer depuis l'app.</li>
+          <li><strong>Les notes de réunion.</strong> Enregistrées en fichiers Markdown dans <code>~/Documents/CBW AI/Notes</code>. La séparation des voix (qui a dit quoi) se fait en local. L'audio d'une note n'est gardé que si tu le demandes.</li>
+        </ul>
+      </section>
+
+      <section id="part">
+        <p class="sourcil">02</p>
+        <h2>Ce qui part vers le moteur IA</h2>
+        <p>Pour nettoyer le texte (ponctuation, hésitations, noms propres), CBW AI envoie une requête au fournisseur que tu as choisi&nbsp;: <strong>Groq, Gemini (Google), Z.ai ou OpenRouter</strong>, avec ta propre clé. Si aucun n'est disponible, un modèle local (Ollama), s'il est installé, peut prendre le relais&nbsp;: dans ce cas, rien ne sort.</p>
+        <p>Chaque requête contient&nbsp;:</p>
+        <ul>
+          <li>le <strong>texte transcrit</strong> de ta dictée (jamais l'audio)&nbsp;;</li>
+          <li>le <strong>contexte de l'app active</strong>, tant que l'option est active&nbsp;: nom de l'app, <strong>domaine</strong> du site dans un navigateur (pas l'adresse complète), jusqu'à 40 <strong>noms visibles à l'écran</strong> (personnes, outils) et les <strong>300 derniers caractères écrits avant le curseur</strong>, pour raccorder majuscule et ponctuation&nbsp;;</li>
+          <li>tes réglages de nettoyage utiles (niveau, vocabulaire de ton dictionnaire).</li>
+        </ul>
+        <p>Le contexte est lu par l'Accessibilité de macOS, <strong>sans capture d'écran</strong>. Le texte brut de l'écran reste dans l'app&nbsp;: seuls les noms extraits et ces 300 caractères sortent. Les gestionnaires de mots de passe et les champs sécurisés sont exclus. Le contenu du contexte n'est pas écrit dans le journal de l'app (seulement des comptes).</p>
+        <p><strong>Notes de réunion&nbsp;:</strong> pour produire le compte rendu, la transcription de la réunion est aussi envoyée au même moteur IA. Le fichier final, lui, reste sur ton Mac.</p>
+        <p>Une fois chez le fournisseur, le texte est soumis à <em>sa</em> politique (conservation, entraînement), que CBW AI ne contrôle pas. Lis-la, surtout pour les offres gratuites. Z.ai utilise des serveurs hors de l'Union européenne. Les mises à jour interrogent GitHub pour savoir si une version existe.</p>
+      </section>
+
+      <section id="couper">
+        <p class="sourcil">03</p>
+        <h2>Le couper, ou le réduire</h2>
+        <ul>
+          <li><strong>Réglages › « Lire l'app active »</strong> : désactivé, le contexte (app, site, noms, texte avant le curseur) n'est plus lu du tout et ne part plus. Le nettoyage continue de fonctionner.</li>
+          <li><strong>Modèle local</strong> : avec Ollama seul, rien ne quitte le Mac (plus lent, et gourmand en mémoire).</li>
+          <li><strong>Conserver l'audio</strong> : désactivable, avec suppression des enregistrements existants.</li>
+          <li><strong>Ne pas dicter</strong> un secret : le texte transcrit part, comme décrit plus haut.</li>
+        </ul>
+      </section>
+
+      <section id="pas">
+        <p class="sourcil">04</p>
+        <h2>Ce qu'on ne fait pas</h2>
+        <ul>
+          <li><strong>Pas de compte.</strong> Tu n'en crées pas, nous n'avons pas ton e-mail.</li>
+          <li><strong>Pas d'analyse d'usage</strong> ni de suivi de ta navigation&nbsp;: l'app n'embarque aucun outil de mesure.</li>
+          <li><strong>CBW Studio ne reçoit ni ta voix, ni tes textes, ni tes clés.</strong> Tes requêtes vont directement de ton Mac au fournisseur que tu as choisi.</li>
+          <li><strong>Pas de capture d'écran.</strong></li>
+        </ul>
+      </section>
+
+      <section id="wispr">
+        <p class="sourcil">05</p>
+        <h2>Comparaison, sobrement</h2>
+        <p>En mai 2026, un utilisateur de Wispr Flow a découvert que sa fonction de contexte envoyait des captures de la fenêtre active&nbsp;; la documentation a ensuite été réécrite et le CTO de l'éditeur a présenté des excuses publiques (récit relayé par des sites concurrents, <a href="https://embertype.com/blog/the-day-wispr-flow-banned-a-user/">EmberType</a>, qui n'est donc pas neutre). Nous ne tirons pas de conclusion sur eux.</p>
+        <p>Ce que nous pouvons dire de CBW AI&nbsp;: aucune capture d'écran, un contexte limité à ce qui est listé ci-dessus, et une page qui le dit. À toi de vérifier&nbsp;: le code d'envoi est simple à lire dans l'app, et l'option se coupe en un clic.</p>
+      </section>
+
+      <section id="memoire">
+        <p class="sourcil">06</p>
+        <h2>Mémoire utilisée</h2>
+        <p>Mesure faite sur un Mac M-series avec l'app ouverte au repos (hors dictée), via <code>scripts/measure-memory.sh</code>&nbsp;: <strong>environ 770 Mo</strong> au total (RSS, 9 processus, dont le serveur de transcription ≈ 140 Mo). Le RSS compte plusieurs fois les pages partagées entre processus&nbsp;: c'est un majorant. Pendant une transcription, ce chiffre monte.</p>
+      </section>
+    </article>
+  </div>
+</main>
+
+<footer class="pied">
+  <div class="cadre">
+    <span>CBW AI, une app de <strong>CBW Studio</strong>. Camille Breton, Bordeaux.</span>
+    <nav aria-label="Pied de page"><a href="./">Accueil</a><a href="aide.html">Aide</a><a href="confidentialite.html">Confidentialité</a><span class="mono">v1.0.0 · octobre 2026</span></nav>
+  </div>
+</footer>
+<script src="app.js" defer></script>
+</body>
+</html>

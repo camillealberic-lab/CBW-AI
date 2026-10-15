@@ -1,11 +1,17 @@
-import { app, BrowserWindow, ipcMain, screen, shell, systemPreferences, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, clipboard, ClipboardItem, dialog, ipcMain, nativeImage, screen, shell, systemPreferences, type IpcMainInvokeEvent } from 'electron';
 import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import { FnWatcher } from './fnkey';
 import * as path from 'node:path';
 import type { DictaStatus, ProviderId } from '../shared/types';
 import { routerModule } from './cleaner';
-import { clearRecent, getRecent, getStats, recordDictation } from './history';
+import { clearAudio, clearRecent, getRecent, getStats, recordDictation } from './history';
+import { pasteRaw, recoverLast, retry } from './recovery';
+import { getRewritePresets, runRewritePreset, saveRewritePresets, type RewritePreset } from './rewrite';
+import { loadSnippets, parseSnippets, saveSnippets, MAX_SNIPPETS, MAX_SNIPPET_TEXT } from './snippets';
+import { clearNotepad, listNotepad, notepadAsText, removeFromNotepad } from './notepad';
+import { importContactNames, mergeVocabulary } from './contacts';
+import { dataDir } from './paths';
 import type { PushToTalk } from './hotkey';
 import { ollamaBin, ollamaStatus, pullOllamaModel } from './ollama';
 import { distDir, log } from './paths';
@@ -49,7 +55,7 @@ function setFnUsageNothing(): Promise<boolean> {
 let win: BrowserWindow | null = null;
 let permTimer: NodeJS.Timeout | null = null;
 let lastAx: boolean | null = null;
-let deps: { hotkey: PushToTalk; recorder: Recorder } | null = null;
+let deps: { hotkey: PushToTalk; recorder: Recorder; pipeline: Pipeline } | null = null;
 
 const send = (ch: string, ...a: unknown[]): void => {
   if (win && !win.isDestroyed()) win.webContents.send(ch, ...a);
@@ -80,6 +86,12 @@ function stopPermLoop(): void {
   if (permTimer) clearInterval(permTimer);
   permTimer = null;
 }
+
+/** Réglages modifiés côté main (apprentissage, import, menu de la pastille, raccourcis) que l'UI recharge en direct. */
+const CHANGED_KEYS = new Set([
+  'cleaning.vocabulary', 'dictionary.learned', 'dictionary.priority', 'dictionary.replacements', 'snippets.list',
+  'rewrite.presets', 'general.language', 'overlay.livePreview', 'notepad.enabled',
+]);
 
 /** Clés transmises au router LLM en mémoire (prise en compte immédiate, sans attendre le mtime du fichier). */
 const isLlmKey = (k: string): boolean => k.startsWith('providers.') || k.startsWith('cleaning.');
@@ -156,6 +168,10 @@ export function initAppIpc(d: {
   });
   handle('app:setFnUsageNothing', () => setFnUsageNothing());
 
+  // Dictionnaire appris (src/main/learn.ts) : l'UI recharge la liste sans rouvrir la fenêtre.
+  settings.on('change', (k: string, v: unknown) => {
+    if (CHANGED_KEYS.has(k)) send('app:configChanged', { key: k, value: v });
+  });
   handle('app:getConfig', () => settings.all());
   handle('app:setConfig', (_e, key: unknown, value: unknown) => {
     if (typeof key !== 'string' || !key) return;
@@ -245,6 +261,243 @@ export function initAppIpc(d: {
   handle('app:copyNote', (_e, id: unknown) => copyNote(String(id)));
   handle('app:renameSpeaker', (_e, id: unknown, from: unknown, to: unknown) => renameSpeaker(String(id), String(from ?? ''), String(to ?? '')));
   n.on('progress', (p: unknown) => send('app:noteProgress', p));
+
+
+  // ══ Parité Wispr (chantiers/wispr-parite/api-*.md) — payloads validés strictement ══
+  const ID_RE = /^[a-z0-9]{6,32}$/;
+  const asId = (v: unknown): string => {
+    if (typeof v !== 'string' || !ID_RE.test(v)) throw new Error('Identifiant invalide');
+    return v;
+  };
+  /** Rend la main à l'app précédente avant un collage lancé depuis la fenêtre (sinon le texte arrive ici). */
+  const yieldFocus = async (): Promise<void> => {
+    if (win && !win.isDestroyed() && win.isFocused()) {
+      app.hide();
+      await new Promise((r) => setTimeout(r, 350));
+    }
+  };
+  const histChanged = (): void => send('app:historyChanged', null);
+  const saveDialog = (o: Electron.SaveDialogOptions) => (win && !win.isDestroyed() ? dialog.showSaveDialog(win, o) : dialog.showSaveDialog(o));
+  const openDialog = (o: Electron.OpenDialogOptions) => (win && !win.isDestroyed() ? dialog.showOpenDialog(win, o) : dialog.showOpenDialog(o));
+
+  // ── micro (api-audio.md)
+  handle('app:audio:listInputs', () => d.recorder.listInputDevices());
+
+  // Test du micro (Accueil › « Tester mon micro ») : capture sans transcription, niveau poussé ~30×/s, arrêt auto 15 s.
+  let micTest: NodeJS.Timeout | null = null;
+  const stopMicTest = (cancel: boolean): void => {
+    if (!micTest) return;
+    clearTimeout(micTest);
+    micTest = null;
+    if (cancel) d.recorder.cancel();
+    send('app:micLevel', -1); // -1 = test terminé
+  };
+  handle('app:micTest:start', async () => {
+    if (micTest) return { ok: true };
+    if (!['idle', 'done', 'error'].includes(d.pipeline.current) || d.notes.busy) return { ok: false, message: 'Une dictée ou une note est en cours' };
+    if (!(await d.recorder.ensureMicPermission())) return { ok: false, message: 'Micro non autorisé' };
+    micTest = setTimeout(() => stopMicTest(true), 15_000);
+    // mode « note » : ni pause de la musique, ni limite, ni alerte « aucun son » ; rien n'est transcrit ni gardé
+    await d.recorder.start({ note: true });
+    return { ok: true };
+  });
+  handle('app:micTest:stop', () => stopMicTest(true));
+  d.recorder.on('level', (v: number) => micTest && send('app:micLevel', Math.max(0, Math.min(1, Number(v) || 0))));
+  // une vraie dictée / note reprend le micro : le test s'arrête sans couper la capture
+  d.pipeline.on('status', (s: DictaStatus) => s.state === 'recording' && stopMicTest(false));
+  d.notes.on('active', (on: boolean) => on && stopMicTest(false));
+
+  // ── historique (api-pipe.md : c3 réessayer, c4 version brute, c6 récupérer)
+  handle('app:history:retry', async (_e, id: unknown) => {
+    const r = await retry(asId(id), { insert: false }); // depuis la fenêtre : jamais collé ici, l'UI propose Copier
+    histChanged();
+    return r;
+  });
+  handle('app:history:pasteRaw', async (_e, id: unknown) => {
+    const v = id === undefined || id === null ? undefined : asId(id);
+    await yieldFocus();
+    return pasteRaw(v, { undoFirst: false });
+  });
+  handle('app:history:recover', async () => {
+    await yieldFocus();
+    const r = await recoverLast();
+    histChanged();
+    return r;
+  });
+  handle('app:history:clearAudio', () => {
+    clearAudio();
+    histChanged();
+  });
+
+  // ── snippets (f1)
+  handle('app:snippets:get', () => parseSnippets(settings.get('snippets.list')));
+  handle('app:snippets:set', (_e, list: unknown) => {
+    if (!Array.isArray(list) || list.length > MAX_SNIPPETS) throw new Error('Liste de snippets invalide');
+    const clean = list.map((x) => {
+      const o = x as { trigger?: unknown; text?: unknown } | null;
+      if (!o || typeof o.trigger !== 'string' || typeof o.text !== 'string' || o.trigger.length > 80 || o.text.length > MAX_SNIPPET_TEXT)
+        throw new Error('Snippet invalide');
+      return { trigger: o.trigger, text: o.text };
+    });
+    return saveSnippets(clean);
+  });
+  void loadSnippets; // (lecture effective : pipeline)
+
+  // ── réécriture (f2/f3)
+  handle('app:rewrite:presets:get', () => getRewritePresets());
+  handle('app:rewrite:presets:set', (_e, list: unknown) => {
+    if (!Array.isArray(list) || list.length > 20) throw new Error('Liste de consignes invalide');
+    const seen = new Set<string>();
+    const clean: RewritePreset[] = list.map((x, i) => {
+      const o = x as { id?: unknown; name?: unknown; instruction?: unknown } | null;
+      if (!o || typeof o.name !== 'string' || typeof o.instruction !== 'string') throw new Error('Consigne invalide');
+      const name = o.name.replace(/\s+/g, ' ').trim().slice(0, 40);
+      const instruction = o.instruction.trim().slice(0, 500);
+      if (!name || instruction.length < 3) throw new Error('Consigne invalide');
+      let id = typeof o.id === 'string' && /^[a-z0-9_-]{1,40}$/i.test(o.id) ? o.id : `p${Date.now().toString(36)}${i}`;
+      while (seen.has(id)) id += 'x';
+      seen.add(id);
+      return { id, name, instruction };
+    });
+    saveRewritePresets(clean);
+    return getRewritePresets();
+  });
+  handle('app:rewrite:run', async (_e, id: unknown) => {
+    if (typeof id !== 'string' || !/^[a-z0-9_-]{1,40}$/i.test(id)) throw new Error('Identifiant invalide');
+    await yieldFocus();
+    return runRewritePreset(id);
+  });
+
+  // ── dictionnaire : export / import JSON (f7), import des contacts (f5)
+  const strList = (v: unknown, max: number, len: number): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim() && x.length <= len).map((x) => x.trim()).slice(0, max) : [];
+  handle('app:dictionary:export', async () => {
+    const data = {
+      format: 'cbw-ai-dictionary',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      vocabulary: strList(settings.get('cleaning.vocabulary'), 200, 80),
+      priority: strList(settings.get('dictionary.priority'), 200, 80),
+      replacements: strList(settings.get('dictionary.replacements'), 500, 300),
+      snippets: parseSnippets(settings.get('snippets.list')),
+    };
+    const r = await saveDialog({
+      title: 'Exporter le dictionnaire',
+      defaultPath: path.join(app.getPath('documents'), 'CBW AI - dictionnaire.json'),
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    if (r.canceled || !r.filePath) return { ok: false };
+    fs.writeFileSync(r.filePath, JSON.stringify(data, null, 2), { mode: 0o600 });
+    return { ok: true, terms: data.vocabulary.length, rules: data.replacements.length, snippets: data.snippets.length };
+  });
+  handle('app:dictionary:import', async () => {
+    const r = await openDialog({
+      title: 'Importer un dictionnaire',
+      properties: ['openFile'],
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+    });
+    const f = r.filePaths[0];
+    if (r.canceled || !f) return { ok: false };
+    if (fs.statSync(f).size > 1_000_000) return { ok: false, message: 'Fichier trop gros (1 Mo max)' };
+    let o: any;
+    try {
+      o = JSON.parse(fs.readFileSync(f, 'utf8'));
+    } catch {
+      return { ok: false, message: 'Fichier JSON illisible' };
+    }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) return { ok: false, message: 'Format inconnu' };
+    // Fusion (on n'efface rien) : termes, prioritaires, règles, snippets.
+    const vocab = strList(settings.get('cleaning.vocabulary'), 200, 80);
+    const m = mergeVocabulary(vocab, strList(o.vocabulary, 300, 80), 200);
+    const prioIn = strList(o.priority, 200, 80).filter((t) => m.list.some((v) => v.toLowerCase() === t.toLowerCase()));
+    const prio = [...new Set([...strList(settings.get('dictionary.priority'), 200, 80), ...prioIn])].slice(0, 200);
+    const rulesIn = strList(o.replacements, 500, 300).filter((x) => /^.{1,80}=>.{0,200}$/s.test(x));
+    const rulesOld = strList(settings.get('dictionary.replacements'), 500, 300);
+    const rules = [...new Set([...rulesOld, ...rulesIn])].slice(0, 500);
+    const snipOld = parseSnippets(settings.get('snippets.list'));
+    const snipIn = parseSnippets(Array.isArray(o.snippets) ? o.snippets : []).filter(
+      (s) => !snipOld.some((x) => x.trigger.toLowerCase() === s.trigger.toLowerCase()),
+    );
+    settings.set('cleaning.vocabulary', m.list);
+    settings.set('dictionary.priority', prio);
+    settings.set('dictionary.replacements', rules);
+    let snippets = 0;
+    try {
+      snippets = saveSnippets([...snipOld, ...snipIn].slice(0, MAX_SNIPPETS)).length - snipOld.length;
+    } catch {
+      snippets = 0;
+    }
+    routerModule()?.setConfigOverrides?.({ 'cleaning.vocabulary': m.list });
+    return { ok: true, terms: m.added, rules: rules.length - rulesOld.length, snippets: Math.max(0, snippets) };
+  });
+  handle('app:contacts:import', async (_e, opts: unknown) => {
+    const calendar = !!opts && typeof opts === 'object' && (opts as { calendar?: unknown }).calendar === true;
+    const r = await importContactNames({ contacts: true, calendar });
+    const m = mergeVocabulary(strList(settings.get('cleaning.vocabulary'), 200, 80), r.names, 200);
+    if (m.added) {
+      settings.set('cleaning.vocabulary', m.list);
+      routerModule()?.setConfigOverrides?.({ 'cleaning.vocabulary': m.list });
+    }
+    return { added: m.added, found: r.names.length, errors: r.errors.map((x) => ({ source: x.source, reason: x.reason })) };
+  });
+
+  // ── bloc-notes vocal (f10, api-notes.md)
+  handle('app:notepad:list', () => listNotepad());
+  handle('app:notepad:remove', (_e, id: unknown) => {
+    if (typeof id !== 'string' || !/^[a-z0-9]{4,32}$/.test(id)) throw new Error('Identifiant invalide');
+    return removeFromNotepad(id);
+  });
+  handle('app:notepad:clear', () => clearNotepad());
+  handle('app:notepad:copy', () => {
+    const t = notepadAsText();
+    if (t) void clipboard.writeText(t);
+    return !!t;
+  });
+
+  // ── statistiques (f11) : jours de dictée sur ~1 an (agrégats de ~/.dicta-ai/history.json, lecture seule)
+  handle('app:getActivity', () => {
+    try {
+      const h = JSON.parse(fs.readFileSync(path.join(dataDir(), 'history.json'), 'utf8'));
+      const per = h && typeof h.perDay === 'object' && h.perDay ? h.perDay : {};
+      return Object.entries(per)
+        .filter(([k]) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+        .map(([date, b]: [string, any]) => ({ date, words: Number(b?.words) || 0, dictations: Number(b?.dictations) || 0 }))
+        .sort((a, b) => (a.date < b.date ? -1 : 1))
+        .slice(-371);
+    } catch {
+      return [];
+    }
+  });
+  // Carte « à partager » : PNG généré dans la page (canvas), enregistré / copié localement. Rien n'est envoyé.
+  const pngOf = (v: unknown): Electron.NativeImage => {
+    if (typeof v !== 'string' || !v.startsWith('data:image/png;base64,') || v.length > 8_000_000) throw new Error('Image invalide');
+    const img = nativeImage.createFromDataURL(v);
+    if (img.isEmpty()) throw new Error('Image invalide');
+    return img;
+  };
+  handle('app:image:save', async (_e, dataUrl: unknown) => {
+    const img = pngOf(dataUrl);
+    const r = await saveDialog({
+      title: 'Enregistrer la carte',
+      defaultPath: path.join(app.getPath('downloads'), 'CBW AI - mes stats.png'),
+      filters: [{ name: 'Image PNG', extensions: ['png'] }],
+    });
+    if (r.canceled || !r.filePath) return false;
+    fs.writeFileSync(r.filePath, img.toPNG());
+    return true;
+  });
+  handle('app:image:copy', async (_e, dataUrl: unknown) => {
+    const png = pngOf(dataUrl).toPNG();
+    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(png)], { type: 'image/png' }) })]);
+    return true;
+  });
+
+  // ── saisie sécurisée (c11) : indicateur dans Réglages
+  handle('app:getSecureInput', () => d.hotkey.secureInput);
+  d.hotkey.on('secureInput', (on: boolean, appName: string) => send('app:secureInput', { active: !!on, app: String(appName || '').slice(0, 80) }));
+
+  d.pipeline.on('recoverable', histChanged);
+  d.pipeline.on('retried', histChanged);
 
   d.pipeline.on('status', (s: DictaStatus) => send('app:status', s));
   d.pipeline.on('result', (r: DictationResult) => send('app:dictation', recordDictation(r)));

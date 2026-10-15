@@ -662,6 +662,13 @@
     else if (window.parent !== window) window.parent.postMessage({ type: 'dicta-action', action: act }, '*'); // démo
   });
 
+  // Clic droit : menu natif ouvert par l'app (langue, aperçu du texte, masquer 1 h, remettre en bas).
+  zone.addEventListener('contextmenu', function (e) {
+    e.preventDefault();
+    collapse();
+    bridge('menu');
+  });
+
   // Glisser la pastille ailleurs (au-delà de 4 px : sinon c'est un clic) ; la position est mémorisée par l'app.
   // Réglages › Pastille › « Remettre en bas » la ramène à sa place par défaut.
   var dragSt = null, dragged = false;

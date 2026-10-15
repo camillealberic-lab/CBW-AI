@@ -77,7 +77,7 @@ window.dictaApp = {
 
 ## Hub
 - **Accueil** : salutation, stats (mots dictés, minutes gagnées, série de jours, wpm), carte « Dernières dictées » (brut ↔ propre, copier), statut moteur (fournisseur actif, quotas).
-- **Dictionnaire** : vocabulaire perso (`cleaning.vocabulary`), ajout/suppression de termes.
+- **Dictionnaire** : vocabulaire perso (`cleaning.vocabulary`), ajout/suppression de termes. Les termes appris des corrections (`dictionary.learned`, sous-ensemble de `cleaning.vocabulary`) portent la marque « appris » ; retirer un terme le retire aussi de `dictionary.learned`. Max 200 termes : les plus anciens appris sont retirés d'abord.
 - **Style** : niveau Léger / Standard avec exemple avant/après.
 - **Réglages** : réutilise les sections de design/settings/settings.html (raccourci, insertion, fournisseurs + clés, Whisper, quotas, démarrage à la connexion), + « Revoir l'onboarding ».
 
@@ -136,7 +136,51 @@ Sans Developer ID : l'app lit `https://github.com/<package.json › cbw.repo>/re
 - `checkForUpdates(): Promise<UpdateStatus>` — bouton « Vérifier les mises à jour »
 - `installUpdate(): Promise<{ ok: boolean; message?: string }>` — bouton « Redémarrer pour mettre à jour » (refusé pendant une note / une dictée : afficher `message`) ; l'app quitte puis se relance sur la nouvelle version
 - `onUpdate(cb)` — `cb(UpdateStatus)` à chaque changement (progression du téléchargement incluse)
+- `onConfigChanged(cb)` — `cb({ key, value })` quand `cleaning.vocabulary` ou `dictionary.learned` change côté main (terme appris d'une correction, src/main/learn.ts) ; l'UI rafraîchit la page Dictionnaire.
 - `onFullscreen(cb)` — `cb(boolean)` à l'entrée / sortie du plein écran macOS (et au chargement) ; l'UI pose `html.fs`
 
 `UpdateStatus = { state: 'disabled' | 'idle' | 'checking' | 'up-to-date' | 'downloading' | 'ready' | 'installing' | 'error'; current: string; version?: string; notes?: string /* Markdown */; percent?: number /* 0–100 */; message?: string }`.
 UI suggérée (Réglages › Général) : « Version 1.0.42 » + bouton « Vérifier les mises à jour » ; si `ready` : carte « Version X prête » + notes + bouton primaire « Redémarrer pour mettre à jour » ; interrupteur « Mises à jour automatiques » (`setConfig('updates.auto', bool)`). Un clic sur la notification ouvre `#reglages`.
+
+## Contexte de l'app active et dictionnaire appris (Réglages › Confidentialité)
+- `context.enabled` (défaut `true`) — « Lire l'app active pour orthographier les noms » : au début de chaque dictée, le helper `dicta-context` (scripts/context.swift, Accessibilité, sans capture d'écran) renvoie app, bundleId, domaine du site (navigateurs) et le texte autour du curseur / visible (borné à ≤ 150 ms). `src/main/context.ts` en extrait localement ≤ 40 noms ; le texte brut ne quitte jamais le process et n'est jamais journalisé (le log ne contient que des comptes). Passé à `clean()` via `CleanOptions.context` et ajouté au prompt Whisper (« Noms : … », vocabulaire d'abord, ≤ ~450 car.). Si `false` : aucun appel au helper.
+- Exclusions : gestionnaires de mots de passe (1Password, Bitwarden, Keychain Access, Mots de passe, KeePassXC…), champs sécurisés (`AXSecureTextField`), et les bundle ids listés dans `context.excludedApps` (tableau de chaînes, sans interface pour l'instant).
+- `dictionary.autoLearn` (défaut `true`) — « Apprendre de mes corrections » : après un collage, relecture du champ (dans les 45 s ou à la dictée suivante) via `dicta-context`, diff mot à mot, `validateLearnedTerm` (src/llm/learn.ts) ; un terme accepté est ajouté à `cleaning.vocabulary` et à `dictionary.learned`, avec une notification « Ajouté au dictionnaire : X ». Si `false` : aucun appel au helper pour ce besoin.
+- Protocole du helper (JSON, une ligne par message, process persistant) : requête `{"id":1,"cmd":"snapshot"|"focused-value","budgetMs":150,"exclude":[…]}` ; réponse `{"id":1,"ok":true,"app","bundleId","pid","url","title","focused","visible","secure","excluded","ms"}` ou `{"ok":false,"error":"no-access"|"no-app"}`.
+
+## Parité Wispr (v1.1) — hub, réglages, raccourcis d'action
+
+Hub : **Accueil · Notes · Historique · Dictionnaire · Snippets · Style · Réglages** (alias de hash : `#historique`, `#snippets`). Réglages : sections Général · **Micro** (`#reglages` + `settings-audio`) · **Raccourcis** (`settings-keys`) · Nettoyage IA · Transcription · Confidentialité.
+Tous les canaux sont `app:*`, émetteur vérifié (`handle()` d'appWindow.ts), payloads validés ; une erreur remonte en rejet de promesse (message en français).
+
+```ts
+interface Dictation { id?: string; status?: 'ok'|'cancelled'|'failed'; audio?: boolean; durationMs?: number; app?: string; raw; text; provider; model; at; ms }
+window.dictaApp += {
+  audio: { listInputs(): Promise<{ id; label; isDefault; bluetooth; builtIn }[]> };
+  micTest: { start(): Promise<{ ok: boolean; message?: string }>; stop(): Promise<void> }; // capture sans transcription, 15 s max
+  onMicLevel(cb: (lv: number) => void): void;            // 0..1 ~30×/s ; -1 = test terminé
+  history: {
+    retry(id): Promise<Dictation>;                       // retranscrit l'audio gardé (jamais collé depuis la fenêtre)
+    pasteRaw(id?): Promise<boolean>;                     // masque l'app puis colle la version brute dans l'app précédente
+    recover(): Promise<Dictation|null>;                  // dernière dictée annulée / en échec (< 30 min)
+    clearAudio(): Promise<void>;                         // « Supprimer les enregistrements »
+  };
+  onHistoryChanged(cb): void;                            // recoverable / retried
+  snippets: { get(): Promise<{trigger,text}[]>; set(list): Promise<{trigger,text}[]> }; // ≤ 100, trigger ≤ 80, text ≤ 5000
+  rewrite: { getPresets(): Promise<{id,name,instruction}[]>; setPresets(list): Promise<…>; run(id): Promise<boolean> }; // ≤ 20, nom ≤ 40, consigne ≤ 500
+  dictionary: { export(): Promise<{ok, terms?, rules?, snippets?}>; import(): Promise<{ok, terms?, rules?, snippets?, message?}> }; // JSON, fusion sans rien effacer
+  importContacts(opts?: { calendar?: boolean }): Promise<{ added; found; errors: { source; reason: 'denied'|'timeout'|'failed' }[] }>;
+  notepad: { list(): Promise<{id,text,at,app?}[]>; remove(id): Promise<boolean>; clear(): Promise<void>; copy(): Promise<boolean> };
+  getActivity(): Promise<{ date; words; dictations }[]>;  // ~12 mois (agrégats history.json), carte de chaleur
+  image: { save(dataUrl): Promise<boolean>; copy(dataUrl): Promise<boolean> }; // carte « à partager » PNG, générée dans la page
+  getSecureInput(): Promise<boolean>; onSecureInput(cb: ({ active, app }) => void): void;
+}
+```
+Format d'export du dictionnaire : `{ format: 'cbw-ai-dictionary', version: 1, vocabulary[], priority[], replacements["avant => après"], snippets[{trigger,text}] }` (fichier ≤ 1 Mo à l'import).
+`onConfigChanged` couvre aussi `dictionary.priority`, `dictionary.replacements`, `snippets.list`, `rewrite.presets`, `general.language`, `overlay.livePreview`, `notepad.enabled`.
+
+**Réglages ajoutés** (défauts et validation stricte dans src/main/settings.ts) : `audio.inputDeviceId` ('' = défaut), `audio.avoidBluetooth` (true), `audio.lowVoice` (false), `audio.pauseMedia` (true), `audio.maxDurationMin` (20, entier 0..120, 0 = illimitée) · `cleaning.promptMode` ('auto'|'on'|'off'), `cleaning.toneByApp` (true), `cleaning.frenchTypography` (true), `context.readBefore` (true) · `dictionary.priority` ([] ⊂ `cleaning.vocabulary`), `dictionary.replacements` ([] de « avant => après ») · `history.keepAudio` (true), `history.audioDays` (14, 1..60), `paste.rawUndoFirst`, `paste.restoreDelayOverrides` · `snippets.enabled` (true), `snippets.list` (chaîne JSON) · `rewrite.enabled` (true), `rewrite.presets` (chaîne JSON, 7 suggestions par défaut) · `shortcuts.pasteLast` (⌃⌘V), `shortcuts.copyLast` (⌃⌘C), `shortcuts.rewrite` (⌃⌘R) ('' = désactivé, sinon accélérateur avec modificateur), `shortcuts.mouseButton` (0, 4..32) · `overlay.livePreview` (false), `overlay.hiddenUntil` · `notepad.enabled` (false) · `general.language` ∈ auto, fr, en, es, de, it, pt, nl.
+
+**Raccourcis (main.ts)** : ⌃⌘V colle la dernière dictée — ou la dernière annulée / en échec si elle est plus récente (< 30 min) ; ⌃⌘C la copie ; ⌃⌘R : 1er appui = sélection captée + écoute de la consigne, 2e appui = fin (globalShortcut ne voit pas le relâchement).
+**Notifications macOS** (silencieuses, une par type / 8 s) : aucun son du micro · il reste 1 minute · micro coupé / déconnecté · saisie sécurisée active (nom de l'app, une fois / 10 min) · « Échap : dictée gardée — ⌃⌘V pour la coller » (clic → Historique) · dictée gardée après une erreur. « Ajouté au dictionnaire : X » reste émise par learn.ts.
+Barre des menus (clic droit) : « Réécrire la sélection ▸ consignes », « Réafficher la pastille » quand elle est masquée.

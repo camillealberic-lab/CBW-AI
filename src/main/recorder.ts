@@ -3,6 +3,32 @@ import { EventEmitter } from 'node:events';
 import * as path from 'node:path';
 import { distDir, log } from './paths';
 import { isTrustedSender } from './security';
+import { media } from './media';
+import { settings } from './settings';
+
+/** Lecture d'un réglage hors typage strict (clés audio.* ajoutées par l'agent UI). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const cfg = (k: string, d: unknown): any => (settings as unknown as { get(k: string): unknown }).get(k) ?? d;
+
+export interface InputDevice {
+  id: string;
+  label: string;
+  /** Entrée par défaut du système. */
+  isDefault: boolean;
+  bluetooth: boolean;
+  builtIn: boolean;
+}
+
+/** Réglages audio transmis au renderer à chaque arm() / start(). */
+function audioConfig() {
+  const min = Number(cfg('audio.maxDurationMin', 20));
+  return {
+    deviceId: String(cfg('audio.inputDeviceId', '') || ''),
+    avoidBluetooth: cfg('audio.avoidBluetooth', true) !== false,
+    lowVoice: cfg('audio.lowVoice', false) === true,
+    maxMs: Number.isFinite(min) && min > 0 ? Math.min(min, 120) * 60_000 : 0,
+  };
+}
 
 export interface RecordingResult {
   /** Fin non encore transcrite (depuis la dernière coupe), silence retiré ; null si rien. */
@@ -18,17 +44,21 @@ export interface RecordingResult {
   total: number;
   /** Instant (Date.now()) estimé de la fin de la parole. */
   speechEndAt: number;
+  /** Capture interrompue (micro débranché, appel…) : l'audio capté jusque-là est gardé. */
+  interrupted?: string;
 }
 
 /**
  * Pilote la fenêtre cachée de capture (src/renderer/recorder.ts).
- * Événements : 'level' (0..1), 'started' ({ openMs, prerollMs }), 'segment' (wav, start, end, commit).
+ * Événements : 'level' (0..1), 'started' ({ openMs, prerollMs }), 'segment' (wav, start, end, commit),
+ * 'noInput' (aucun son 1,5 s), 'limit' ({ kind:'warn'|'max', remainingMs }), 'interrupted' ({ reason }), 'devices' (liste).
  */
 export class Recorder extends EventEmitter {
   private win: BrowserWindow | null = null;
   private pending: { resolve: (r: RecordingResult) => void; reject: (e: Error) => void; stopAt: number } | null = null;
   private ready: Promise<void> | null = null;
   private disarmTimer: NodeJS.Timeout | null = null;
+  private listSeq = 0;
 
   init(): Promise<void> {
     if (this.ready) return this.ready;
@@ -85,11 +115,36 @@ export class Recorder extends EventEmitter {
         voicedMs: Number(r.voicedMs ?? 0),
         total: r.total,
         speechEndAt: p.stopAt - Math.max(0, afterSpeechMs),
+        interrupted: typeof r.interrupted === 'string' ? r.interrupted.slice(0, 40) : undefined,
       });
+      void media.resume();
     });
     ipcMain.on('rec:pcm', (e, mix: ArrayBuffer, mic: ArrayBuffer | null, sys: ArrayBuffer | null) => {
       if (!fromRec(e) || !mix) return;
       this.emit('pcm', Buffer.from(mix), mic ? Buffer.from(mic) : null, sys ? Buffer.from(sys) : null);
+    });
+    ipcMain.on('rec:noinput', (e) => fromRec(e) && (log('recorder: aucun son du micro'), this.emit('noInput')));
+    ipcMain.on('rec:limit', (e, kind: string, remainingMs: number) => {
+      if (!fromRec(e) || (kind !== 'warn' && kind !== 'max')) return;
+      log(`recorder: limite de durée (${kind})`);
+      this.emit('limit', { kind, remainingMs: Number(remainingMs) || 0 });
+    });
+    ipcMain.on('rec:interrupted', (e, reason: string) => {
+      if (!fromRec(e)) return;
+      const r = String(reason).slice(0, 40);
+      log(`recorder: capture interrompue (${r}), audio gardé`);
+      this.emit('interrupted', { reason: r });
+    });
+    ipcMain.on('rec:devices', (e, id: number, list: unknown) => {
+      if (!fromRec(e) || !Array.isArray(list)) return;
+      const devices: InputDevice[] = list.slice(0, 50).map((d: any) => ({
+        id: String(d?.id ?? '').slice(0, 200),
+        label: String(d?.label ?? '').slice(0, 200),
+        isDefault: !!d?.isDefault,
+        bluetooth: !!d?.bluetooth,
+        builtIn: !!d?.builtIn,
+      }));
+      this.emit(`devices:${Number(id)}`, devices);
     });
     ipcMain.on('rec:log', (e, msg: string) => fromRec(e) && log('recorder:', String(msg).slice(0, 500)));
     ipcMain.on('rec:error', (e, raw: string) => {
@@ -99,6 +154,7 @@ export class Recorder extends EventEmitter {
       const p = this.pending;
       this.pending = null;
       p?.reject(new Error(msg));
+      void media.resume();
       this.emit('error', new Error(msg));
     });
 
@@ -133,7 +189,7 @@ export class Recorder extends EventEmitter {
    */
   arm(holdMs = 1200): void {
     if (systemPreferences.getMediaAccessStatus('microphone') !== 'granted' || !this.win) return;
-    this.win.webContents.send('rec:arm');
+    this.win.webContents.send('rec:arm', audioConfig());
     if (this.disarmTimer) clearTimeout(this.disarmTimer);
     this.disarmTimer = setTimeout(() => this.win?.webContents.send('rec:disarm'), holdMs);
   }
@@ -148,7 +204,8 @@ export class Recorder extends EventEmitter {
     this.disarmTimer = null;
     if (this.pending) this.pending.reject(new Error('superseded'));
     this.pending = null;
-    this.win!.webContents.send('rec:start', opts);
+    if (!opts.note && !opts.feed && cfg('audio.pauseMedia', true) !== false) void media.pause();
+    this.win!.webContents.send('rec:start', { ...opts, audio: audioConfig() });
   }
 
   pause(): void {
@@ -176,14 +233,29 @@ export class Recorder extends EventEmitter {
       setTimeout(() => {
         if (this.pending?.resolve === resolve) {
           this.pending = null;
+          void media.resume();
           reject(new Error('timeout capture audio'));
         }
       }, 5000);
     });
   }
 
+  /** Liste des micros (c1) : étiquettes lisibles seulement si l'accès micro est accordé. */
+  async listInputDevices(): Promise<InputDevice[]> {
+    await this.init();
+    if (!this.win) return [];
+    const id = ++this.listSeq;
+    return new Promise((resolve) => {
+      const ev = `devices:${id}`;
+      const t = setTimeout(() => (this.removeAllListeners(ev), resolve([])), 3000);
+      this.once(ev, (d: InputDevice[]) => (clearTimeout(t), resolve(d)));
+      this.win!.webContents.send('rec:list', id);
+    });
+  }
+
   cancel(): void {
     this.pending = null;
+    void media.resume();
     this.win?.webContents.send('rec:cancel');
   }
 }

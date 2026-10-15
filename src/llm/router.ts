@@ -6,6 +6,7 @@ import { ProviderError } from '../shared/types.ts';
 import { ALL_PROVIDERS, loadConfig } from './config.ts';
 import type { LLMConfig } from './config.ts';
 import { GENERATION, buildMessages, fallbackClean, isEmptyDictation, postProcess, shouldSkipLLM } from './prompt.ts';
+import { appProfile, applyReplacements, frenchTypography, joinWithBefore, stripInventedBreaks } from './format.ts';
 import { isUserAbort } from './providers/common.ts';
 import type { DictaProvider, DictaProviderError } from './providers/common.ts';
 import { createGeminiProvider } from './providers/gemini.ts';
@@ -72,6 +73,23 @@ export async function cleanTranscript(raw: string, opts: RouterCleanOptions = {}
   return res;
 }
 
+/**
+ * Dernière passe déterministe sur le texte final (LLM ou repli) : remplacements du dictionnaire (f4),
+ * aucun retour inventé en terminal/éditeur (m11), typographie française (m6), raccord avec le texte
+ * déjà écrit (m14). Pure : aucun appel réseau.
+ */
+export function finalizeText(text: string, raw: string, opts: RouterCleanOptions = {}): string {
+  if (!text) return text;
+  let t = text;
+  const profile = appProfile(opts.context);
+  const codeLike = profile === 'terminal' || profile === 'code';
+  if (codeLike && opts.promptMode !== 'on') t = stripInventedBreaks(t, raw);
+  t = applyReplacements(t, opts.replacements);
+  if (opts.frenchTypography !== false && (opts.language ?? 'fr') === 'fr' && !codeLike) t = frenchTypography(t);
+  t = joinWithBefore(t, opts.context?.before);
+  return t;
+}
+
 /** Fournisseurs mis de côté (quota connu comme épuisé / pause) : candidats au dernier recours. */
 interface Deferred { id: ProviderId; until: number; guess: boolean }
 /** Au dernier recours, on retente un fournisseur en pause si sa pause est estimée ou finit bientôt. */
@@ -79,6 +97,59 @@ const LAST_RESORT_WINDOW_MS = 120_000;
 
 /** Comme cleanTranscript, avec le détail des tentatives (CLI, logs, bench). */
 export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOptions = {}): Promise<DetailedCleanResult> {
+  const t0 = now();
+  const input = raw ?? '';
+  const fin = (text: string) => finalizeText(text, input, opts);
+  const quick = (text: string, model: string): DetailedCleanResult => ({
+    text: fin(text), provider: 'passthrough', model, latencyMs: Math.round(now() - t0), attempts: [],
+  });
+  if (isEmptyDictation(input)) return quick('', 'empty');
+  // b1 : une dictée courte qui contient une commande (« virgule », « à la ligne »…) ne saute plus le LLM.
+  if (shouldSkipLLM(input)) return quick(fallbackClean(input), 'skip-short');
+
+  const cfg = loadConfig();
+  const { system, user } = buildMessages(input, {
+    language: opts.language ?? 'fr',
+    level: opts.level ?? cfg.cleanup.level,
+    vocabulary: opts.vocabulary ?? cfg.cleanup.vocabulary,
+    priorityVocabulary: opts.priorityVocabulary,
+    promptMode: opts.promptMode,
+    toneByApp: opts.toneByApp,
+    context: opts.context,
+  });
+  const res = await routeCompletion(
+    {
+      system, user,
+      maxTokens: GENERATION.maxTokens(input),
+      temperature: GENERATION.temperature,
+      post: (text) => postProcess(text, input),
+      fallback: () => fallbackClean(input),
+      label: 'nettoyage',
+    },
+    opts,
+  );
+  return { ...res, text: fin(res.text) };
+}
+
+/** Une requête à router : messages, garde-fous de sortie et repli. */
+export interface RouteJob {
+  system: string;
+  user: string;
+  maxTokens: number;
+  temperature: number;
+  /** Valide / nettoie la sortie du modèle ; lève pour passer au fournisseur suivant. */
+  post: (modelText: string) => string;
+  /** Texte de repli si aucun fournisseur n'a répondu ; absent = la promesse est rejetée. */
+  fallback?: () => string;
+  /** Libellé pour le journal (« nettoyage », « réécriture »). */
+  label?: string;
+}
+
+/**
+ * Course hedgée entre fournisseurs (quotas, pauses, dernier recours, Ollama en ultime recours),
+ * commune au nettoyage de dictée et à la réécriture de sélection.
+ */
+export async function routeCompletion(job: RouteJob, opts: RouterCleanOptions = {}): Promise<DetailedCleanResult> {
   const t0 = now();
   const attempts: Attempt[] = [];
   const done = (text: string, provider: CleanResult['provider'], model: string): DetailedCleanResult => ({
@@ -88,19 +159,10 @@ export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOpti
     latencyMs: Math.round(now() - t0),
     attempts,
   });
-
-  const input = raw ?? '';
-  if (isEmptyDictation(input)) return done('', 'passthrough', 'empty');
-  if (shouldSkipLLM(input)) return done(fallbackClean(input), 'passthrough', 'skip-short');
+  const { system, user, maxTokens } = job;
 
   const cfg = loadConfig();
   const order = (opts.providers?.length ? opts.providers : cfg.providers).filter((p) => ALL_PROVIDERS.includes(p));
-  const { system, user } = buildMessages(input, {
-    language: opts.language ?? 'fr',
-    level: opts.level ?? cfg.cleanup.level,
-    vocabulary: opts.vocabulary ?? cfg.cleanup.vocabulary,
-  });
-  const maxTokens = GENERATION.maxTokens(input);
   const estTokens = quota.estimateTokens({ system, user, maxTokens });
   const speculative = !!opts.speculative;
 
@@ -129,15 +191,15 @@ export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOpti
     try {
       if (id !== 'ollama') quota.recordRequest(id);
       const signal = opts.signal ? AbortSignal.any([opts.signal, ctrl.signal]) : ctrl.signal;
-      const out = await p.complete({ system, user, temperature: GENERATION.temperature, maxTokens, signal });
+      const out = await p.complete({ system, user, temperature: job.temperature, maxTokens, signal });
       let text: string;
       try {
-        text = postProcess(out.text, input);
+        text = job.post(out.text);
       } catch (e: any) {
         // OutOfRoleError (réponse hors rôle) ou autre rejet du post-traitement.
         throw new ProviderError(id, 'bad_output', `${e?.name ?? 'Error'} : ${e?.message ?? e}`);
       }
-      // Dictée non vide (vérifiée plus haut) mais sortie vide → suspect.
+      // Entrée non vide (vérifiée plus haut) mais sortie vide → suspect.
       if (!text.trim()) throw new ProviderError(id, 'bad_output', 'sortie vide après post-traitement');
       quota.recordSuccess(id);
       attempts.push({ provider: id, outcome: 'ok', latencyMs: Math.round(now() - t1) });
@@ -251,10 +313,11 @@ export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOpti
   }
 
   logger(
-    `router: ÉCHEC du nettoyage${speculative ? ' [spéculatif]' : ''} — AUCUN fournisseur n'a répondu → texte brut (fallbackClean)`,
+    `router: ÉCHEC du ${job.label ?? 'traitement'}${speculative ? ' [spéculatif]' : ''} — AUCUN fournisseur n'a répondu${job.fallback ? ' → texte brut (fallbackClean)' : ''}`,
     summary(),
   );
-  return done(fallbackClean(input), 'passthrough', 'fallbackClean');
+  if (!job.fallback) throw new Error(`Aucun fournisseur n'a répondu (${job.label ?? 'traitement'})`);
+  return done(job.fallback(), 'passthrough', 'fallbackClean');
 }
 
 export type ProviderUiStatus = 'available' | 'missing_key' | 'quota' | 'offline';

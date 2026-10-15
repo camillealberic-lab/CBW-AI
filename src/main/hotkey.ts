@@ -1,7 +1,9 @@
 import { globalShortcut, systemPreferences } from 'electron';
 import { EventEmitter } from 'node:events';
 import { FnWatcher, isFnShortcut, triggerOf } from './fnkey';
+import { ACTION_SHORTCUTS, type ActionName, MOUSE_KEY, mouseButtonOf, validAccelerator } from './keysLogic';
 import { log } from './paths';
+import { settings } from './settings';
 
 /**
  * Push-to-talk global.
@@ -19,6 +21,11 @@ import { log } from './paths';
  *
  * Événements : 'arm' (fn : 1er appui), 'down', 'up', 'cancel' (Échap), 'mode' (mode: 'hold' | 'toggle' | 'fn'),
  * 'triple' (3 appuis rapides : prise de notes), 'noteStop' (simple appui pendant une note).
+ *
+ * Raccourcis d'actions (globalShortcut, configurables, vide = désactivé) — voir chantiers/wispr-parite/api-keys.md :
+ *   'pasteLast' (shortcuts.pasteLast), 'copyLast' (shortcuts.copyLast), 'rewrite' (shortcuts.rewrite).
+ * Saisie sécurisée : 'secureInput' (active: boolean, app: string).
+ * Bouton de souris (shortcuts.mouseButton = 4 | 5) : mêmes événements 'arm' / 'down' / 'up' que le clavier.
  */
 
 type UiohookModule = typeof import('uiohook-napi');
@@ -78,13 +85,74 @@ export class PushToTalk extends EventEmitter {
     this.fn.on('escape', () => this.emit('cancel'));
     this.fn.on('triple', () => this.emit('triple'));
     this.fn.on('noteStop', () => this.emit('noteStop'));
-    this.fn.on('lost', () => this.fnWanted && void this.startFn());
+    this.fn.on('secure', (on: boolean, app: string) => this.emit('secureInput', on, app));
+    this.fn.on('lost', () => (this.fnWanted ? void this.startFn() : this.syncMouseHelper()));
+    settings.on('change', (k: string) => {
+      if (k === MOUSE_KEY) this.applyMouse();
+      else if (Object.values(ACTION_SHORTCUTS).some((a) => a.key === k)) this.applyActionShortcuts();
+    });
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       this.uio = require('uiohook-napi') as UiohookModule;
     } catch (e) {
       log('hotkey: uiohook-napi indisponible, mode toggle', e);
     }
+  }
+
+  /** Saisie sécurisée active : le raccourci (et la touche) ne répondent plus tant qu'elle dure. */
+  get secureInput(): boolean {
+    return this.fn.secureInput;
+  }
+
+  // ---- Raccourcis d'actions (c7 / f2) ----
+  private actionAccs = new Map<ActionName, string>();
+
+  /** (Re)lit shortcuts.* et enregistre les raccourcis globaux. À appeler une fois après configure(). */
+  applyActionShortcuts(): void {
+    for (const acc of this.actionAccs.values()) globalShortcut.unregister(acc);
+    this.actionAccs.clear();
+    const taken = new Set<string>([this.parsed?.accelerator ?? '']);
+    for (const [name, def] of Object.entries(ACTION_SHORTCUTS) as [ActionName, (typeof ACTION_SHORTCUTS)[ActionName]][]) {
+      const raw = settings.get(def.key);
+      const acc = raw === undefined || raw === null ? def.def : String(raw).trim();
+      if (!acc) continue; // vide = désactivé
+      if (!validAccelerator(acc) || taken.has(acc)) {
+        log('hotkey: raccourci', name, 'invalide ou en double');
+        continue;
+      }
+      let ok = false;
+      try {
+        ok = globalShortcut.register(acc, () => {
+          log('hotkey: action', name);
+          this.emit(name);
+        });
+      } catch {
+        ok = false;
+      }
+      log('hotkey: raccourci', name, acc, ok ? 'ok' : 'ÉCHEC (déjà pris ?)');
+      if (ok) {
+        this.actionAccs.set(name, acc);
+        taken.add(acc);
+      }
+    }
+  }
+
+  // ---- Bouton de souris (c15) ----
+  /** Lit shortcuts.mouseButton, prévient le helper, et le lance seul si le raccourci clavier n'est pas fn. */
+  applyMouse(): void {
+    this.fn.setMouseButton(mouseButtonOf(settings.get(MOUSE_KEY)));
+    this.syncMouseHelper();
+  }
+
+  private syncMouseHelper(): void {
+    if (this.fnWanted) return; // le helper tourne déjà pour la touche
+    if (this.fn.mouseButton > 0) {
+      if (this.fn.trigger !== 'none') {
+        this.fn.stop();
+        this.fn.trigger = 'none';
+      }
+      void this.fn.start();
+    } else if (this.fn.status !== 'off') this.fn.stop();
   }
 
   get uiohook(): UiohookModule | null {
@@ -101,14 +169,20 @@ export class PushToTalk extends EventEmitter {
       const trigger = triggerOf(accelerator)!;
       if (this.fn.trigger !== trigger) this.fn.stop(); // relance le helper sur la nouvelle touche
       this.fn.trigger = trigger;
+      this.fn.mouseButton = mouseButtonOf(settings.get(MOUSE_KEY));
       this.fnWanted = true;
       void this.startFn();
+      this.applyActionShortcuts();
       return true;
     }
     this.fnWanted = false;
     this.stopFnPoll();
     this.fn.stop();
-    return this.configureAccel(accelerator);
+    const ok = this.configureAccel(accelerator);
+    this.fn.mouseButton = mouseButtonOf(settings.get(MOUSE_KEY));
+    this.syncMouseHelper();
+    this.applyActionShortcuts(); // évite un doublon avec le nouveau raccourci principal
+    return ok;
   }
 
   get fnStatus(): FnWatcher['status'] {
@@ -229,6 +303,7 @@ export class PushToTalk extends EventEmitter {
 
   /** À appeler quand l'Accessibilité vient d'être accordée : passe en mode maintenu sans redémarrer. */
   recheck(): void {
+    if (!this.fnWanted && this.fn.mouseButton > 0 && this.fn.status !== 'ready') this.syncMouseHelper();
     if (this.fnWanted && this.fn.status !== 'ready') void this.startFn();
     if (this.pollTimer && this.isTrusted(false)) {
       clearInterval(this.pollTimer);
@@ -258,6 +333,7 @@ export class PushToTalk extends EventEmitter {
   reset(): void {
     this.active = false;
     this.fn.gesture.reset();
+    this.fn.mouse.reset();
   }
 
   dispose(): void {

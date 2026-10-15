@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('dictaApp', {
   setFnUsageNothing: () => invoke('setFnUsageNothing'),
 
   getConfig: () => invoke('getConfig'),
+  onConfigChanged: on('configChanged'), // cb({ key, value }) — cleaning.vocabulary / dictionary.learned modifiés côté main
   setConfig: (key: string, value: unknown) => invoke('setConfig', key, value),
   testProvider: (id: string) => invoke('testProvider', id),
   providerStatuses: () => invoke('providerStatuses'),
@@ -63,5 +64,35 @@ contextBridge.exposeInMainWorld('dictaApp', {
   // « Supprimer toutes mes données » (Réglages › Confidentialité) : efface puis relance l'app — docs/APP_API.md
   wipeAllData: (opts?: { documents?: boolean; models?: boolean }) => invoke('wipeAllData', opts ?? {}),
   openExternal: (url: string) => invoke('openExternal', url),
+
+  // ── parité Wispr (docs/APP_API.md › Historique, micro, snippets, réécriture…)
+  audio: { listInputs: () => invoke('audio:listInputs') },
+  micTest: { start: () => invoke('micTest:start'), stop: () => invoke('micTest:stop') },
+  onMicLevel: on('micLevel'), // cb(0..1) ; -1 = test terminé
+  history: {
+    retry: (id: string) => invoke('history:retry', id),
+    pasteRaw: (id?: string) => invoke('history:pasteRaw', id),
+    recover: () => invoke('history:recover'),
+    clearAudio: () => invoke('history:clearAudio'),
+  },
+  onHistoryChanged: on('historyChanged'),
+  snippets: { get: () => invoke('snippets:get'), set: (list: unknown) => invoke('snippets:set', list) },
+  rewrite: {
+    getPresets: () => invoke('rewrite:presets:get'),
+    setPresets: (list: unknown) => invoke('rewrite:presets:set', list),
+    run: (id: string) => invoke('rewrite:run', id),
+  },
+  dictionary: { export: () => invoke('dictionary:export'), import: () => invoke('dictionary:import') },
+  importContacts: (opts?: { calendar?: boolean }) => invoke('contacts:import', opts ?? {}),
+  notepad: {
+    list: () => invoke('notepad:list'),
+    remove: (id: string) => invoke('notepad:remove', id),
+    clear: () => invoke('notepad:clear'),
+    copy: () => invoke('notepad:copy'),
+  },
+  getActivity: () => invoke('getActivity'),
+  image: { save: (dataUrl: string) => invoke('image:save', dataUrl), copy: (dataUrl: string) => invoke('image:copy', dataUrl) },
+  getSecureInput: () => invoke('getSecureInput'),
+  onSecureInput: on('secureInput'), // cb({ active, app })
   platform: { version: String(ipcRenderer.sendSync('app:version')) },
 });

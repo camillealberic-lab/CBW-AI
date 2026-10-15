@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { isMaskedValue } from '../shared/redact';
 import { dataDir, log } from './paths';
-import { hasSecret, initSecrets, isSecretKey, maskedSecret, purgeSecretItems, secretsEncrypted, setSecret, SECRET_KEYS } from './secrets';
+import { hasSecret, initSecrets, isSecretKey, maskedSecret, purgeSecretItems, secretsEncrypted, setSecret, SECRET_KEYS, unreadableSecrets } from './secrets';
 
 /**
  * Réglages de l'app, stockés à plat ("a.b.c") dans ~/.dicta-ai/config.json.
@@ -27,6 +27,8 @@ export interface Settings {
   'notes.systemAudio': boolean; // notes : capte aussi le son du Mac (visios)
   'notes.diarization': boolean; // notes : séparation des voix (qui a dit quoi), locale
   'notes.keepAudio': boolean; // notes : garde ~/.dicta-ai/notes/<id>.wav après l'organisation
+  'context.enabled': boolean; // lit l'app active (Accessibilité) pour orthographier les noms ; rien n'est enregistré
+  'dictionary.autoLearn': boolean; // apprend les termes que la personne corrige après un collage
   'updates.auto': boolean; // vérifie + télécharge les mises à jour en arrière-plan (src/main/updater.ts)
   [k: string]: unknown;
 }
@@ -49,6 +51,116 @@ export const DEFAULTS: Settings = {
   'notes.diarization': true,
   'notes.keepAudio': false,
   'updates.auto': true,
+  'context.enabled': true,
+  'dictionary.autoLearn': true,
+
+  // ── Parité Wispr (chantiers/wispr-parite/api-*.md) ──
+  // Micro (api-audio.md)
+  'audio.inputDeviceId': '', // vide = micro par défaut du système
+  'audio.avoidBluetooth': true, // préférer le micro du Mac aux AirPods / écouteurs Bluetooth
+  'audio.maxDurationMin': 20, // 0 = illimitée, plafond 120
+  'audio.pauseMedia': true, // Musique / Spotify en pause pendant la dictée
+  'audio.lowVoice': false, // voix basse : micro plus sensible
+  // Nettoyage (api-llm.md)
+  'cleaning.promptMode': 'auto', // 'auto' | 'on' | 'off'
+  'cleaning.toneByApp': true,
+  'cleaning.frenchTypography': true,
+  'context.readBefore': true, // ≤ 300 car. avant le curseur, envoyés au moteur IA avec la dictée
+  // Dictionnaire (api-pipe.md : c'est le pipeline qui lit ces clés)
+  'dictionary.priority': [], // mots prioritaires (sous-ensemble de cleaning.vocabulary)
+  'dictionary.replacements': [], // « avant => après »
+  // Historique, collage (api-pipe.md)
+  'history.keepAudio': true,
+  'history.audioDays': 14,
+  'paste.restoreDelayOverrides': [], // « bundleId=ms »
+  'paste.rawUndoFirst': false,
+  // Snippets, réécriture (chaînes JSON : validateSetting n'accepte pas de tableau d'objets)
+  'snippets.enabled': true,
+  'snippets.list': '[]',
+  'rewrite.enabled': true,
+  'rewrite.presets': '', // défini plus bas (suggestions de src/llm/rewrite.ts › DEFAULT_PRESETS)
+  // Raccourcis, pastille (api-keys.md)
+  'shortcuts.pasteLast': 'Control+Command+V',
+  'shortcuts.copyLast': 'Control+Command+C',
+  'shortcuts.rewrite': 'Control+Command+R',
+  'shortcuts.mouseButton': 0, // 0 = aucun, 4 / 5 = boutons latéraux
+  'overlay.livePreview': false,
+  'overlay.hiddenUntil': 0,
+  // Bloc-notes vocal (api-notes.md)
+  'notepad.enabled': false,
+};
+
+/**
+ * Copie de DEFAULT_PRESETS (src/llm/rewrite.ts) : le bundle LLM est chargé dynamiquement, on ne l'importe pas ici.
+ * Format de `rewrite.presets` (lu par src/main/rewrite.ts) : chaîne JSON [{id,name,instruction}], ≤ 20.
+ */
+export const DEFAULT_REWRITE_PRESETS = [
+  { id: 'poli', name: 'Plus poli', instruction: 'Réécris le texte sur un ton plus poli et courtois, sans changer le fond ni rien ajouter.' },
+  { id: 'court', name: 'Plus court', instruction: 'Raccourcis le texte en gardant tous les faits importants.' },
+  { id: 'corriger', name: 'Corriger', instruction: "Corrige seulement l'orthographe, la grammaire et la ponctuation, sans reformuler." },
+  { id: 'liste', name: 'En liste', instruction: 'Transforme le texte en liste à puces, un élément par ligne, sans rien ajouter.' },
+  { id: 'resume3', name: 'Résumé en 3 points', instruction: 'Résume le texte en trois points courts, sous forme de liste à puces.' },
+  { id: 'linkedin', name: 'Version LinkedIn', instruction: 'Réécris pour un post LinkedIn : ton professionnel et direct, phrases courtes, aucun hashtag ni emoji, sans rien inventer.' },
+  { id: 'anglais', name: 'Traduire en anglais', instruction: 'Traduis le texte en anglais, fidèlement.' },
+];
+DEFAULTS['rewrite.presets'] = JSON.stringify(DEFAULT_REWRITE_PRESETS);
+
+const LANG_CODES = ['auto', 'fr', 'en', 'es', 'de', 'it', 'pt', 'nl'];
+const MODS = /^(command|cmd|control|ctrl|commandorcontrol|cmdorctrl|alt|option|shift|super|meta)$/i;
+/** Accélérateur Electron (au moins un modificateur) ou '' (désactivé). Même règle que keysLogic.validAccelerator. */
+function isAccelOrEmpty(v: unknown): boolean {
+  if (v === '') return true;
+  if (typeof v !== 'string' || v.length > 60) return false;
+  const parts = v.split('+').map((p) => p.trim());
+  return parts.length >= 2 && parts.every(Boolean) && parts.slice(0, -1).every((m) => MODS.test(m));
+}
+const isInt = (v: unknown, min: number, max: number): boolean => typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
+const isStrList = (v: unknown, maxItems: number, maxLen: number, re?: RegExp): boolean =>
+  Array.isArray(v) && v.length <= maxItems && v.every((x) => typeof x === 'string' && x.length <= maxLen && (!re || re.test(x)));
+/** Chaîne JSON d'un tableau d'objets dont chaque champ texte est borné. */
+function isJsonList(v: unknown, maxItems: number, fields: Record<string, number>, required: string[]): boolean {
+  if (typeof v !== 'string' || v.length > 19_500) return false;
+  if (v === '') return true;
+  try {
+    const a = JSON.parse(v);
+    return (
+      Array.isArray(a) &&
+      a.length <= maxItems &&
+      a.every(
+        (o) =>
+          o && typeof o === 'object' && !Array.isArray(o) &&
+          required.every((k) => typeof o[k] === 'string') &&
+          Object.entries(o).every(([k, x]) => k in fields && typeof x === 'string' && x.length <= fields[k]),
+      )
+    );
+  } catch {
+    return false;
+  }
+}
+
+const BOOL_KEYS = new Set([
+  'audio.avoidBluetooth', 'audio.pauseMedia', 'audio.lowVoice', 'cleaning.toneByApp', 'cleaning.frenchTypography',
+  'context.readBefore', 'history.keepAudio', 'paste.rawUndoFirst', 'snippets.enabled', 'rewrite.enabled',
+  'overlay.livePreview', 'notepad.enabled', 'context.enabled', 'dictionary.autoLearn',
+]);
+/** Règles strictes des clés connues (les autres gardent la règle générique de validateSetting). */
+const STRICT: Record<string, (v: unknown) => boolean> = {
+  'audio.inputDeviceId': (v) => typeof v === 'string' && v.length <= 200,
+  'audio.maxDurationMin': (v) => isInt(v, 0, 120),
+  'cleaning.promptMode': (v) => v === 'auto' || v === 'on' || v === 'off',
+  'general.language': (v) => typeof v === 'string' && LANG_CODES.includes(v),
+  'dictionary.priority': (v) => isStrList(v, 200, 80),
+  'dictionary.replacements': (v) => isStrList(v, 500, 300, /^.{1,80}=>.{0,200}$/s),
+  'history.audioDays': (v) => isInt(v, 1, 60),
+  'paste.restoreDelayMs': (v) => isInt(v, 0, 5000),
+  'paste.restoreDelayOverrides': (v) => isStrList(v, 100, 200, /^[A-Za-z0-9.-]{1,150}=\d{1,5}$/),
+  'snippets.list': (v) => isJsonList(v, 100, { trigger: 80, text: 5000 }, ['trigger', 'text']),
+  'rewrite.presets': (v) => isJsonList(v, 30, { id: 64, name: 60, instruction: 600 }, ['name', 'instruction']),
+  'shortcuts.pasteLast': isAccelOrEmpty,
+  'shortcuts.copyLast': isAccelOrEmpty,
+  'shortcuts.rewrite': isAccelOrEmpty,
+  'shortcuts.mouseButton': (v) => v === 0 || isInt(v, 4, 32),
+  'overlay.hiddenUntil': (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0,
 };
 
 // Fichier partagé avec src/llm/config.ts (clés plates, mêmes noms que l'UI Réglages).
@@ -67,6 +179,10 @@ export function validateSetting(k: unknown, v: unknown): asserts k is string {
     (typeof v === 'string' && v.length <= 20_000) ||
     (Array.isArray(v) && v.length <= 2000 && v.every((x) => typeof x === 'string' && x.length <= 500));
   if (!ok) throw new Error('Valeur de réglage invalide');
+  if (v === null) return; // null = revenir au défaut
+  if (BOOL_KEYS.has(k) && typeof v !== 'boolean') throw new Error('Valeur de réglage invalide');
+  const rule = STRICT[k];
+  if (rule && !rule(v)) throw new Error('Valeur de réglage invalide');
 }
 
 class SettingsStore extends EventEmitter {
@@ -180,6 +296,8 @@ class SettingsStore extends EventEmitter {
       log('secrets: chiffrement indisponible → clés conservées dans config.json (0600)');
       return;
     }
+    const bad = unreadableSecrets();
+    if (bad.legacy || bad.local) log(`secrets: ${bad.legacy} clé(s) de l'ancien trousseau et ${bad.local} clé(s) locale(s) illisibles (gardées, nouvel essai au prochain lancement)`);
     const present = migrated.filter((k) => this.data[k] !== undefined);
     if (!present.length && !this.hasNested()) return;
     for (const k of present) delete this.data[k];

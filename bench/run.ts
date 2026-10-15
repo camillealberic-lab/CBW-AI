@@ -1,12 +1,17 @@
 // Benchmark du nettoyage : node --experimental-strip-types bench/run.ts <cible...> [--level light|standard] [--only c01,c12] [--cat correction]
 // Cibles : ollama:qwen3.5:4b  gemini:gemini-2.5-flash-lite  groq:<model>  openrouter:<model>
+//   --dry : aucun appel modèle ; vérifie les prompts, le repli sans IA (champ offline) et que postProcess accepte la sortie idéale.
+//   Jeux : --cases cases-forme.jsonl (mise en forme v1.8), cases-contexte.jsonl, cases-fidelite.jsonl
 // Résultats : bench/results/<cible>.json + résumé en console + bench/results/summary.md
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { buildMessages, postProcess, GENERATION, PROMPT_VERSION, isEmptyDictation, shouldSkipLLM, fallbackClean } from '../src/llm/prompt.ts';
+import { finalizeText } from '../src/llm/router.ts';
 import type { CleanLevel } from '../src/llm/prompt.ts';
 import { thinkingConfigFor } from '../src/llm/providers/gemini.ts';
 
-interface Case { id: string; cat: string; raw: string; expected: string; must: string[]; mustNot: string[] }
+interface Case { id: string; cat: string; raw: string; context?: import('../src/shared/types.ts').DictationContext; expected: string; must: string[]; mustNot: string[];
+  /** Début attendu, casse comprise (raccord). */ starts?: string;
+  /** Sortie attendue SANS IA (fallbackClean + passe finale) : vérifiée par --dry. */ offline?: string }
 interface Row {
   id: string; cat: string; raw: string; expected: string; output: string; rawModel: string;
   ms: number; rejected?: string; error?: string; skipped?: boolean;
@@ -23,8 +28,9 @@ const vocabulary = flag('--vocab')?.split(',') ?? [];
 const delayMs = Number(flag('--delay') ?? 0);
 const casesFile = flag('--cases') ?? 'cases.jsonl';
 const mark = args.includes('--mark') ? (args.splice(args.indexOf('--mark'), 1), true) : false;
+const dry = args.includes('--dry') ? (args.splice(args.indexOf('--dry'), 1), true) : false;
 const targets = args.length ? args : [];
-if (!targets.length) {
+if (!targets.length && !dry) {
   console.error('Précisez une cible (ex. groq:<modèle>). Plus de cible Ollama par défaut : Mac 16 Go, jamais charger un modèle local en test.');
   process.exit(1);
 }
@@ -111,6 +117,7 @@ const FILLERS = ['euh', 'heu', 'hum', 'bah', 'ben ', 'du coup', 'genre ', 'tu vo
 
 function score(c: Case, output: string, extra: Partial<Row>): Row {
   const missing = c.must.filter((m) => !has(output, m));
+  if (c.starts && !output.startsWith(c.starts)) missing.push(`^${c.starts}`);
   const leaked = c.mustNot.filter((m) => has(output, m));
   const fillerLeft = FILLERS.filter((f) => ` ${norm(output)} `.includes(f) && !` ${norm(c.expected)} `.includes(f));
   const fs = f1(output, c.expected);
@@ -138,6 +145,31 @@ async function ollamaMem(model: string): Promise<string> {
   } catch { return '?'; }
 }
 
+
+// ───────────────────────────────────────────── --dry : sans aucun appel modèle
+if (dry) {
+  let bad = 0;
+  const sysLen = buildMessages('x', { level }).system.length;
+  console.log(`\n▶ dry (prompt ${PROMPT_VERSION}, niveau ${level}, ${cases.length} cas, système ${sysLen} car.)`);
+  for (const c of cases) {
+    const problems: string[] = [];
+    const offline = isEmptyDictation(c.raw) ? '' : finalizeText(fallbackClean(c.raw), c.raw, { context: c.context });
+    if (c.offline !== undefined && offline !== c.offline) problems.push(`repli sans IA : attendu ${JSON.stringify(c.offline)}, obtenu ${JSON.stringify(offline)}`);
+    if (!isEmptyDictation(c.raw)) {
+      try { postProcess(c.expected, c.raw); } catch (e) { problems.push(`postProcess rejette la sortie idéale : ${(e as Error).message}`); }
+      const m = buildMessages(c.raw, { level, context: c.context });
+      if (!m.user.startsWith('<dictée>')) problems.push('message user mal formé');
+    }
+    for (const x of c.must) if (!has(c.expected, x)) problems.push(`expected ne contient pas must « ${x} »`);
+    for (const x of c.mustNot) if (has(c.expected, x)) problems.push(`expected contient mustNot « ${x} »`);
+    if (c.starts && !c.expected.startsWith(c.starts)) problems.push(`expected ne commence pas par « ${c.starts} »`);
+    if (problems.length) bad++;
+    console.log(`  ${problems.length ? 'KO' : 'ok'} ${c.id} ${c.cat.padEnd(18)} ${shouldSkipLLM(c.raw) ? 'sans LLM' : 'LLM     '}${problems.map((p) => '\n       ' + p).join('')}`);
+  }
+  console.log(bad ? `\n${bad} cas en échec` : '\ntous les cas passent');
+  process.exit(bad ? 1 : 0);
+}
+
 // ───────────────────────────────────────────── main
 mkdirSync(ROOT + 'results', { recursive: true });
 const summary: string[] = [];
@@ -150,7 +182,7 @@ for (const target of targets) {
   for (const c of cases) {
     if (isEmptyDictation(c.raw)) { rows.push(score(c, '', { skipped: true })); continue; }
     if (shouldSkipLLM(c.raw)) { rows.push(score(c, fallbackClean(c.raw), { skipped: true })); continue; }
-    const { system, user } = buildMessages(c.raw, { level, vocabulary, markCorrections: mark });
+    const { system, user } = buildMessages(c.raw, { level, vocabulary, markCorrections: mark, context: c.context });
     if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
     const t0 = performance.now();
     let rawModel = '', output = '', rejected: string | undefined, error: string | undefined;

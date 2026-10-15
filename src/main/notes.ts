@@ -3,7 +3,10 @@ import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DictaStatus } from '../shared/types';
+import { applyReplacements } from '../llm/format';
 import { routerModule } from './cleaner';
+import { whisperNamesPrompt } from './contextNames';
+import { vocabularyForNotes } from './learn';
 import { dataDir, log } from './paths';
 import type { Recorder } from './recorder';
 import { settings } from './settings';
@@ -103,6 +106,18 @@ export const notesOutDir = (): string => {
   fs.mkdirSync(d, { recursive: true });
   return d;
 };
+
+/** f6 : prompt Whisper des notes = prompt de base + dictionnaire partagé avec la dictée + contexte récent. */
+function notesWhisperPrompt(lang: string, ctx: string): string | undefined {
+  const base = lang === 'fr' ? String(settings.get('whisper.prompt') || '') : '';
+  let names = '';
+  try {
+    names = whisperNamesPrompt(vocabularyForNotes().vocabulary, [], lang);
+  } catch {
+    /* dictionnaire indisponible : prompt de base seul */
+  }
+  return `${base} ${names} ${ctx}`.replace(/\s+/g, ' ').trim() || undefined;
+}
 
 const countWords = (t: string): number => (t.match(/\S+/g) ?? []).length;
 const pad = (n: number): string => String(n).padStart(2, '0');
@@ -271,10 +286,9 @@ export class NoteSession extends EventEmitter {
       if (signal.aborted || id !== this.id) return;
       const ctx = this.texts.join(' ').slice(-200);
       const lang = String(settings.get('general.language') || 'fr');
-      const base = lang === 'fr' ? String(settings.get('whisper.prompt') || '') : '';
       try {
         const t0 = Date.now();
-        const w = await transcribe(wav, { model: String(settings.get('whisper.model')), language: lang, prompt: `${base} ${ctx}`.trim() || undefined, signal });
+        const w = await transcribe(wav, { model: String(settings.get('whisper.model')), language: lang, prompt: notesWhisperPrompt(lang, ctx), signal });
         this.timings.segments++;
         this.timings.segMs += Date.now() - t0;
         if (signal.aborted || !w.text) return;
@@ -455,7 +469,6 @@ export class NoteSession extends EventEmitter {
   private async splitAtTurns(segs: { startMs: number; endMs: number; text: string }[], turns: SpeakerTurn[], wav: string) {
     const out: { startMs: number; endMs: number; text: string }[] = [];
     const lang = String(settings.get('general.language') || 'fr');
-    const base = lang === 'fr' ? String(settings.get('whisper.prompt') || '') : '';
     let n = 0;
     const t0 = Date.now();
     for (const s of segs) {
@@ -472,7 +485,7 @@ export class NoteSession extends EventEmitter {
           const w = await transcribe(readWavSlice(wav, bounds[i], bounds[i + 1]), {
             model: String(settings.get('whisper.model')),
             language: lang,
-            prompt: `${base} ${ctx}`.trim() || undefined,
+            prompt: notesWhisperPrompt(lang, ctx),
             signal: this.ac?.signal,
           });
           if (w.text) pieces.push({ startMs: bounds[i], endMs: bounds[i + 1], text: w.text });
@@ -551,12 +564,16 @@ export class NoteSession extends EventEmitter {
       warn = 'Organisation indisponible : transcription brute enregistrée';
     } else {
       try {
-        const r = await organize(transcript, {
+        // f6 : même dictionnaire que la dictée. `vocabulary` est transmis au module IA (ignoré s'il ne le gère pas) ;
+        // les règles de remplacement sont appliquées ici, avant et après l'organisation.
+        const dict = vocabularyForNotes();
+        const r = await (organize as (t: string, o: Record<string, unknown>) => ReturnType<OrganizeFn>)(applyReplacements(transcript, dict.replacements), {
+          vocabulary: dict.vocabulary,
           signal: this.ac?.signal,
-          onProgress: (step, total) => this.progress({ state: 'organizing', elapsedMs: durationMs, words: spokenWords(transcript), step, total, noteId: id }),
+          onProgress: (step: number, total: number) => this.progress({ state: 'organizing', elapsedMs: durationMs, words: spokenWords(transcript), step, total, noteId: id }),
         });
-        markdown = r.markdown;
-        title = r.title;
+        markdown = applyReplacements(r.markdown, dict.replacements);
+        title = applyReplacements(r.title, dict.replacements);
         provider = r.provider;
         log(`note: organisée par ${r.provider} (${r.model}) en ${r.latencyMs} ms, ${r.parts} partie(s)`);
       } catch (e) {

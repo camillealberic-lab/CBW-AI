@@ -191,10 +191,15 @@ async function complete(system: string, user: string, maxTokens: number, signal?
  */
 export async function organizeNotes(
   transcript: string,
-  opts: { signal?: AbortSignal; onProgress?: (step: number, total: number) => void } = {},
+  opts: { signal?: AbortSignal; onProgress?: (step: number, total: number) => void; vocabulary?: string[] } = {},
 ): Promise<NotesResult> {
   const t0 = performance.now();
   const text = preClean(transcript);
+  // f6 : même dictionnaire que la dictée (noms, jargon) pour orthographier le compte rendu.
+  const vocab = (opts.vocabulary ?? []).map((v) => String(v).replace(/[<>\n\r]/g, ' ').trim().slice(0, 60)).filter(Boolean).slice(0, 200);
+  const vocabBlock = vocab.length
+    ? `\n<vocabulaire>\nOrthographe exacte des noms et termes de la personne (si un mot de la transcription en est une déformation phonétique, utilise cette forme ; n'ajoute jamais un nom non prononcé) : ${vocab.join(', ')}\n</vocabulaire>`
+    : '';
   if (words(text).length < 15) {
     return { markdown: '# Note vide', title: 'Note vide', provider: 'passthrough', model: '', parts: 0, latencyMs: 0 };
   }
@@ -205,14 +210,14 @@ export async function organizeNotes(
 
   if (parts.length === 1) {
     opts.onProgress?.(1, 1);
-    final = await complete(RULES, `<transcription>\n${text}\n</transcription>`, outTokens(words(text).length), opts.signal);
+    final = await complete(RULES, `<transcription>\n${text}\n</transcription>${vocabBlock}`, outTokens(words(text).length), opts.signal);
   } else {
     const partials: string[] = [];
     for (let i = 0; i < parts.length; i++) {
       opts.onProgress?.(i + 1, parts.length + 1);
       const r = await complete(
         PART_RULES,
-        `Partie ${i + 1}/${parts.length}\n<transcription>\n${parts[i]}\n</transcription>`,
+        `Partie ${i + 1}/${parts.length}\n<transcription>\n${parts[i]}\n</transcription>${vocabBlock}`,
         outTokens(words(parts[i]).length),
         opts.signal,
       );

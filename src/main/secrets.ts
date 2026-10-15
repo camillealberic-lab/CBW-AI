@@ -73,6 +73,11 @@ function decrypt(item: string): string {
 
 let cache = new Map<string, string>();
 let ready = false;
+/** Clés présentes dans secrets.json mais illisibles à ce lancement (gardées : on réessaie au prochain). */
+let unreadable = { legacy: 0, local: 0 };
+export function unreadableSecrets(): { legacy: number; local: number } {
+  return { ...unreadable };
+}
 let encrypted = false;
 
 function readFile(): SecretsFile {
@@ -116,6 +121,7 @@ export function initSecrets(plain: Record<string, unknown>): string[] {
   if (!encrypted) return [];
   const f = readFile();
   let dirty = false;
+  unreadable = { legacy: 0, local: 0 };
   for (const [k, item] of Object.entries(f.items)) {
     if (!isSecretKey(k) || typeof item !== 'string') continue;
     try {
@@ -126,7 +132,11 @@ export function initSecrets(plain: Record<string, unknown>): string[] {
         dirty = true;
       }
     } catch {
-      /* élément illisible (ancien trousseau refusé, clé locale perdue) : ignoré, la personne ressaisira la clé */
+      // Élément illisible. Il reste dans secrets.json (jamais effacé ici) : un ancien élément du trousseau
+      // (avant 1.0.13) sera relu au prochain lancement si l'accès au trousseau est autorisé ; une nouvelle
+      // saisie dans Réglages le remplace.
+      if (item.startsWith(V2)) unreadable.local++;
+      else unreadable.legacy++;
     }
   }
   const migrated: string[] = [];

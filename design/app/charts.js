@@ -697,5 +697,35 @@
     return { destroy: st.destroy };
   }
 
-  window.CBWCharts = { renderHome: renderHome };
+  /* ---------- carte de chaleur des jours de dictée (f11) ----------
+     renderHeatmap(container, days) : days = [{date:'YYYY-MM-DD', words, dictations}] (jusqu'à ~1 an).
+     Colonnes = semaines (lundi en haut), 5 niveaux (0 = aucun, 1..4 = quartiles du max). Couleurs : CSS (.heat i[data-l]). */
+  function renderHeatmap(container, days) {
+    if (!container) return;
+    var by = {};
+    (Array.isArray(days) ? days : []).forEach(function (d) { if (d && d.date) by[d.date] = d; });
+    var today = new Date(); today.setHours(12, 0, 0, 0);
+    var start = new Date(today); start.setDate(start.getDate() - 7 * 52);
+    var dow = (start.getDay() + 6) % 7; start.setDate(start.getDate() - dow); // lundi
+    var max = 0;
+    Object.keys(by).forEach(function (k) { max = Math.max(max, num(by[k].words)); });
+    var key = function (dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); };
+    var frag = document.createDocumentFragment();
+    var active = 0, words = 0;
+    for (var dt = new Date(start); dt <= today || (dt.getDay() + 6) % 7 !== 0; dt.setDate(dt.getDate() + 1)) {
+      var i = h('i', null, frag);
+      if (dt > today) { i.className = 'out'; continue; }
+      var d = by[key(dt)], w = d ? num(d.words) : 0;
+      var lv = !w || !max ? 0 : Math.min(4, 1 + Math.floor((w / max) * 4 - 1e-9));
+      if (lv) i.setAttribute('data-l', String(lv));
+      if (w) { active++; words += w; }
+      i.title = fmtDay.format(dt) + ' · ' + (w ? fmtInt.format(w) + ' ' + plural(w, 'mot', 'mots') : 'aucune dictée');
+    }
+    container.textContent = '';
+    container.appendChild(frag);
+    container.setAttribute('aria-label', 'Jours de dictée sur 12 mois : ' + active + ' ' + plural(active, 'jour actif', 'jours actifs') + ', ' + fmtInt.format(words) + ' mots');
+    var wrap = container.parentElement; if (wrap && wrap.scrollWidth > wrap.clientWidth) wrap.scrollLeft = wrap.scrollWidth; // mois récents visibles
+  }
+
+  window.CBWCharts = { renderHome: renderHome, renderHeatmap: renderHeatmap };
 })();

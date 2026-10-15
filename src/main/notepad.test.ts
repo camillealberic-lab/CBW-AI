@@ -1,0 +1,24 @@
+// @ts-nocheck
+import assert from 'node:assert/strict';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
+process.env.DICTA_AI_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'notepad-'));
+const n = await import('./notepad.ts');
+assert.deepEqual(n.listNotepad(), []);
+assert.equal(n.addToNotepad('   '), null);
+const a = n.addToNotepad('première idée', { app: 'com.apple.Notes' });
+const b = n.addToNotepad('seconde idée');
+assert.equal(n.listNotepad()[0].id, b.id);
+assert.equal(n.notepadAsText(), 'première idée\n\nseconde idée');
+assert.equal(n.notepadEnabled(() => false), false);
+assert.equal(n.notepadIntercept(() => false, 'x'), false);
+assert.equal(n.notepadIntercept((k) => k === 'notepad.enabled', 'via mode'), true);
+assert.equal(n.listNotepad().length, 3);
+assert.equal(n.removeFromNotepad('../x'), false);
+assert.equal(n.removeFromNotepad(a.id), true);
+assert.equal(n.listNotepad().length, 2);
+assert.equal(fs.statSync(path.join(process.env.DICTA_AI_HOME, 'notepad.json')).mode & 0o777, 0o600);
+n.clearNotepad();
+assert.deepEqual(n.listNotepad(), []);
+console.log('notepad: ok');

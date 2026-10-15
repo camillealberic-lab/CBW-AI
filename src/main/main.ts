@@ -9,14 +9,18 @@ import { captureAppWindow, initAppIpc, openAppWindow } from './appWindow';
 import { ensureOllama, stopOllama } from './ollama';
 import { distDir, logFile, log } from './paths';
 import { NoteSession } from './notes';
+import { contextHelper } from './context';
 import { Pipeline } from './pipeline';
 import { Recorder } from './recorder';
 import { settings } from './settings';
 import { playSound } from './sounds';
 import { secureStartup } from './privacy';
+import { unreadableSecrets } from './secrets';
 import { hardenProcess, isTrustedSender } from './security';
 import { initSettingsIpc, setLastDictation } from './settingsWindow';
 import { getRecent, getStats } from './history';
+import { recoverLast } from './recovery';
+import { getRewritePresets, runRewritePreset, startRewrite } from './rewrite';
 import { AppTray, type TrayAction, type TrayPopoverState } from './tray';
 import { updater } from './updater';
 import { downloadWhisper, ensureWhisperModel, whisperBin, whisperModel, whisperModelExact, whisperServer } from './whisper';
@@ -39,6 +43,27 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 const AX_URL = 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility';
+
+/** « Control+Command+V » → « ⌃⌘V » (notifications). */
+function accelLabel(acc: string): string {
+  if (!acc) return '';
+  const SYM: Record<string, string> = { control: '⌃', ctrl: '⌃', command: '⌘', cmd: '⌘', commandorcontrol: '⌘', cmdorctrl: '⌘', alt: '⌥', option: '⌥', shift: '⇧' };
+  return acc
+    .split('+')
+    .map((p) => SYM[p.trim().toLowerCase()] ?? p.trim().toUpperCase())
+    .join('');
+}
+
+/** Notification macOS discrète (silencieuse), au plus une par `kind` toutes les 8 s ; clic → fenêtre (section). */
+const lastNotif = new Map<string, number>();
+function notify(title: string, body: string, kind: string, section?: string): void {
+  if (!Notification.isSupported() || NO_PROMPT) return;
+  if (Date.now() - (lastNotif.get(kind) ?? 0) < 8000) return;
+  lastNotif.set(kind, Date.now());
+  const n = new Notification({ title, body, silent: true });
+  if (section) n.on('click', () => openAppWindow(section));
+  n.show();
+}
 const MIC_URL = 'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone';
 
 async function main(): Promise<void> {
@@ -51,6 +76,19 @@ async function main(): Promise<void> {
   await app.whenReady();
   app.setName('CBW AI');
   secureStartup(); // clés API chiffrées (clé locale), session durcie, permissions des données
+  // Mise à jour depuis une version < 1.0.13 : si macOS a refusé l'accès à l'ancien trousseau, les clés ne sont
+  // pas perdues (gardées dans secrets.json) mais illisibles ce coup-ci → on le dit au lieu de les afficher vides.
+  const lostKeys = unreadableSecrets();
+  if (lostKeys.legacy || lostKeys.local) {
+    setTimeout(() => notify(
+      'Clés API à récupérer',
+      lostKeys.legacy
+        ? 'Après la mise à jour, macOS a bloqué l’accès à tes anciennes clés. Relance CBW AI et clique « Toujours autoriser » dans la fenêtre du trousseau, ou recolle tes clés dans Réglages.'
+        : 'Certaines clés API n’ont pas pu être relues. Recolle-les dans Réglages.',
+      'secrets',
+      'reglages',
+    ), 4000);
+  }
   // App de Dock (clic → fenêtre principale) + barre de menus + overlay.
   if (!app.isPackaged) {
     const icon = path.join(distDir(), 'assets', 'icon.png');
@@ -201,6 +239,15 @@ async function main(): Promise<void> {
         checked: settings.get('general.insertMode') === 'clipboard',
         click: (mi) => settings.set('general.insertMode', mi.checked ? 'clipboard' : 'paste'),
       },
+      ...(getRewritePresets().length
+        ? [
+            {
+              label: 'Réécrire la sélection',
+              submenu: getRewritePresets().map((p) => ({ label: p.name, click: () => void runRewritePreset(p.id) })),
+            },
+          ]
+        : []),
+      ...(overlay.hidden ? [{ label: 'Réafficher la pastille', click: () => overlay.unhide() }] : []),
       { label: 'Ouvrir le journal', click: () => void shell.openPath(logFile()) },
       ...(updater.get().state !== 'disabled'
         ? [
@@ -331,6 +378,70 @@ async function main(): Promise<void> {
     if (notes.active) void notes.stop();
   });
 
+  // ── Raccourcis d'action (api-keys.md) : coller / copier la dernière dictée, réécrire la sélection
+  const RECOVER_MS = 30 * 60_000;
+  const lastOk = () => getRecent().find((d) => (d.status ?? 'ok') === 'ok' && (d.text || d.raw));
+  hotkey.on('pasteLast', () => {
+    if (SELFTEST || longCapture() || pipeline.current === 'recording') return;
+    void (async () => {
+      try {
+        // Dictée annulée (Échap) ou en échec plus récente que la dernière collée : c'est elle qu'on colle (c6).
+        const top = getRecent()[0];
+        if (top && (top.status === 'cancelled' || top.status === 'failed') && Date.now() - Date.parse(top.at) < RECOVER_MS) {
+          if (await recoverLast()) return;
+        }
+        const d = lastOk();
+        if (!d) return notify('Aucune dictée à coller', '', 'empty');
+        await pipeline.pasteText(d.text || d.raw);
+      } catch (e) {
+        log('pasteLast: échec', e instanceof Error ? e.message : e);
+        notify('Collage impossible', e instanceof Error ? e.message.slice(0, 120) : '', 'paste-err');
+      }
+    })();
+  });
+  hotkey.on('copyLast', () => {
+    if (SELFTEST) return;
+    const d = lastOk();
+    if (!d) return notify('Aucune dictée à copier', '', 'empty');
+    void clipboard.writeText(d.text || d.raw);
+    notify('Copié', 'Dernière dictée dans le presse-papiers', 'copied');
+  });
+  // globalShortcut ne voit que l'appui : 1er appui = écoute de la consigne (mains libres), 2e appui = fin.
+  hotkey.on('rewrite', () => {
+    if (SELFTEST || longCapture()) return;
+    if (pipeline.current === 'recording') return void pipeline.end();
+    void startRewrite().catch((e) => log('rewrite: démarrage', e instanceof Error ? e.message : e));
+  });
+  // Saisie sécurisée (c11) : le raccourci ne reçoit plus rien tant qu'elle dure.
+  const secureSeen = new Map<string, number>();
+  hotkey.on('secureInput', (active: boolean, appName: string) => {
+    if (!active) return;
+    const who = String(appName || '').slice(0, 60);
+    const k = who || '?';
+    if (Date.now() - (secureSeen.get(k) ?? 0) < 10 * 60_000) return; // une fois par app toutes les 10 min
+    secureSeen.set(k, Date.now());
+    notify(
+      `Saisie sécurisée active${who ? ` (${who})` : ''}`,
+      'Le raccourci de dictée ne répond pas tant qu’elle dure. Quitte le champ de mot de passe ou l’app pour le retrouver.',
+      'secure',
+    );
+  });
+
+  // Alertes du pipeline (api-pipe.md) → notifications macOS discrètes. Les alertes de réécriture
+  // (no-selection, too-long, disabled, error) sont déjà notifiées par rewrite.ts.
+  pipeline.on('alert', (a: { kind: string; remainingMs?: number; reason?: string }) => {
+    if (a.kind === 'no-input') notify('Aucun son du micro', 'Micro muet ou mal choisi : vérifie Réglages › Micro.', 'no-input', 'reglages');
+    else if (a.kind === 'limit-warn') notify('Il reste 1 minute', 'La dictée s’arrêtera seule ; le texte sera gardé et collé.', 'limit');
+    else if (a.kind === 'interrupted')
+      notify(a.reason === 'muted' ? 'Micro coupé' : 'Micro déconnecté', 'Dictée arrêtée, texte déjà dicté conservé.', 'interrupted');
+  });
+  pipeline.on('recoverable', (r: { id: string; status: 'cancelled' | 'failed' }) => {
+    const sc = accelLabel(String(settings.get('shortcuts.pasteLast') ?? ''));
+    const how = sc ? `${sc} pour la coller` : 'Historique pour la retrouver';
+    if (r.status === 'cancelled') notify(`Échap : dictée gardée — ${how}`, '', 'recoverable', 'historique');
+    else notify('Dictée gardée après une erreur', `${sc ? sc + ' pour la coller, ou ' : ''}Historique › Réessayer.`, 'recoverable', 'historique');
+  });
+
   // Actions directes (survol de la pastille, menu du Dock) : dictée mains libres et prise de notes.
   const toggleDictation = (): void => {
     if (longCapture()) return;
@@ -383,6 +494,7 @@ async function main(): Promise<void> {
   notes.on('status', rebuildDockMenu);
   pipeline.on('status', rebuildDockMenu);
   hotkey.on('mode', () => tray.rebuild());
+  overlay.on('hiddenChange', () => tray.rebuild());
   if (!hotkey.configure(String(settings.get('general.shortcut')))) hotkey.configure(PushToTalk.FALLBACK);
 
   watchAccessibility(trusted, hotkey, () => tray.rebuild());
@@ -580,5 +692,6 @@ app.on('will-quit', () => {
   updater.onQuit(); // mise à jour prête → remplacée après la fermeture (script détaché)
   hotkeyRef?.dispose();
   whisperServer.stop();
+  contextHelper.stop();
   stopOllama();
 });

@@ -17,7 +17,12 @@
 import { encodeWav, RATE, Segmenter, trimSilence } from '../shared/vad';
 
 interface RecorderBridge {
-  onArm(cb: () => void): void;
+  onArm(cb: (cfg?: AudioCfg) => void): void;
+  onList(cb: (id: number) => void): void;
+  devices(id: number, list: unknown): void;
+  noInput(): void;
+  limit(kind: 'warn' | 'max', remainingMs: number): void;
+  interrupted(reason: string): void;
   onDisarm(cb: () => void): void;
   onStart(cb: (opts?: StartOpts) => void): void;
   onPause(cb: () => void): void;
@@ -29,12 +34,22 @@ interface RecorderBridge {
   level(v: number): void;
   started(info: { openMs: number; prerollMs: number }): void;
   segment(wav: ArrayBuffer, start: number, end: number, commit: boolean): void;
-  result(r: { tail: ArrayBuffer | null; tailStart: number; full: ArrayBuffer; durationMs: number; lastSpeechEnd: number; total: number; voicedMs?: number }): void;
+  result(r: { interrupted?: string; tail: ArrayBuffer | null; tailStart: number; full: ArrayBuffer; durationMs: number; lastSpeechEnd: number; total: number; voicedMs?: number }): void;
   error(msg: string): void;
   pcm(mix: ArrayBuffer, mic: ArrayBuffer | null, sys: ArrayBuffer | null): void;
   log(msg: string): void;
 }
+interface AudioCfg {
+  /** Micro choisi (audio.inputDeviceId) ; '' = défaut système. */
+  deviceId: string;
+  avoidBluetooth: boolean;
+  /** Voix basse : gain + AGC renforcés. */
+  lowVoice: boolean;
+  /** Durée max de dictée en ms (0 = illimité). */
+  maxMs: number;
+}
 interface StartOpts {
+  audio?: AudioCfg;
   note?: boolean;
   feed?: boolean;
   /** Envoie le PCM de la session au main (WAV complet de la note). */
@@ -52,6 +67,23 @@ declare global {
 
 const bridge = window.dictaRecorder;
 const PREROLL = Math.round(RATE * 0.3);
+const WARN_BEFORE_MS = 60_000; // avertissement une minute avant la limite
+const NO_SIGNAL_MS = 1500; // c2 : durée sans son au début
+const NO_SIGNAL_PEAK = 0.0015; // ~ -56 dBFS : micro mort / coupé
+const LOW_VOICE_GAIN = 4; // +12 dB (c12)
+const BT_RE = /airpods|bluetooth|beats|bose|jabra|sony|wh-1000|wf-1000|buds|powerbeats|galaxy|sennheiser|hfp/i;
+const BUILTIN_RE = /built-?in|int[ée]gr|macbook|internal|imac|mac mini|studio display/i;
+let cfg: AudioCfg = { deviceId: '', avoidBluetooth: true, lowVoice: false, maxMs: 20 * 60_000 };
+let gainNode: GainNode | null = null;
+let limiter: DynamicsCompressorNode | null = null;
+// c2 / c5 / c10
+let recSamples = 0;
+let peak = 0;
+let noSignalDone = false;
+let warnSent = false;
+let maxSent = false;
+let interrupted = '';
+let muteTimer: ReturnType<typeof setTimeout> | null = null;
 
 const WORKLET = `
 class Tap extends AudioWorkletProcessor {
@@ -136,6 +168,33 @@ function onAudio(buf: Float32Array, sysBuf: Float32Array | null = null, injected
   ringFill = Math.min(PREROLL, ringFill + buf.length);
 }
 
+/** c2 (aucun son) et c5 (durée max + avertissement). */
+function checkSession(mix: Float32Array): void {
+  recSamples += mix.length;
+  if (!noSignalDone) {
+    for (let i = 0; i < mix.length; i++) {
+      const a = Math.abs(mix[i]);
+      if (a > peak) peak = a;
+    }
+    if (peak > NO_SIGNAL_PEAK) noSignalDone = true;
+    else if (recSamples >= (RATE * NO_SIGNAL_MS) / 1000) {
+      noSignalDone = true;
+      bridge.noInput();
+    }
+  }
+  if (cfg.maxMs > 0) {
+    const ms = (recSamples / RATE) * 1000;
+    if (!warnSent && cfg.maxMs > 2 * WARN_BEFORE_MS && ms >= cfg.maxMs - WARN_BEFORE_MS) {
+      warnSent = true;
+      bridge.limit('warn', Math.round(cfg.maxMs - ms));
+    }
+    if (!maxSent && ms >= cfg.maxMs) {
+      maxSent = true;
+      bridge.limit('max', 0); // le main arrête proprement via stop() : le texte est gardé
+    }
+  }
+}
+
 /** Session en cours : mélange micro + Mac → VAD ; mélange et pistes → WAV de session (main). */
 function ingest(mic: Float32Array, sys: Float32Array | null): void {
   if (!seg) return;
@@ -144,8 +203,10 @@ function ingest(mic: Float32Array, sys: Float32Array | null): void {
     mix = new Float32Array(mic.length);
     for (let i = 0; i < mic.length; i++) mix[i] = Math.max(-1, Math.min(1, mic[i] + (sys[i] ?? 0)));
   }
+  if (interrupted) return; // micro perdu : plus rien à ajouter, l'audio capté reste intact
   seg.push(mix);
   meter(mix);
+  checkSession(mix);
   if (noteMode && (sinceCompact += mix.length) > RATE * 30) {
     sinceCompact = 0;
     seg.compact(); // l'audio déjà transcrit n'est plus gardé en mémoire
@@ -230,21 +291,99 @@ function meter(buf: Float32Array): void {
 }
 
 /** Ouvre le micro (idempotent). Renvoie le temps d'ouverture en ms (0 si déjà ouvert). */
-function arm(): Promise<number> {
-  if (stream) return Promise.resolve(0);
+/** Choisit le micro : réglage explicite, sinon micro intégré si l'entrée par défaut est Bluetooth (c1). */
+async function pickDevice(c: AudioCfg): Promise<{ id: string | null; why: string }> {
+  let devs: MediaDeviceInfo[] = [];
+  try {
+    devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
+  } catch {
+    /* ignore */
+  }
+  if (c.deviceId && devs.some((d) => d.deviceId === c.deviceId)) return { id: c.deviceId, why: 'réglage' };
+  if (c.avoidBluetooth) {
+    const def = devs.find((d) => d.deviceId === 'default');
+    const defLabel = def?.label ?? '';
+    // Chromium libelle « Default - <nom> » ; si l'étiquette est vide (accès non accordé), on ne peut pas juger.
+    if (BT_RE.test(defLabel) && !BUILTIN_RE.test(defLabel)) {
+      const builtin = devs.find((d) => d.deviceId !== 'default' && d.deviceId !== 'communications' && BUILTIN_RE.test(d.label) && !BT_RE.test(d.label));
+      if (builtin) return { id: builtin.deviceId, why: 'Bluetooth évité → micro intégré' };
+    }
+  }
+  return { id: null, why: 'défaut système' };
+}
+
+function applyLowVoice(on: boolean): void {
+  if (gainNode) gainNode.gain.value = on ? LOW_VOICE_GAIN : 1;
+}
+
+function watchTrack(s: MediaStream): void {
+  const t = s.getAudioTracks()[0];
+  if (!t) return;
+  // c10 : micro débranché / périphérique perdu → on prévient, l'audio déjà capté reste dans le Segmenter.
+  t.addEventListener('ended', () => {
+    if (stream !== s) return;
+    if (recording) markInterrupted('device-lost');
+    else closeMic();
+  });
+  // Appel entrant / micro pris par une autre app : piste coupée plus d'1,5 s.
+  t.addEventListener('mute', () => {
+    if (!recording) return;
+    if (muteTimer) clearTimeout(muteTimer);
+    muteTimer = setTimeout(() => stream === s && recording && t.muted && markInterrupted('muted'), 1500);
+  });
+  t.addEventListener('unmute', () => {
+    if (muteTimer) clearTimeout(muteTimer);
+    muteTimer = null;
+  });
+}
+
+function markInterrupted(reason: string): void {
+  if (interrupted || !recording) return;
+  interrupted = reason;
+  bridge.log(`capture interrompue : ${reason}`);
+  bridge.interrupted(reason); // le main/pipeline appelle stop() : le texte déjà dit est gardé
+}
+
+function arm(c?: AudioCfg): Promise<number> {
+  if (c) cfg = { ...cfg, ...c };
+  if (stream && stream.getAudioTracks()[0]?.readyState !== 'live') closeMic(); // micro perdu pendant la pré-écoute
+  if (stream) {
+    applyLowVoice(cfg.lowVoice);
+    return Promise.resolve(0);
+  }
   if (opening) return opening;
   opening = (async () => {
     const t0 = performance.now();
     const c = await ensureGraph();
     if (c.state === 'suspended') await c.resume();
-    const s = await navigator.mediaDevices.getUserMedia({
-      audio: { channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true },
-    });
+    const constraints = { channelCount: 1, echoCancellation: false, noiseSuppression: !cfg.lowVoice, autoGainControl: true };
+    let pick = await pickDevice(cfg);
+    let s: MediaStream;
+    try {
+      s = await navigator.mediaDevices.getUserMedia({ audio: pick.id ? { ...constraints, deviceId: { exact: pick.id } } : constraints });
+    } catch (e) {
+      if (!pick.id) throw e;
+      bridge.log(`micro choisi indisponible (${e instanceof Error ? e.name : 'erreur'}) → défaut système`);
+      pick = { id: null, why: 'repli' };
+      s = await navigator.mediaDevices.getUserMedia({ audio: constraints });
+    }
+    bridge.log(`micro : ${s.getAudioTracks()[0]?.label || '?'} (${pick.why}${cfg.lowVoice ? ', voix basse' : ''})`);
     ringPos = 0;
     ringFill = 0;
     stream = s;
     src = c.createMediaStreamSource(s);
-    src.connect(merger!, 0, 0);
+    if (!gainNode) {
+      gainNode = c.createGain();
+      // limiteur doux : évite l'écrêtage quand le gain voix basse est actif
+      limiter = c.createDynamicsCompressor();
+      limiter.threshold.value = -6;
+      limiter.knee.value = 6;
+      limiter.ratio.value = 12;
+      gainNode.connect(limiter).connect(merger!, 0, 0);
+    }
+    applyLowVoice(cfg.lowVoice);
+    src.connect(gainNode);
+    watchTrack(s);
     return Math.round(performance.now() - t0);
   })();
   opening
@@ -263,6 +402,8 @@ function closeMic(): void {
   stream?.getTracks().forEach((t) => t.stop());
   stream = null;
   ringFill = 0;
+  if (muteTimer) clearTimeout(muteTimer);
+  muteTimer = null;
 }
 
 async function start(opts: StartOpts = {}): Promise<void> {
@@ -274,13 +415,21 @@ async function start(opts: StartOpts = {}): Promise<void> {
   paused = false;
   sinceCompact = 0;
   wavOn = !!opts.wav;
+  if (opts.audio) cfg = { ...cfg, ...opts.audio };
+  recSamples = 0;
+  peak = 0;
+  noSignalDone = !!opts.feed || !!opts.note; // alerte micro muet : dictée au micro seulement
+  warnSent = false;
+  maxSent = false;
+  interrupted = '';
+  if (opts.note) cfg = { ...cfg, maxMs: 0 }; // notes : pas de limite
   wantSys = !!opts.systemAudio && (!feeding || !!opts.probeSys);
   tracksOn = wavOn && wantSys; // (autotest : activé par feed() si une piste « Mac » est injectée)
   sysEver = false;
   feedSys = false;
   outN = 0;
   try {
-    const openMs = feeding ? 0 : await arm();
+    const openMs = feeding ? 0 : await arm(opts.audio);
     starting = false;
     if (cancelAfterStart) {
       cancelAfterStart = false;
@@ -336,6 +485,7 @@ function stop(): void {
     lastSpeechEnd: s.lastSpeechEnd,
     voicedMs: s.voicedMs,
     total: s.length,
+    interrupted: interrupted || undefined,
   });
 }
 
@@ -396,7 +546,43 @@ async function feed(pcm: ArrayBuffer, speed: number, sysPcm?: ArrayBuffer | null
   bridge.fed();
 }
 
-bridge.onArm(() => void arm().catch(() => undefined));
+/** c1 : liste des entrées pour l'UI (étiquettes vides sans accès micro → ouverture brève pour les obtenir). */
+async function listDevices(id: number): Promise<void> {
+  try {
+    let devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
+    if (devs.length && devs.every((d) => !d.label) && !stream) {
+      try {
+        const t = await navigator.mediaDevices.getUserMedia({ audio: true });
+        t.getTracks().forEach((x) => x.stop());
+        devs = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'audioinput');
+      } catch {
+        /* accès refusé : étiquettes vides */
+      }
+    }
+    const defLabel = devs.find((d) => d.deviceId === 'default')?.label ?? '';
+    bridge.devices(
+      id,
+      devs
+        .filter((d) => d.deviceId !== 'communications')
+        .map((d) => {
+          const label = d.label.replace(/^Default - /, '');
+          return {
+            id: d.deviceId,
+            label: d.deviceId === 'default' ? `Défaut du système${defLabel ? ` (${label})` : ''}` : label || 'Micro',
+            isDefault: d.deviceId === 'default',
+            bluetooth: BT_RE.test(label) && !BUILTIN_RE.test(label),
+            builtIn: BUILTIN_RE.test(label),
+          };
+        }),
+    );
+  } catch {
+    bridge.devices(id, []);
+  }
+}
+
+bridge.onArm((c) => void arm(c).catch(() => undefined));
+bridge.onList((id) => void listDevices(id));
+navigator.mediaDevices?.addEventListener('devicechange', () => bridge.log('périphériques audio modifiés'));
 bridge.onDisarm(() => {
   if (!recording) closeMic();
 });

@@ -787,6 +787,7 @@ dialog.palette[open] { animation: rise var(--d-2) var(--ease-sortie); }
 .chips { display: flex; flex-wrap: wrap; gap: 10px; padding: var(--s3) 0; border-top: 1px solid var(--fil); }
 .chipw { display: inline-flex; align-items: center; gap: 4px; height: 36px; padding: 0 4px 0 14px; border: 1px solid var(--fil-fort); background: var(--surface); font: 700 13px var(--police); animation: rise var(--d-2) var(--ease) both; }
 .chipw .icon-btn { width: 26px; height: 26px; }
+.chipw .learned { font: 700 10px var(--police); letter-spacing: .04em; text-transform: uppercase; color: var(--texte-2, currentColor); opacity: .6; margin-left: 2px; }
 .explain { margin-top: var(--s5); }
 .explain > div.ex { display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--s3); align-items: start; padding: var(--s2) 0; font-size: 14px; }
 .explain .h { font: 500 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--texte-sec); margin-bottom: 6px; }
@@ -1287,6 +1288,56 @@ html.side-noanim .side-resize, html.side-drag .side-resize { transition: none; }
 html.side-drag, html.side-drag * { cursor: col-resize !important; user-select: none !important; }
 html.side-drag #hub { transition: none; }
 body:not([data-view="hub"]) .side-resize { display: none; }
+
+/* ── Parité Wispr : historique, snippets, remplacements, réécriture, micro, statistiques ── */
+.hp { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: var(--s5); margin-bottom: var(--s5); }
+@container main (max-width: 900px) { .hp { grid-template-columns: 1fr; } }
+.guide ol { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--fil); }
+.guide li { display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--fil); font-size: 13.5px; line-height: 1.45; }
+.guide li > b { font: 500 11px var(--mono); color: var(--texte-3); padding-top: 2px; }
+.mic-test { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--fil); }
+.mic-meter { display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 3px; height: 28px; }
+.mic-meter i { display: block; background: var(--fond-3); transition: background-color 60ms linear; }
+.mic-meter i.on { background: var(--etat-enregistre); }
+.mic-test .note b { color: var(--texte); }
+.mic-acts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.heat-card { margin-top: var(--s5); }
+.heat-wrap { overflow-x: auto; padding: 14px 0 4px; border-top: 1px solid var(--fil); }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); grid-auto-columns: 11px; gap: 3px; width: max-content; }
+.heat i, .heat-legend i { display: block; width: 11px; height: 11px; background: var(--fond-3); }
+.heat i.out { visibility: hidden; }
+.heat i[data-l="1"], .heat-legend i[data-l="1"] { background: color-mix(in srgb, var(--vert) 30%, var(--fond-3)); }
+.heat i[data-l="2"], .heat-legend i[data-l="2"] { background: color-mix(in srgb, var(--vert) 55%, var(--fond-3)); }
+.heat i[data-l="3"], .heat-legend i[data-l="3"] { background: color-mix(in srgb, var(--vert) 80%, var(--fond-3)); }
+.heat i[data-l="4"], .heat-legend i[data-l="4"] { background: var(--vert); }
+.heat-legend { display: flex; gap: 4px; align-items: center; font: 500 10.5px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--texte-3); padding-top: 8px; }
+.share-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding-top: 14px; }
+.share-prev { display: block; width: 100%; max-width: 480px; border: 1px solid var(--fil); margin-top: 14px; }
+.ritem .acts { display: flex; gap: 6px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+.ritem .acts .btn { height: 30px; padding: 0 10px; font-size: 12px; }
+.pairs { border-top: 1px solid var(--fil); }
+.pair { display: grid; grid-template-columns: minmax(0, 1fr) 24px minmax(0, 2fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--fil); }
+.pair > b { font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.pair .arr { text-align: center; color: var(--texte-3); }
+.pair .ptxt { font-size: 13.5px; color: var(--texte-sec); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 6.5em; overflow: hidden; }
+.pair .pacts { display: flex; gap: 2px; }
+.pair .pacts .btn { height: 30px; padding: 0 8px; font-size: 12px; }
+.pair.add { border: 0; padding: 0 0 var(--s4); align-items: start; max-width: 900px; }
+.pair.add input, .pair.add textarea { width: 100%; }
+.pair.add textarea { height: auto; min-height: 40px; padding: 9px 12px; resize: vertical; line-height: 1.45; }
+.pair.add .arr { padding-top: 10px; }
+.chipw .star { width: 26px; height: 26px; margin-left: -10px; font-size: 14px; color: var(--texte-3); }
+.chipw .star.on { color: var(--texte); }
+.dict-acts { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 var(--s5); }
+.dict-acts .sp { flex: 1; }
+.dict-acts .chk { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--texte-sec); }
+.sub-card { margin-top: var(--s6); }
+.sub-card > .note { margin: 0 0 12px; }
+.secure-ind { display: inline-flex; gap: 8px; align-items: center; font: 700 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--erreur); }
+.secure-ind::before { content: ""; width: 8px; height: 8px; background: var(--erreur); }
+.np-head { display: flex; gap: 10px; align-items: center; padding: var(--s3) 0 var(--s2); }
+.np-head .sp { flex: 1; }
+@media (prefers-reduced-motion: reduce) { .mic-meter i { transition: none; } }
 </style>
 </head>
 <body>
@@ -1320,6 +1371,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     <symbol id="n-notes" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M3.8 2.8h7.4l3 3v9.4H3.8z"/><path d="M6.6 8.2h4.8M6.6 11.4h3.2"/></g></symbol>
     <symbol id="n-dictionary" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M3.2 3.2h4.2c.9 0 1.6.7 1.6 1.6v10.4c0-.9-.7-1.6-1.6-1.6H3.2z"/><path d="M14.8 3.2h-4.2c-.9 0-1.6.7-1.6 1.6v10.4c0-.9.7-1.6 1.6-1.6h4.2z"/></g></symbol>
     <symbol id="n-style" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M2.8 4.6h12.4M2.8 9h12.4M2.8 13.4h6.2"/></g><rect x="11.6" y="11.6" width="3.6" height="3.6" fill="currentColor"/></symbol>
+    <symbol id="n-history" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><rect x="2.8" y="2.8" width="12.4" height="12.4"/><path d="M9 5.6V9l2.6 1.8"/></g></symbol>
+    <symbol id="n-snippets" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M6.4 4.2 2.8 9l3.6 4.8M11.6 4.2 15.2 9l-3.6 4.8"/></g></symbol>
     <symbol id="n-settings" viewBox="0 0 18 18"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square"><path d="M2.6 5.4h6.2M14.2 5.4h1.2M2.6 12.6h1.4M9.4 12.6h6"/><rect x="9.2" y="3.4" width="4" height="4"/><rect x="4.4" y="10.6" width="4" height="4"/></g></symbol>
   </defs>
 </svg>
@@ -1524,9 +1577,11 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       <i class="nav-ind" aria-hidden="true"></i>
       <button class="nav-btn" data-page="home" data-tip="Accueil"><span class="ix">01</span><svg class="ni" aria-hidden="true"><use href="#n-home"/></svg><span class="nl">Accueil</span></button>
       <button class="nav-btn" data-page="notes" data-tip="Notes"><span class="ix">02</span><svg class="ni" aria-hidden="true"><use href="#n-notes"/></svg><span class="nl">Notes</span></button>
-      <button class="nav-btn" data-page="dictionary" data-tip="Dictionnaire"><span class="ix">03</span><svg class="ni" aria-hidden="true"><use href="#n-dictionary"/></svg><span class="nl">Dictionnaire</span></button>
-      <button class="nav-btn" data-page="style" data-tip="Style"><span class="ix">04</span><svg class="ni" aria-hidden="true"><use href="#n-style"/></svg><span class="nl">Style</span></button>
-      <button class="nav-btn" data-page="settings" data-tip="Réglages"><span class="ix">05</span><svg class="ni" aria-hidden="true"><use href="#n-settings"/></svg><span class="nl">Réglages</span></button>
+      <button class="nav-btn" data-page="history" data-tip="Historique"><span class="ix">03</span><svg class="ni" aria-hidden="true"><use href="#n-history"/></svg><span class="nl">Historique</span></button>
+      <button class="nav-btn" data-page="dictionary" data-tip="Dictionnaire"><span class="ix">04</span><svg class="ni" aria-hidden="true"><use href="#n-dictionary"/></svg><span class="nl">Dictionnaire</span></button>
+      <button class="nav-btn" data-page="snippets" data-tip="Snippets"><span class="ix">05</span><svg class="ni" aria-hidden="true"><use href="#n-snippets"/></svg><span class="nl">Snippets</span></button>
+      <button class="nav-btn" data-page="style" data-tip="Style"><span class="ix">06</span><svg class="ni" aria-hidden="true"><use href="#n-style"/></svg><span class="nl">Style</span></button>
+      <button class="nav-btn" data-page="settings" data-tip="Réglages"><span class="ix">07</span><svg class="ni" aria-hidden="true"><use href="#n-settings"/></svg><span class="nl">Réglages</span></button>
     </div>
     <div class="grow"></div>
     <button class="side-note" id="sideNote" data-goto="notes"><span class="snl">Note en cours · </span><span id="sideNoteT">00:00</span></button>
@@ -1546,6 +1601,26 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       </div>
       <div class="wprep" data-wprep hidden style="margin:0 0 var(--s4)"></div>
       <div class="banner" id="permBanner" hidden></div>
+      <div class="hp" id="homeTips">
+        <div class="card guide" id="guideCard">
+          <div class="card-h"><h2>Bien dicter</h2><button class="link" id="guideHide">Masquer</button></div>
+          <ol>
+            <li><b>01</b><span>Parle comme à quelqu'un, en phrases entières. Les « euh » et les répétitions partent tout seuls.</span></li>
+            <li><b>02</b><span>Pour forcer la ponctuation, dis-la : « virgule », « point », « à la ligne ».</span></li>
+            <li><b>03</b><span>Corrige-toi à voix haute : « jeudi, non vendredi » donne « vendredi ».</span></li>
+            <li><b>04</b><span>Un nom mal écrit ? Ajoute-le au Dictionnaire, ou corrige-le une fois après la dictée : CBW l'apprend.</span></li>
+            <li><b>05</b><span>Échap annule sans rien perdre : <span id="guidePaste"></span> recolle la dictée.</span></li>
+          </ol>
+        </div>
+        <div class="card mic-card">
+          <div class="card-h"><h2>Micro</h2></div>
+          <div class="mic-test">
+            <div class="mic-meter" id="micMeter" aria-hidden="true"></div>
+            <p class="note" id="micNote" aria-live="polite">Parle quelques secondes : les barres doivent monter au moins jusqu'au milieu.</p>
+            <div class="mic-acts"><button class="btn" id="micTestBtn">Tester mon micro</button><button class="link" data-goto="settings:audio">Choisir le micro</button></div>
+          </div>
+        </div>
+      </div>
       <div class="home-grid">
         <div class="kpis" id="stats"></div>
         <div class="card chart-card">
@@ -1573,6 +1648,39 @@ body:not([data-view="hub"]) .side-resize { display: none; }
           </div>
           <div class="recent" id="recentList"></div>
         </div>
+      </div>
+      <div class="card heat-card" id="heatCard" hidden>
+        <div class="card-h"><h2>Jours de dictée · 12 mois</h2><span class="note mono" id="heatSum" style="font-size:11px"></span></div>
+        <div class="heat-wrap"><div class="heat" id="heat" role="img" aria-label="Carte des jours de dictée"></div></div>
+        <div class="heat-legend" aria-hidden="true">Moins <i></i><i data-l="1"></i><i data-l="2"></i><i data-l="3"></i><i data-l="4"></i> Plus</div>
+        <div class="share-row"><button class="btn" id="shareMake">Créer ma carte à partager</button><span class="note">Image générée sur ce Mac. Rien n'est envoyé.</span></div>
+        <div id="shareOut" hidden>
+          <img class="share-prev" id="sharePrev" alt="Carte de tes statistiques de dictée">
+          <div class="share-row"><button class="btn primary" id="shareSave">Enregistrer le PNG</button><button class="btn" id="shareCopy">Copier l'image</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Historique -->
+    <section class="page" id="page-history" aria-labelledby="h-hist">
+      <div class="page-head">
+        <h1 id="h-hist">Historique</h1>
+        <p class="lede">Tes 50 dernières dictées, gardées sur ce Mac. Une dictée annulée ou ratée reste ici : tu peux la réessayer.</p>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Dictées</h2>
+          <div class="seg" role="radiogroup" aria-label="Filtre"><label><input type="radio" name="hfilter" value="all" checked><span>Toutes</span></label><label><input type="radio" name="hfilter" value="kept"><span>À récupérer</span></label></div>
+        </div>
+        <div id="histList"></div>
+      </div>
+      <div id="npBlock">
+        <p class="group-title">Bloc-notes vocal</p>
+        <div class="group">
+          <div class="row"><div class="label">Envoyer mes dictées dans le bloc-notes<span class="hint">Au lieu de les coller. Pratique pour noter des idées à la volée, puis tout copier d'un coup.</span></div>
+            <label class="switch"><input type="checkbox" data-setting="notepad.enabled" aria-label="Envoyer mes dictées dans le bloc-notes"><span></span></label></div>
+        </div>
+        <div class="np-head"><span class="note mono" id="npCount" style="font-size:11px"></span><span class="sp"></span><button class="btn" id="npCopy">Tout copier</button><button class="btn ghost danger" id="npClear">Vider</button></div>
+        <div id="npList"></div>
       </div>
     </section>
 
@@ -1635,6 +1743,13 @@ body:not([data-view="hub"]) .side-resize { display: none; }
         <h1 id="h-dict">Dictionnaire</h1>
         <p class="lede">Les mots que CBW doit écrire exactement comme toi : prénoms, marques, jargon.</p>
       </div>
+      <div class="dict-acts">
+        <button class="btn" id="contactsImport">Importer les prénoms de mes contacts</button>
+        <label class="chk"><input type="checkbox" id="contactsCal"> et les participants de mon agenda</label>
+        <span class="sp"></span>
+        <button class="btn ghost" id="dictImport">Importer (JSON)</button>
+        <button class="btn ghost" id="dictExport">Exporter</button>
+      </div>
       <form class="addbar" id="vocabForm">
         <input type="text" id="vocabInput" placeholder="Ajoute un mot, un prénom, une marque… (Entrée)" spellcheck="false" aria-label="Nouveau terme">
         <button class="btn primary arrow" type="submit">Ajouter</button>
@@ -1642,6 +1757,13 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       <div class="card">
         <div class="card-h"><h2>Tes termes</h2><span class="note mono" id="vocabCount" style="font-size:11px"></span></div>
         <div class="chips" id="vocabChips"></div>
+        <p class="footnote">☆ → ★ : mot prioritaire, transmis en premier à la transcription. « Appris » : ajouté depuis une de tes corrections.</p>
+      </div>
+      <div class="card sub-card">
+        <div class="card-h"><h2>Remplacements</h2><span class="note mono" id="repCount" style="font-size:11px"></span></div>
+        <p class="note">Toujours écrire un mot autrement, après le nettoyage. Par exemple « asian » → « agent ».</p>
+        <form class="pair add" id="repForm"><input type="text" id="repFrom" placeholder="Ce qui est écrit" maxlength="80" spellcheck="false" aria-label="Mot à remplacer"><span class="arr">→</span><input type="text" id="repTo" placeholder="Ce que tu veux" maxlength="200" spellcheck="false" aria-label="Remplacer par"><button class="btn" type="submit">Ajouter</button></form>
+        <div class="pairs" id="repList"></div>
       </div>
       <details class="disc explain"><summary><span class="pm"></span>Comment ça marche</summary>
         <div class="ex">
@@ -1650,6 +1772,23 @@ body:not([data-view="hub"]) .side-resize { display: none; }
           <div><div class="h">CBW écrit</div>J'ai poussé sur <span class="good">Supabase</span> avec <span class="good">Claude</span>.</div>
         </div>
       </details>
+    </section>
+
+    <!-- Snippets -->
+    <section class="page" id="page-snippets" aria-labelledby="h-snip">
+      <div class="page-head">
+        <h1 id="h-snip">Snippets</h1>
+        <p class="lede">Dis un déclencheur, CBW colle le texte complet : signature, adresse, lien de rendez-vous…</p>
+      </div>
+      <div class="group" style="margin-bottom:var(--s5)">
+        <div class="row"><div class="label">Activer les snippets<span class="hint">Le déclencheur doit être dit seul, ou au début de la dictée.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="snippets.enabled" aria-label="Activer les snippets"><span></span></label></div>
+      </div>
+      <form class="pair add" id="snipForm"><input type="text" id="snipTrig" placeholder="Déclencheur (ex. ma signature)" maxlength="80" spellcheck="false" aria-label="Déclencheur"><span class="arr">→</span><textarea id="snipText" placeholder="Texte collé" maxlength="5000" rows="2" aria-label="Texte collé"></textarea><button class="btn primary" type="submit" id="snipSubmit">Ajouter</button></form>
+      <div class="card">
+        <div class="card-h"><h2>Tes snippets</h2><span class="note mono" id="snipCount" style="font-size:11px"></span></div>
+        <div class="pairs" id="snipList"></div>
+      </div>
     </section>
 
     <!-- Style -->
@@ -1674,6 +1813,25 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       </div>
       <div class="principle"><svg width="16" height="16"><use href="#i-dot"/></svg>
         <span>CBW est un correcteur, pas un co-auteur : il n'ajoute rien, ne reformule pas et ne répond jamais à ce que tu dictes.</span></div>
+
+      <p class="group-title">Selon l'app</p>
+      <div class="group">
+        <div class="row"><div class="label">Adapter la forme à l'app<span class="hint">Messagerie plus détendue, mail plus soigné. Le contenu ne change jamais.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="cleaning.toneByApp" aria-label="Adapter la forme à l'app"><span></span></label></div>
+        <div class="row"><div class="label">Mode « prompt pour l'IA »<span class="hint">Garde listes et structure d'une consigne. Auto : ChatGPT, Claude, Cursor, terminal.</span></div>
+          <div class="seg" role="radiogroup" aria-label="Mode prompt"><label><input type="radio" name="pmode" value="auto"><span>Auto</span></label><label><input type="radio" name="pmode" value="on"><span>Toujours</span></label><label><input type="radio" name="pmode" value="off"><span>Jamais</span></label></div></div>
+        <div class="row"><div class="label">Typographie française<span class="hint">Espaces fines avant ; : ? ! (coupée dans le terminal et le code)</span></div>
+          <label class="switch"><input type="checkbox" data-setting="cleaning.frenchTypography" aria-label="Typographie française"><span></span></label></div>
+      </div>
+
+      <p class="group-title" id="style-rewrite">Réécriture à la voix</p>
+      <div class="group">
+        <div class="row"><div class="label">Réécrire la sélection<span class="hint">Sélectionne du texte, appuie sur <span id="rwKey"></span>, dis la consigne (« plus court »), puis appuie de nouveau.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="rewrite.enabled" aria-label="Réécrire la sélection à la voix"><span></span></label></div>
+      </div>
+      <p class="note" style="margin:var(--s3) 0">Consignes enregistrées : dis leur nom après le raccourci, ou choisis-les dans le menu de la barre des menus (clic droit).</p>
+      <form class="pair add" id="rwForm"><input type="text" id="rwName" placeholder="Nom (ex. Plus court)" maxlength="40" aria-label="Nom de la consigne"><span class="arr">→</span><textarea id="rwInstr" placeholder="Consigne donnée à l'IA" maxlength="500" rows="2" aria-label="Consigne"></textarea><button class="btn" type="submit" id="rwSubmit">Ajouter</button></form>
+      <div class="pairs" id="rwList"></div>
     </section>
 
     <!-- Réglages -->
@@ -1682,7 +1840,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
         <h1 id="h-set">Réglages</h1>
       </div>
       <div class="set-index" id="setIndex" role="tablist" aria-label="Sections des réglages"><i class="ind"></i>
-        <button data-sec="settings-general">Général</button><button data-sec="settings-engine">Nettoyage IA</button><button data-sec="settings-whisper">Transcription</button><button data-sec="settings-privacy">Confidentialité</button></div>
+        <button data-sec="settings-general">Général</button><button data-sec="settings-audio">Micro</button><button data-sec="settings-keys">Raccourcis</button><button data-sec="settings-engine">Nettoyage IA</button><button data-sec="settings-whisper">Transcription</button><button data-sec="settings-privacy">Confidentialité</button></div>
 
       <p class="group-title" id="settings-general">Général</p>
       <div class="group">
@@ -1696,11 +1854,41 @@ body:not([data-view="hub"]) .side-resize { display: none; }
         <div class="row"><div class="label">Insertion<span class="hint">Que faire du texte propre</span></div>
           <select data-setting="general.insertMode"><option value="paste">Coller automatiquement</option><option value="clipboard">Presse-papiers seulement</option></select></div>
         <div class="row"><div class="label">Langue de dictée</div>
-          <select data-setting="general.language"><option value="fr">Français</option><option value="en">Anglais</option><option value="auto">Détection automatique</option></select></div>
+          <select data-setting="general.language"><option value="fr">Français</option><option value="en">Anglais</option><option value="es">Espagnol</option><option value="de">Allemand</option><option value="it">Italien</option><option value="pt">Portugais</option><option value="nl">Néerlandais</option><option value="auto">Détection automatique</option></select></div>
         <div class="row"><div class="label">Lancer au démarrage<span class="hint">CBW AI reste discret dans la barre de menus</span></div>
           <label class="switch"><input type="checkbox" data-setting="general.launchAtLogin" aria-label="Lancer au démarrage"><span></span></label></div>
         <div class="row"><div class="label">Pastille<span class="hint">Glisse-la où tu veux à l'écran : sa place est mémorisée</span></div>
           <button class="btn" id="setPillReset">Remettre en bas</button></div>
+      </div>
+
+      <p class="group-title" id="settings-audio">Micro</p>
+      <div class="group">
+        <div class="row"><div class="label">Micro utilisé<span class="hint">S'il est débranché, CBW reprend le micro par défaut</span></div>
+          <span class="row-ctl"><select id="micSelect" aria-label="Micro utilisé"><option value="">Défaut du système</option></select><button class="btn ghost" id="micRefresh">Actualiser</button></span></div>
+        <div class="row"><div class="label">Éviter les AirPods et écouteurs Bluetooth<span class="hint">Préférer le micro du Mac : les premiers mots ne sont plus perdus</span></div>
+          <label class="switch"><input type="checkbox" data-setting="audio.avoidBluetooth" aria-label="Éviter les micros Bluetooth"><span></span></label></div>
+        <div class="row"><div class="label">Voix basse<span class="hint">Micro plus sensible, pour chuchoter en open space</span></div>
+          <label class="switch"><input type="checkbox" data-setting="audio.lowVoice" aria-label="Voix basse"><span></span></label></div>
+        <div class="row"><div class="label">Mettre la musique en pause<span class="hint">Musique et Spotify, repris à la fin de la dictée</span></div>
+          <label class="switch"><input type="checkbox" data-setting="audio.pauseMedia" aria-label="Mettre la musique en pause pendant la dictée"><span></span></label></div>
+        <div class="row"><div class="label">Durée maximale d'une dictée<span class="hint">Prévenu 1 min avant ; le texte est gardé et collé</span></div>
+          <select data-setting="audio.maxDurationMin" data-num aria-label="Durée maximale"><option value="5">5 min</option><option value="10">10 min</option><option value="20">20 min</option><option value="30">30 min</option><option value="60">1 h</option><option value="120">2 h</option><option value="0">Illimitée</option></select></div>
+      </div>
+
+      <p class="group-title" id="settings-keys">Raccourcis</p>
+      <div class="group">
+        <div class="row" id="secureRow" hidden><div class="label">Saisie sécurisée active<span class="hint">Tant qu'un champ de mot de passe est actif dans <b id="secureApp">une app</b>, macOS bloque le raccourci de dictée.</span></div>
+          <span class="secure-ind">Raccourci bloqué</span></div>
+        <div class="row"><div class="label">Coller la dernière dictée<span class="hint">Recolle aussi une dictée annulée par Échap</span></div>
+          <span class="row-ctl"><span class="rec-box" data-sc-box="shortcuts.pasteLast"><span data-sc-keys></span><button class="btn" data-sc-rec>Autre…</button></span><button class="btn ghost" data-sc-off>Désactiver</button></span></div>
+        <div class="row"><div class="label">Copier la dernière dictée</div>
+          <span class="row-ctl"><span class="rec-box" data-sc-box="shortcuts.copyLast"><span data-sc-keys></span><button class="btn" data-sc-rec>Autre…</button></span><button class="btn ghost" data-sc-off>Désactiver</button></span></div>
+        <div class="row"><div class="label">Réécrire la sélection<span class="hint">Consignes et exemples dans Style</span></div>
+          <span class="row-ctl"><span class="rec-box" data-sc-box="shortcuts.rewrite"><span data-sc-keys></span><button class="btn" data-sc-rec>Autre…</button></span><button class="btn ghost" data-sc-off>Désactiver</button></span></div>
+        <div class="row"><div class="label">Dicter avec un bouton de souris<span class="hint">Maintenir pour parler, clic bref pour les mains libres</span></div>
+          <select data-setting="shortcuts.mouseButton" data-num aria-label="Bouton de souris"><option value="0">Aucun</option><option value="4">Bouton 4 (précédent)</option><option value="5">Bouton 5 (suivant)</option></select></div>
+        <div class="row"><div class="label">Aperçu du texte pendant que je parle<span class="hint">Affiche la fin du texte dans la pastille. Désactivé par défaut.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="overlay.livePreview" aria-label="Aperçu du texte pendant la dictée"><span></span></label></div>
       </div>
 
       <p class="group-title">Autorisations</p>
@@ -1740,7 +1928,17 @@ body:not([data-view="hub"]) .side-resize { display: none; }
 
       <p class="group-title" id="settings-privacy">Confidentialité &amp; à propos</p>
       <div class="group">
-        <div class="row"><div class="label">Dernières dictées<span class="hint">Les 20 dernières, stockées sur ce Mac uniquement</span></div>
+        <div class="row"><div class="label">Lire l'app active pour orthographier les noms<span class="hint">Nom de l'app, site et noms visibles à l'écran, lus sur ce Mac. Rien n'est enregistré ; mots de passe et apps sensibles ignorés.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="context.enabled" aria-label="Lire l'app active pour orthographier les noms"><span></span></label></div>
+        <div class="row"><div class="label">Apprendre de mes corrections<span class="hint">Un nom que tu corriges après une dictée est ajouté au Dictionnaire, où tu peux le retirer.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="dictionary.autoLearn" aria-label="Apprendre de mes corrections"><span></span></label></div>
+        <div class="row"><div class="label">Lire le texte avant le curseur<span class="hint">Jusqu'à 300 caractères, envoyés au moteur IA avec la dictée pour la raccorder (majuscule, ponctuation)</span></div>
+          <label class="switch"><input type="checkbox" data-setting="context.readBefore" aria-label="Lire le texte avant le curseur"><span></span></label></div>
+        <div class="row"><div class="label">Garder l'enregistrement de chaque dictée<span class="hint">Chiffré, sur ce Mac : sert à Réessayer et à récupérer une dictée annulée</span></div>
+          <span class="row-ctl"><select data-setting="history.audioDays" data-num aria-label="Durée de conservation"><option value="1">1 jour</option><option value="7">7 jours</option><option value="14">14 jours</option><option value="30">30 jours</option><option value="60">60 jours</option></select><label class="switch"><input type="checkbox" data-setting="history.keepAudio" aria-label="Garder les enregistrements"><span></span></label></span></div>
+        <div class="row"><div class="label">Enregistrements des dictées</div>
+          <button class="btn" id="clearAudioBtn">Supprimer les enregistrements</button></div>
+        <div class="row"><div class="label">Dernières dictées<span class="hint">Les 50 dernières, stockées sur ce Mac uniquement</span></div>
           <button class="btn" id="clearBtn">Effacer</button></div>
         <div class="row"><div class="label">CBW AI<span class="hint" id="version"></span></div>
           <button class="btn ghost" id="replayBtn">Revoir la présentation</button></div>
@@ -2094,7 +2292,12 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     'general.shortcut': 'LCtrl×2', 'general.insertMode': 'paste', 'general.language': 'fr', 'general.launchAtLogin': true,
     'providers.order': ['groq', 'gemini', 'zai', 'ollama', 'openrouter'], 'providers.localFirst': false,
     'providers.ollama.model': 'gemma4:e4b', 'whisper.model': 'large-v3-turbo',
-    'cleaning.level': 'standard', 'cleaning.keepRawOnFailure': true, 'cleaning.vocabulary': [],
+    'cleaning.level': 'standard', 'cleaning.keepRawOnFailure': true, 'cleaning.vocabulary': [], 'context.enabled': true, 'dictionary.autoLearn': true, 'dictionary.learned': [],
+    'audio.inputDeviceId': '', 'audio.avoidBluetooth': true, 'audio.maxDurationMin': 20, 'audio.pauseMedia': true, 'audio.lowVoice': false,
+    'cleaning.promptMode': 'auto', 'cleaning.toneByApp': true, 'cleaning.frenchTypography': true, 'context.readBefore': true,
+    'dictionary.priority': [], 'dictionary.replacements': [], 'history.keepAudio': true, 'history.audioDays': 14,
+    'snippets.enabled': true, 'rewrite.enabled': true, 'notepad.enabled': false, 'overlay.livePreview': false,
+    'shortcuts.pasteLast': 'Control+Command+V', 'shortcuts.copyLast': 'Control+Command+C', 'shortcuts.rewrite': 'Control+Command+R', 'shortcuts.mouseButton': 0,
     'appearance.theme': 'light'
   };
   function cget(key) {
@@ -2111,11 +2314,11 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     $$('[data-setting]', rootEl).forEach((el) => {
       const key = el.dataset.setting;
       const v = cget(key);
-      if (el.type === 'checkbox') el.checked = !!v; else el.value = v == null ? '' : v;
+      if (el.type === 'checkbox') el.checked = !!v; else el.value = v == null ? '' : String(v);
       if (el.dataset.bound) return;
       el.dataset.bound = '1';
       el.addEventListener('change', () => {
-        const val = el.type === 'checkbox' ? el.checked : el.value;
+        const val = el.type === 'checkbox' ? el.checked : el.dataset.num != null ? Number(el.value) : el.value;
         cset(key, val);
         $$('[data-setting="' + key + '"]').forEach((o) => { if (o !== el) { if (o.type === 'checkbox') o.checked = !!val; else o.value = val; } });
         if (key === 'providers.localFirst') { renderProvList(); renderEngineCard(); }
@@ -2201,7 +2404,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   const IX = (name) => STEPS.indexOf(name);
   let view = null;
   // Alias français (tray « Réglages… » → #reglages, ou CustomEvent 'dicta:navigate')
-  const PAGE_ALIAS = { accueil: 'home', home: 'home', notes: 'notes', note: 'notes', dictionnaire: 'dictionary', dictionary: 'dictionary', style: 'style', reglages: 'settings', 'réglages': 'settings', settings: 'settings' };
+  const PAGE_ALIAS = { historique: 'history', history: 'history', snippets: 'snippets', accueil: 'home', home: 'home', notes: 'notes', note: 'notes', dictionnaire: 'dictionary', dictionary: 'dictionary', style: 'style', reglages: 'settings', 'réglages': 'settings', settings: 'settings' };
   function parseHash(raw) {
     const h = decodeURIComponent(raw != null ? raw : (location.hash || '').slice(1)); if (!h) return null;
     const i = h.indexOf(':'); const v = i < 0 ? h : h.slice(0, i); const arg = i < 0 ? '' : h.slice(i + 1);
@@ -2608,7 +2811,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   }
   async function runTest(id) {
     const inp = $('input[data-key="' + id + '"]');
-    if (inp) { clearTimeout(keyTimers[id]); await cset('providers.' + id + '.apiKey', inp.value.trim()); }
+    // Ne jamais effacer une clé enregistrée en testant un champ vide (champ pas encore rempli, page rechargée…).
+    if (inp && inp.value.trim()) { clearTimeout(keyTimers[id]); await cset('providers.' + id + '.apiKey', inp.value.trim()); }
     $$('[data-prov="' + id + '"] .tmsg').forEach((m) => { m.className = 'tmsg'; m.innerHTML = '<span class="dot testing"></span><span class="shimmer">Test en cours…</span>'; });
     $$('[data-test="' + id + '"]').forEach((b) => btnState(b, 'loading', 'Test'));
     setProvStatus(id, 'testing');
@@ -2804,12 +3008,16 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     if (!same) $('#main').scrollTop = 0;
     moveNav(); setCrumb();
     if (p === 'home') refreshHome();
-    if (p === 'settings') { refreshStatuses(); refreshWhisper(); renderPermRows(); setTimeout(moveIndex, 30); }
+    if (p === 'settings') { refreshStatuses(); refreshWhisper(); renderPermRows(); refreshMics(); setTimeout(moveIndex, 30); }
+    if (p === 'history') refreshHistory();
+    if (p === 'snippets') refreshSnippets();
+    if (p === 'style') { refreshPresets(); renderPromptMode(); }
+    if (p === 'dictionary') { renderVocab(); renderReps(); }
     if (p === 'notes') openNotes(sub);
     syncSegs();
   }
   $$('.nav-btn').forEach((b) => b.addEventListener('click', () => openPage(b.dataset.page)));
-  const PAGE_NAME = { home: 'Accueil', notes: 'Notes', dictionary: 'Dictionnaire', style: 'Style', settings: 'Réglages' };
+  const PAGE_NAME = { home: 'Accueil', notes: 'Notes', history: 'Historique', dictionary: 'Dictionnaire', snippets: 'Snippets', style: 'Style', settings: 'Réglages' };
   function setCrumb(child) {
     const c = $('#crumb'); if (!c) return;
     c.innerHTML = child ? '<button class="p" data-goto="' + page + '">' + PAGE_NAME[page] + '</button><span class="sep">/</span><span class="c">' + esc(child) + '</span>' : '<span class="c">' + (PAGE_NAME[page] || '') + '</span>';
@@ -3136,12 +3344,13 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     if (ext) { $('.chart-card').hidden = true; $('.usage-card').hidden = true; try { window.CBWCharts.renderHome($('#homeCharts'), s); } catch (e) { console.error('CBWCharts', e); } }
     else if (page === 'home') requestAnimationFrame(() => renderChart(!fromDictation || !sameData));
     renderUsage(s.byProvider);
-    recent = (rc || []).slice(0, 20);
+    recent = (rc || []).filter((d) => !d.status || d.status === 'ok').slice(0, 20);
     renderRecent();
     refreshStatuses();
     refreshWhisper();
     renderPermBanner();
     refreshWPrep();
+    renderHeat();
   }
   function renderPermRows() {
     const mOk = micOk(), accOk = !!perms.accessibility;
@@ -3318,7 +3527,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     $('#whisperLine').innerHTML = '<span class="dot ' + (ws.ready ? 'ok' : 'warn') + '"></span>Transcription sur ton Mac';
   }
   // Index collant des Réglages + défilement espion
-  const SECS = ['settings-general', 'settings-engine', 'settings-whisper', 'settings-privacy'];
+  const SECS = ['settings-general', 'settings-audio', 'settings-keys', 'settings-engine', 'settings-whisper', 'settings-privacy'];
   function scrollToSection(id) {
     const a = $('#' + id); if (!a) return;
     setTimeout(() => { a.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' }); a.classList.remove('flash'); void a.offsetWidth; a.classList.add('flash'); }, 30);
@@ -3338,10 +3547,12 @@ body:not([data-view="hub"]) .side-resize { display: none; }
 
   // Dictionnaire
   function vocab() { const v = cget('cleaning.vocabulary'); return Array.isArray(v) ? v.slice() : String(v || '').split(/\n/).map((x) => x.trim()).filter(Boolean); }
+  function learnedList() { const l = cget('dictionary.learned'); return Array.isArray(l) ? l : []; }
+  function prioList() { const p = cget('dictionary.priority'); return Array.isArray(p) ? p : []; }
   function renderVocab() {
-    const v = vocab();
+    const v = vocab(); const learned = learnedList(); const prio = prioList();
     $('#vocabCount').textContent = v.length ? v.length + (v.length > 1 ? ' termes' : ' terme') : '';
-    $('#vocabChips').innerHTML = v.length ? v.map((t, k) => '<span class="chipw selectable">' + esc(t) + '<button class="icon-btn" data-del="' + k + '" aria-label="Retirer ' + esc(t) + '"><svg width="12" height="12"><use href="#i-x"/></svg></button></span>').join('')
+    $('#vocabChips').innerHTML = v.length ? v.map((t, k) => { const pr = prio.includes(t); return '<span class="chipw selectable"><button class="icon-btn star' + (pr ? ' on' : '') + '" data-star="' + k + '" aria-pressed="' + pr + '" aria-label="Mot prioritaire : ' + esc(t) + '" title="Mot prioritaire">' + (pr ? '★' : '☆') + '</button>' + esc(t) + (learned.includes(t) ? '<span class="learned" title="Appris de tes corrections">appris</span>' : '') + '<button class="icon-btn" data-del="' + k + '" aria-label="Retirer ' + esc(t) + '"><svg width="12" height="12"><use href="#i-x"/></svg></button></span>'; }).join('')
       : '<span class="note" style="padding:6px 2px">Aucun terme. Ajoute les noms que la transcription écorche souvent.</span>';
   }
   $('#vocabForm').addEventListener('submit', (e) => {
@@ -3353,8 +3564,371 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     toast(n ? (n > 1 ? n + ' termes ajoutés' : 'Terme ajouté') : 'Déjà dans le dictionnaire');
   });
   $('#vocabChips').addEventListener('click', (e) => {
+    const st = e.target.closest('[data-star]');
+    if (st) {
+      const t = vocab()[+st.dataset.star]; if (!t) return; const p = prioList();
+      cset('dictionary.priority', p.includes(t) ? p.filter((x) => x !== t) : p.concat(t).slice(-200));
+      renderVocab(); return;
+    }
     const b = e.target.closest('[data-del]'); if (!b) return;
-    const v = vocab(); v.splice(+b.dataset.del, 1); cset('cleaning.vocabulary', v); renderVocab();
+    const v = vocab(); const gone = v.splice(+b.dataset.del, 1)[0]; cset('cleaning.vocabulary', v);
+    if (learnedList().includes(gone)) cset('dictionary.learned', learnedList().filter((x) => x !== gone));
+    if (prioList().includes(gone)) cset('dictionary.priority', prioList().filter((x) => x !== gone));
+    renderVocab();
+  });
+  // termes appris côté main (src/main/learn.ts) : la liste se met à jour sans rouvrir la page
+  if (has('onConfigChanged')) api.onConfigChanged((m) => {
+    if (!m || typeof m.key !== 'string') return;
+    cfg[m.key] = m.value;
+    if (['cleaning.vocabulary', 'dictionary.learned', 'dictionary.priority'].includes(m.key)) renderVocab();
+    else if (m.key === 'dictionary.replacements') renderReps();
+    else if (m.key === 'snippets.list') { if (page === 'snippets') refreshSnippets(); }
+    else if (m.key === 'rewrite.presets') { if (page === 'style') refreshPresets(); }
+    else bindSettings(document);
+  });
+
+  /* ═════════ Parité Wispr : historique, bloc-notes, snippets, remplacements, réécriture, micro, stats ═════════ */
+  const grp = (n) => (api[n] && typeof api[n] === 'object') ? api[n] : null;
+  async function copyText(txt) {
+    try { await navigator.clipboard.writeText(txt); } catch (err) { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+  }
+  const errMsg = (e) => String((e && e.message) || e || 'Erreur').replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+  const plural = (n, one, many) => n + ' ' + (n > 1 ? many : one);
+
+  // — Historique (retry / version brute / dictées annulées)
+  let hist = [];
+  const STATUS_FR = { cancelled: 'Annulée', failed: 'Échec' };
+  async function refreshHistory() {
+    try { hist = await api.getRecent(); } catch (e) { hist = []; }
+    if (!Array.isArray(hist)) hist = [];
+    renderHistory(); refreshNotepad();
+  }
+  function renderHistory() {
+    const f = ($('input[name="hfilter"]:checked') || {}).value || 'all';
+    const H = grp('history');
+    const kept = (d) => d.status === 'cancelled' || d.status === 'failed';
+    const list = hist.filter((d) => f === 'all' || kept(d));
+    const el = $('#histList');
+    if (!list.length) { el.innerHTML = '<div class="empty">' + (f === 'all' ? 'Aucune dictée pour l\'instant.' : 'Rien à récupérer : aucune dictée annulée ou ratée.') + '</div>'; return; }
+    el.innerHTML = '<div class="ritems">' + list.map((d) => {
+      const k = hist.indexOf(d); const txt = d.text || d.raw || '';
+      const when = new Date(d.at); const meta = [isFinite(when) ? esc(when.toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })) : '', d.app ? esc(d.app) : '',
+        kept(d) ? '<span class="badge warn">' + STATUS_FR[d.status] + '</span>' : (d.provider === 'passthrough' ? 'Brut' : d.provider === 'snippet' ? 'Snippet' : esc(provName(d.provider)))].filter(Boolean).join(' · ');
+      return '<div class="ritem"><div class="rt"><p class="selectable">' + (txt ? esc(txt) : '<span class="note">Pas encore transcrite' + (d.audio ? ' : « Réessayer » la récupère.' : '.') + '</span>') + '</p><div class="rm">' + meta + '</div></div><div class="acts">' +
+        (txt ? '<button class="btn" data-h="copy" data-k="' + k + '">Copier</button>' : '') +
+        (H && d.id && d.raw ? '<button class="btn" data-h="raw" data-k="' + k + '" title="Colle la transcription brute dans l\'app que tu utilisais">Coller brut</button>' : '') +
+        (H && d.id && d.audio ? '<button class="btn" data-h="retry" data-k="' + k + '" title="Retranscrit l\'enregistrement gardé">Réessayer</button>' : '') +
+        '</div></div>';
+    }).join('') + '</div>';
+  }
+  $('#histList').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-h]'); if (!b) return;
+    const d = hist[+b.dataset.k]; if (!d) return; const H = grp('history');
+    if (b.dataset.h === 'copy') { await copyText(d.text || d.raw); toast('Copié'); return; }
+    if (!H) return;
+    btnState(b, 'loading');
+    try {
+      if (b.dataset.h === 'raw') { const ok = await H.pasteRaw(d.id); btnState(b, ok ? 'success' : 'error', ok ? 'Collé' : 'Rien à coller'); }
+      else { const r = await H.retry(d.id); btnState(b, 'success', 'Retranscrite'); if (r && r.text) { await copyText(r.text); toast('Nouvelle version copiée'); } setTimeout(refreshHistory, 900); }
+    } catch (err) { btnState(b, 'error', 'Échec'); toast(errMsg(err), 'err'); }
+  });
+  $$('input[name="hfilter"]').forEach((r) => r.addEventListener('change', renderHistory));
+  if (has('onHistoryChanged')) api.onHistoryChanged(() => { if (page === 'history') refreshHistory(); });
+  on('dictation', () => { if (page === 'history') setTimeout(refreshHistory, 300); });
+
+  // — Bloc-notes vocal (f10)
+  let npItems = [];
+  async function refreshNotepad() {
+    const N = grp('notepad'); $('#npBlock').hidden = !N; if (!N) return;
+    try { npItems = await N.list(); } catch (e) { npItems = []; }
+    if (!Array.isArray(npItems)) npItems = [];
+    $('#npCount').textContent = npItems.length ? plural(npItems.length, 'entrée', 'entrées') : '';
+    $('#npList').innerHTML = npItems.length
+      ? '<div class="ritems">' + npItems.map((n, k) => '<div class="ritem"><div class="rt"><p class="selectable">' + esc(n.text) + '</p><div class="rm">' + esc(timeAgo(n.at)) + (n.app ? ' · ' + esc(n.app) : '') + '</div></div><div class="acts"><button class="btn" data-np="copy" data-k="' + k + '">Copier</button><button class="btn ghost" data-np="del" data-k="' + k + '">Supprimer</button></div></div>').join('') + '</div>'
+      : '<div class="empty">Bloc-notes vide. Active l\'interrupteur : tes prochaines dictées arriveront ici au lieu d\'être collées.</div>';
+    $('#npCopy').disabled = $('#npClear').disabled = !npItems.length;
+  }
+  $('#npList').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-np]'); if (!b) return; const n = npItems[+b.dataset.k]; if (!n) return;
+    if (b.dataset.np === 'copy') { await copyText(n.text); toast('Copié'); return; }
+    try { await grp('notepad').remove(n.id); } catch (err) { toast(errMsg(err), 'err'); }
+    refreshNotepad();
+  });
+  $('#npCopy').addEventListener('click', async () => { try { if (await grp('notepad').copy()) toast('Bloc-notes copié'); } catch (e) { toast(errMsg(e), 'err'); } });
+  $('#npClear').addEventListener('click', async () => {
+    if (!(await cbwConfirm({ title: 'Vider le bloc-notes ?', body: plural(npItems.length, 'entrée sera supprimée', 'entrées seront supprimées') + ' de ce Mac.', ok: 'Vider' }))) return;
+    try { await grp('notepad').clear(); } catch (e) { toast(errMsg(e), 'err'); }
+    refreshNotepad();
+  });
+
+  // — Snippets (f1)
+  let snips = [], snipEdit = -1;
+  async function refreshSnippets() {
+    const S = grp('snippets');
+    try { snips = S ? await S.get() : []; } catch (e) { snips = []; }
+    if (!Array.isArray(snips)) snips = [];
+    renderSnippets();
+  }
+  function renderSnippets() {
+    $('#snipCount').textContent = snips.length ? snips.length + ' / 100' : '';
+    $('#snipList').innerHTML = snips.length
+      ? snips.map((s, k) => '<div class="pair"><b class="selectable">' + esc(s.trigger) + '</b><span class="arr" aria-hidden="true">→</span><span class="ptxt selectable">' + esc(s.text) + '</span><span class="pacts"><button class="btn ghost" data-sn="edit" data-k="' + k + '">Modifier</button><button class="btn ghost danger" data-sn="del" data-k="' + k + '" aria-label="Supprimer le snippet ' + esc(s.trigger) + '">Supprimer</button></span></div>').join('')
+      : '<div class="empty">Aucun snippet. Exemple : « ma signature » → « Cordialement, Camille ».</div>';
+  }
+  async function saveSnips(list, okMsg) {
+    const S = grp('snippets'); if (!S) return false;
+    try { snips = await S.set(list); renderSnippets(); toast(okMsg); return true; } catch (e) { toast(errMsg(e), 'err'); return false; }
+  }
+  function resetSnipForm() { snipEdit = -1; $('#snipTrig').value = ''; $('#snipText').value = ''; $('#snipSubmit').textContent = 'Ajouter'; }
+  $('#snipForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const trigger = $('#snipTrig').value.trim(), text = $('#snipText').value;
+    if (!trigger || !text.trim()) { toast('Il faut un déclencheur et un texte', 'err'); return; }
+    const list = snips.slice();
+    if (list.some((s, i) => i !== snipEdit && s.trigger.toLowerCase() === trigger.toLowerCase())) { toast('Ce déclencheur existe déjà', 'err'); return; }
+    if (snipEdit >= 0) list[snipEdit] = { trigger, text };
+    else { if (list.length >= 100) { toast('100 snippets maximum', 'err'); return; } list.push({ trigger, text }); }
+    if (await saveSnips(list, snipEdit >= 0 ? 'Snippet modifié' : 'Snippet ajouté')) { resetSnipForm(); $('#snipTrig').focus(); }
+  });
+  $('#snipList').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-sn]'); if (!b) return; const k = +b.dataset.k; const s = snips[k]; if (!s) return;
+    if (b.dataset.sn === 'edit') { snipEdit = k; $('#snipTrig').value = s.trigger; $('#snipText').value = s.text; $('#snipSubmit').textContent = 'Enregistrer'; $('#snipTrig').focus(); return; }
+    if (!(await cbwConfirm({ title: 'Supprimer ce snippet ?', body: '« ' + s.trigger + ' »', ok: 'Supprimer' }))) return;
+    const list = snips.slice(); list.splice(k, 1);
+    if (await saveSnips(list, 'Snippet supprimé') && snipEdit === k) resetSnipForm();
+  });
+
+  // — Règles de remplacement (f4) : réglage dictionary.replacements = ["avant => après"]
+  function reps() { const v = cget('dictionary.replacements'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.indexOf('=>') > 0) : []; }
+  const repSplit = (x) => { const i = x.indexOf('=>'); return { from: x.slice(0, i).trim(), to: x.slice(i + 2).trim() }; };
+  function renderReps() {
+    const r = reps(); $('#repCount').textContent = r.length ? plural(r.length, 'règle', 'règles') : '';
+    $('#repList').innerHTML = r.length
+      ? r.map((x, k) => { const p = repSplit(x); return '<div class="pair"><b class="selectable">' + esc(p.from) + '</b><span class="arr" aria-hidden="true">→</span><span class="ptxt selectable">' + (p.to ? esc(p.to) : '<span class="note">(retiré)</span>') + '</span><span class="pacts"><button class="btn ghost" data-rep="' + k + '" aria-label="Retirer la règle ' + esc(p.from) + '">Retirer</button></span></div>'; }).join('')
+      : '<div class="empty">Aucune règle pour l\'instant.</div>';
+  }
+  $('#repForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const from = $('#repFrom').value.replace(/=>/g, '').trim(), to = $('#repTo').value.replace(/=>/g, '').trim();
+    if (!from) { toast('Indique le mot à remplacer', 'err'); return; }
+    if (from.toLowerCase() === to.toLowerCase()) { toast('Les deux mots sont identiques', 'err'); return; }
+    const r = reps().filter((x) => repSplit(x).from.toLowerCase() !== from.toLowerCase());
+    if (r.length >= 500) { toast('500 règles maximum', 'err'); return; }
+    r.push(from + ' => ' + to); cset('dictionary.replacements', r);
+    $('#repFrom').value = ''; $('#repTo').value = ''; renderReps(); $('#repFrom').focus(); toast('Règle ajoutée');
+  });
+  $('#repList').addEventListener('click', (e) => { const b = e.target.closest('[data-rep]'); if (!b) return; const r = reps(); r.splice(+b.dataset.rep, 1); cset('dictionary.replacements', r); renderReps(); });
+
+  // — Export / import JSON (f7), contacts (f5)
+  async function reloadDictCfg() { try { cfg = Object.assign(cfg, await api.getConfig()); } catch (e) { /* */ } renderVocab(); renderReps(); }
+  $('#dictExport').addEventListener('click', async () => {
+    const D = grp('dictionary'); if (!D) { toast('Indisponible en démo'); return; }
+    try { const r = await D.export(); if (r && r.ok) toast('Exporté : ' + plural(r.terms, 'terme', 'termes') + ', ' + plural(r.rules, 'règle', 'règles') + ', ' + r.snippets + ' snippets'); } catch (e) { toast(errMsg(e), 'err'); }
+  });
+  $('#dictImport').addEventListener('click', async () => {
+    const D = grp('dictionary'); if (!D) { toast('Indisponible en démo'); return; }
+    try {
+      const r = await D.import(); if (!r) return;
+      if (!r.ok) { if (r.message) toast(r.message, 'err'); return; }
+      await reloadDictCfg();
+      toast('Importé : +' + r.terms + ' termes, +' + r.rules + ' règles, +' + r.snippets + ' snippets');
+    } catch (e) { toast(errMsg(e), 'err'); }
+  });
+  $('#contactsImport').addEventListener('click', async (e) => {
+    const b = e.currentTarget; if (!has('importContacts')) { toast('Indisponible en démo'); return; }
+    btnState(b, 'loading', 'Lecture des contacts…');
+    try {
+      const r = await api.importContacts({ calendar: $('#contactsCal').checked });
+      const denied = (r.errors || []).some((x) => x.reason === 'denied');
+      if (denied && !r.added) { btnState(b, 'error', 'Accès refusé'); toast('Autorisation refusée : Réglages Système › Confidentialité › Automatisation', 'err'); }
+      else { btnState(b, 'success', r.added ? plural(r.added, 'nom ajouté', 'noms ajoutés') : 'Rien de nouveau'); await reloadDictCfg(); }
+    } catch (err) { btnState(b, 'error', 'Échec'); toast(errMsg(err), 'err'); }
+  });
+
+  // — Réécriture : consignes enregistrées (f3) + mode prompt
+  let presets = [], rwEdit = -1;
+  async function refreshPresets() {
+    const R = grp('rewrite');
+    try { presets = R ? await R.getPresets() : []; } catch (e) { presets = []; }
+    if (!Array.isArray(presets)) presets = [];
+    renderPresets();
+  }
+  function renderPresets() {
+    $('#rwList').innerHTML = presets.length
+      ? presets.map((p, k) => '<div class="pair"><b class="selectable">' + esc(p.name) + '</b><span class="arr" aria-hidden="true">→</span><span class="ptxt selectable">' + esc(p.instruction) + '</span><span class="pacts"><button class="btn ghost" data-rw="edit" data-k="' + k + '">Modifier</button><button class="btn ghost danger" data-rw="del" data-k="' + k + '" aria-label="Supprimer la consigne ' + esc(p.name) + '">Supprimer</button></span></div>').join('')
+      : '<div class="empty">Aucune consigne enregistrée.</div>';
+  }
+  async function savePresets(list, okMsg) {
+    const R = grp('rewrite'); if (!R) return false;
+    try { presets = await R.setPresets(list); renderPresets(); toast(okMsg); return true; } catch (e) { toast(errMsg(e), 'err'); return false; }
+  }
+  function resetRwForm() { rwEdit = -1; $('#rwName').value = ''; $('#rwInstr').value = ''; $('#rwSubmit').textContent = 'Ajouter'; }
+  $('#rwForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('#rwName').value.trim(), instruction = $('#rwInstr').value.trim();
+    if (!name || instruction.length < 3) { toast('Il faut un nom et une consigne', 'err'); return; }
+    const list = presets.slice();
+    if (list.some((p, i) => i !== rwEdit && p.name.toLowerCase() === name.toLowerCase())) { toast('Ce nom existe déjà', 'err'); return; }
+    if (rwEdit >= 0) list[rwEdit] = { id: list[rwEdit].id, name, instruction };
+    else { if (list.length >= 20) { toast('20 consignes maximum', 'err'); return; } list.push({ name, instruction }); }
+    if (await savePresets(list, rwEdit >= 0 ? 'Consigne modifiée' : 'Consigne ajoutée')) resetRwForm();
+  });
+  $('#rwList').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-rw]'); if (!b) return; const k = +b.dataset.k; const p = presets[k]; if (!p) return;
+    if (b.dataset.rw === 'edit') { rwEdit = k; $('#rwName').value = p.name; $('#rwInstr').value = p.instruction; $('#rwSubmit').textContent = 'Enregistrer'; $('#rwName').focus(); return; }
+    if (!(await cbwConfirm({ title: 'Supprimer cette consigne ?', body: '« ' + p.name + ' »', ok: 'Supprimer' }))) return;
+    const list = presets.slice(); list.splice(k, 1);
+    if (await savePresets(list, 'Consigne supprimée') && rwEdit === k) resetRwForm();
+  });
+  function renderPromptMode() {
+    const m = cget('cleaning.promptMode');
+    $$('input[name="pmode"]').forEach((r) => { r.checked = r.value === (m === 'on' || m === 'off' ? m : 'auto'); });
+    syncSegs();
+  }
+  $$('input[name="pmode"]').forEach((r) => r.addEventListener('change', () => { if (r.checked) cset('cleaning.promptMode', r.value); }));
+
+  // — Raccourcis d'action (coller / copier la dernière dictée, réécrire)
+  const SC_KEYS = ['shortcuts.pasteLast', 'shortcuts.copyLast', 'shortcuts.rewrite'];
+  function renderShortcutHints() {
+    const pl = cget('shortcuts.pasteLast'), rw = cget('shortcuts.rewrite');
+    $('#guidePaste').innerHTML = pl ? kbdHtml(pl) : 'l\'Historique';
+    $('#rwKey').innerHTML = rw ? kbdHtml(rw) : 'le raccourci (désactivé, voir Réglages › Raccourcis)';
+  }
+  $$('[data-sc-box]').forEach((box) => {
+    const key = box.dataset.scBox; const keys = $('[data-sc-keys]', box);
+    const paint = () => { const v = cget(key); keys.innerHTML = v ? kbdHtml(v) : '<span class="note">Désactivé</span>'; };
+    paint(); box.addEventListener('sc:paint', paint);
+    makeRecorder($('[data-sc-rec]', box), box, (acc) => {
+      if (acc === undefined) { keys.innerHTML = '<span class="note">Tape ta combinaison…</span>'; return; }
+      if (acc) {
+        const clash = SC_KEYS.some((k) => k !== key && cget(k) === acc) || cget('general.shortcut') === acc;
+        if (clash) toast('Déjà pris par un autre raccourci', 'err'); else { cset(key, acc); toast('Raccourci enregistré'); }
+      }
+      paint(); renderShortcutHints();
+    });
+    const off = box.parentElement.querySelector('[data-sc-off]');
+    if (off) off.addEventListener('click', () => { cset(key, ''); paint(); renderShortcutHints(); toast('Raccourci désactivé'); });
+  });
+  renderShortcutHints();
+
+  // — Saisie sécurisée (indicateur Réglages › Raccourcis)
+  function renderSecure(s) { $('#secureRow').hidden = !(s && s.active); $('#secureApp').textContent = s && s.app ? s.app : 'une app'; }
+  if (has('getSecureInput')) api.getSecureInput().then((a) => renderSecure({ active: !!a, app: '' })).catch(() => undefined);
+  if (has('onSecureInput')) api.onSecureInput(renderSecure);
+
+  // — Micro : liste des entrées, effacement des enregistrements
+  async function refreshMics() {
+    const A = grp('audio'); const sel = $('#micSelect'); if (!A) return;
+    let list = []; try { list = await A.listInputs(); } catch (e) { list = []; }
+    if (!Array.isArray(list)) list = [];
+    const cur = String(cget('audio.inputDeviceId') || '');
+    const real = list.filter((d) => d && d.id && d.id !== 'default' && d.id !== 'communications');
+    sel.innerHTML = '<option value="">Défaut du système</option>' +
+      real.map((d) => '<option value="' + esc(d.id) + '">' + esc(d.label || 'Micro sans nom') + (d.bluetooth ? ' · Bluetooth' : d.builtIn ? ' · intégré' : '') + '</option>').join('') +
+      (cur && !real.some((d) => d.id === cur) ? '<option value="' + esc(cur) + '">Micro absent (défaut utilisé)</option>' : '');
+    sel.value = cur;
+  }
+  $('#micSelect').addEventListener('change', (e) => { cset('audio.inputDeviceId', e.target.value); toast('Micro enregistré'); });
+  $('#micRefresh').addEventListener('click', refreshMics);
+  $('#clearAudioBtn').addEventListener('click', async (e) => {
+    const b = e.currentTarget; const H = grp('history'); if (!H) { toast('Indisponible en démo'); return; }
+    if (!(await cbwConfirm({ title: 'Supprimer les enregistrements ?', body: 'Les fichiers audio des dictées sont effacés de ce Mac. Les textes restent ; « Réessayer » ne sera plus possible pour elles.', ok: 'Supprimer' }))) return;
+    try { await H.clearAudio(); btnState(b, 'success', 'Supprimés'); } catch (err) { toast(errMsg(err), 'err'); }
+  });
+
+  // — Accueil : guide « bien dicter » (masquable) + test du micro (niveau en direct)
+  (function guide() {
+    let hidden = false; try { hidden = localStorage.getItem('cbw.guideHidden') === '1'; } catch (e) { /* */ }
+    $('#guideCard').hidden = hidden;
+    $('#guideHide').addEventListener('click', () => { $('#guideCard').hidden = true; try { localStorage.setItem('cbw.guideHidden', '1'); } catch (e) { /* */ } });
+  })();
+  (function micTest() {
+    const meter = $('#micMeter'); meter.innerHTML = '<i></i>'.repeat(20); const bars = $$('i', meter);
+    const btn = $('#micTestBtn'); const M = grp('micTest'); let active = false, peak = 0, demoIv = 0;
+    const draw = (lv) => { const n = Math.round(Math.max(0, Math.min(1, lv)) * 20); bars.forEach((b, i) => b.classList.toggle('on', i < n)); };
+    const end = () => {
+      active = false; clearInterval(demoIv); btn.textContent = 'Tester mon micro'; draw(0);
+      $('#micNote').innerHTML = peak > .35 ? '<b>Micro OK.</b> Ta voix arrive bien.'
+        : peak > .08 ? '<b>Voix faible.</b> Rapproche-toi du micro, ou active « Voix basse » dans Réglages › Micro.'
+        : '<b>Aucun son.</b> Vérifie le micro choisi dans Réglages › Micro.';
+    };
+    if (has('onMicLevel')) api.onMicLevel((v) => { if (!active) return; if (v < 0) { end(); return; } peak = Math.max(peak, v); draw(v); });
+    btn.addEventListener('click', async () => {
+      if (active) { if (M) { try { await M.stop(); } catch (e) { /* */ } } end(); return; }
+      peak = 0; active = true; btn.textContent = 'Arrêter'; $('#micNote').textContent = 'Parle normalement… (15 s maximum)';
+      if (!M) { let t = 0; demoIv = setInterval(() => { t++; const v = .15 + .55 * Math.abs(Math.sin(t / 3)) * Math.random(); if (t > 50) { end(); return; } peak = Math.max(peak, v); draw(v); }, 80); return; }
+      try {
+        const r = await M.start();
+        if (r && r.ok === false) { active = false; btn.textContent = 'Tester mon micro'; $('#micNote').textContent = r.message || 'Test impossible pour l\'instant.'; }
+      } catch (e) { active = false; btn.textContent = 'Tester mon micro'; toast(errMsg(e), 'err'); }
+    });
+  })();
+
+  // — Statistiques (f11) : carte de chaleur + carte à partager (PNG local)
+  let activity = [];
+  async function renderHeat() {
+    const card = $('#heatCard');
+    if (!has('getActivity')) { card.hidden = true; return; }
+    try { activity = await api.getActivity(); } catch (e) { activity = []; }
+    if (!Array.isArray(activity)) activity = [];
+    const days = activity.filter((d) => d.dictations > 0).length;
+    card.hidden = !days;
+    if (!days) return;
+    if (window.CBWCharts && typeof window.CBWCharts.renderHeatmap === 'function') window.CBWCharts.renderHeatmap($('#heat'), activity);
+    $('#heatSum').textContent = plural(days, 'jour actif', 'jours actifs');
+  }
+  function makeShareCard() {
+    const s = lastStats || {}; const W = 1200, H = 630;
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+    const F = getComputedStyle(root).getPropertyValue('--police').trim() || 'Archivo, sans-serif';
+    const MONO = getComputedStyle(root).getPropertyValue('--mono').trim() || 'monospace';
+    const INK = '#1E1E1C', SEC = '#5F5F5A', FIL = '#DDDDDD';
+    x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, W, H);
+    // signature : trois barres orange / bleu / vert
+    [['#FF5A1F', 0], ['#2B3BFF', 1], ['#1FD26A', 2]].forEach(([col, i]) => { x.fillStyle = col; x.fillRect(64 + i * 62, 64, 56, 8); });
+    x.fillStyle = INK; x.font = '900 34px ' + F; x.textBaseline = 'alphabetic'; x.fillText('CBW AI', 64, 124);
+    x.fillStyle = SEC; x.font = '500 16px ' + MONO; x.fillText('MES STATS DE DICTÉE', 64, 156);
+    // chiffre principal
+    try { x.fontStretch = 'condensed'; } catch (e) { /* */ }
+    x.fillStyle = INK; x.font = '900 168px ' + F;
+    const words = Number(s.words) || 0; const big = words.toLocaleString('fr-FR');
+    x.fillText(big, 58, 330);
+    x.fillStyle = '#FF5A1F'; x.font = '900 40px ' + F; x.fillText('mots dictés', 66, 384);
+    try { x.fontStretch = 'normal'; } catch (e) { /* */ }
+    // trois chiffres
+    const tm = (Number(s.timeSavedMin) || 0) >= 120 ? fmt1((s.timeSavedMin || 0) / 60) + ' h' : fmt(s.timeSavedMin || 0) + ' min';
+    const tiles = [['TEMPS GAGNÉ', tm], ['SÉRIE', fmt(s.streakDays || 0) + ' j'], ['VITESSE', fmt(s.wpm || 0) + ' mots/min']];
+    x.fillStyle = INK; x.fillRect(64, 430, W - 128, 2);
+    tiles.forEach((t, i) => {
+      const tx = 64 + i * ((W - 128) / 3);
+      x.fillStyle = SEC; x.font = '500 15px ' + MONO; x.fillText(t[0], tx, 468);
+      x.fillStyle = INK; x.font = '800 40px ' + F; x.fillText(t[1], tx, 516);
+    });
+    // 26 dernières semaines en carrés verts
+    const act = activity.slice(-182); const mx = Math.max(1, ...act.map((d) => d.words || 0));
+    const cell = 12, gap = 3, x0 = W - 64 - 26 * (cell + gap) + gap, y0 = 64;
+    act.forEach((d, i) => {
+      const col = Math.floor(i / 7), row = i % 7, r = (d.words || 0) / mx;
+      x.fillStyle = !d.words ? '#ECECE8' : r > .75 ? '#1FD26A' : r > .5 ? '#62DE96' : r > .25 ? '#A0EABF' : '#CDF3DD';
+      x.fillRect(x0 + col * (cell + gap), y0 + row * (cell + gap), cell, cell);
+    });
+    x.fillStyle = FIL; x.fillRect(64, H - 72, W - 128, 1);
+    x.fillStyle = SEC; x.font = '500 14px ' + MONO; x.fillText('DICTÉ AVEC CBW AI · TOUT RESTE SUR MON MAC', 64, H - 40);
+    return c.toDataURL('image/png');
+  }
+  let shareUrl = '';
+  $('#shareMake').addEventListener('click', async () => {
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) { /* */ }
+    shareUrl = makeShareCard(); $('#sharePrev').src = shareUrl; $('#shareOut').hidden = false;
+  });
+  $('#shareSave').addEventListener('click', async (e) => {
+    const I = grp('image');
+    if (!I) { const a = document.createElement('a'); a.href = shareUrl; a.download = 'CBW AI - mes stats.png'; a.click(); return; }
+    try { if (await I.save(shareUrl)) btnState(e.currentTarget, 'success', 'Enregistrée'); } catch (err) { toast(errMsg(err), 'err'); }
+  });
+  $('#shareCopy').addEventListener('click', async (e) => {
+    const I = grp('image'); if (!I) { toast('Indisponible en démo'); return; }
+    try { await I.copy(shareUrl); btnState(e.currentTarget, 'success', 'Copiée'); } catch (err) { toast(errMsg(err), 'err'); }
   });
 
   // Style (+ miroir dans Réglages)
@@ -3547,6 +4121,9 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     const I = (g, t, k, run) => ({ g, t, k, run });
     const a = [
       I('Pages', 'Accueil', '', () => openPage('home')), I('Pages', 'Notes', '', () => openPage('notes')),
+      I('Pages', 'Historique', '', () => openPage('history')), I('Pages', 'Snippets', '', () => openPage('snippets')),
+      I('Réglages', 'Micro', 'Micro, AirPods, voix basse', () => { openPage('settings'); scrollToSection('settings-audio'); }),
+      I('Réglages', 'Raccourcis', 'Coller, copier, réécrire, souris', () => { openPage('settings'); scrollToSection('settings-keys'); }),
       I('Pages', 'Dictionnaire', '', () => openPage('dictionary')), I('Pages', 'Style', '', () => openPage('style')), I('Pages', 'Réglages', '', () => openPage('settings')),
       I('Actions', 'Nouvelle note', '', () => startNote(null)),
       I('Actions', 'Thème clair', '', () => setThemeFromPal('light')), I('Actions', 'Thème sombre', '', () => setThemeFromPal('dark')), I('Actions', 'Thème du système', '', () => setThemeFromPal('system')),
@@ -3598,6 +4175,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     // ouvre l'accordéon si un fournisseur secondaire a déjà une clé
     if (others.some((id) => String(cget('providers.' + id + '.apiKey') || '').trim())) $('#obMore').open = true;
     renderVocab(); renderLevel(); renderTheme(); renderMic(); renderAcc(); renderPermRows();
+    renderReps(); renderPromptMode(); renderShortcutHints(); $$('[data-sc-box]').forEach((x) => x.dispatchEvent(new Event('sc:paint')));
     refreshOllama();
     refreshStatuses();
     refreshWPrep();
@@ -3652,6 +4230,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       { raw: 'merci pour ton retour hum je regarde ça demain matin', text: 'Merci pour ton retour, je regarde ça demain matin.', provider: 'ollama', model: 'gemma4:e4b', at: new Date(now - 26 * 3600e3).toISOString(), ms: 1830 },
       { raw: 'rappelle moi d\'appeler le comptable avant vendredi', text: 'Rappelle-moi d\'appeler le comptable avant vendredi.', provider: 'groq', model: 'llama-3.1-8b-instant', at: new Date(now - 30 * 3600e3).toISOString(), ms: 610 },
       { raw: 'le le rendu est super propre on garde cette version', text: 'Le rendu est super propre, on garde cette version.', provider: 'gemini', model: 'gemini-2.5-flash-lite', at: new Date(now - 50 * 3600e3).toISOString(), ms: 1040 },
+      { id: 'demo0001', status: 'cancelled', audio: true, raw: 'alors pour le devis on part sur trois semaines', text: '', provider: '', model: '', at: new Date(now - 90e3).toISOString(), ms: 0 },
       { raw: 'euh peux-tu décaler la réunion à mardi', text: 'Peux-tu décaler la réunion à mardi ?', provider: 'passthrough', model: '', at: new Date(now - 70 * 3600e3).toISOString(), ms: 410 }
     ];
     // 30 jours plausibles (creux le week-end, quelques jours vides, latence qui baisse)
@@ -3803,6 +4382,12 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       deleteNote: async (id) => { const i = notesD.findIndex((x) => x.meta.id === id); if (i >= 0) notesD.splice(i, 1); },
       revealNote: async () => { /* Finder : rien en démo */ },
       copyNote: async (id) => { const n = notesD.find((x) => x.meta.id === id); if (n) { try { await navigator.clipboard.writeText(n.markdown); } catch (e) { /* */ } } },
+      getActivity: async () => { const out = []; for (let i = 364; i >= 0; i--) { const d = new Date(now - i * 864e5); const wd = d.getDay(); const act = rnd() < (wd === 0 || wd === 6 ? .25 : .8) && i < 300; const w = act ? Math.round(80 + rnd() * 600) : 0; out.push({ date: d.toISOString().slice(0, 10), words: w, dictations: w ? Math.max(1, Math.round(w / 30)) : 0 }); } return out; },
+      snippets: (() => { let l = [{ trigger: 'ma signature', text: 'Cordialement,\nCamille' }]; return { get: async () => l.slice(), set: async (x) => (l = x.slice()) }; })(),
+      rewrite: (() => { let l = [{ id: 'court', name: 'Plus court', instruction: 'Raccourcis le texte en gardant tous les faits importants.' }, { id: 'poli', name: 'Plus poli', instruction: 'Réécris le texte sur un ton plus poli et courtois, sans changer le fond ni rien ajouter.' }]; return { getPresets: async () => l.slice(), setPresets: async (x) => (l = x.map((p, i) => Object.assign({ id: p.id || 'p' + Date.now() + i }, p))), run: async () => true }; })(),
+      notepad: (() => { let l = [{ id: 'np01', text: 'Idée : une page « Ce qui sort de votre Mac » sur le site.', at: new Date(now - 3600e3).toISOString() }]; return { list: async () => l.slice(), remove: async (id) => { l = l.filter((x) => x.id !== id); return true; }, clear: async () => { l = []; }, copy: async () => true }; })(),
+      history: { retry: async () => { await wait(800); return null; }, pasteRaw: async () => true, recover: async () => null, clearAudio: async () => undefined },
+      audio: { listInputs: async () => [{ id: 'mbp', label: 'Micro MacBook Pro', builtIn: true }, { id: 'airpods', label: 'AirPods de Camille', bluetooth: true }] },
       platform: { version: '0.1.0 (démo)' },
       // aides démo / captures
       _start: start, _stop: stop,

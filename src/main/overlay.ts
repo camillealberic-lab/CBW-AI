@@ -1,9 +1,11 @@
-import { BrowserWindow, screen, systemPreferences } from 'electron';
+import { BrowserWindow, ipcMain, Menu, screen, systemPreferences } from 'electron';
+import { EventEmitter } from 'node:events';
 import { execFile, spawn } from 'node:child_process';
 import { findBin } from './whisper';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { DictaStatus } from '../shared/types';
+import { HIDE_MS, isHiddenAt, LANGUAGES, languageOf, previewTail } from './keysLogic';
 import { distDir } from './paths';
 import { settings } from './settings';
 import { playSound } from './sounds';
@@ -105,7 +107,13 @@ function clampTo(d: Electron.Display, r: Electron.Rectangle): Electron.Rectangle
   };
 }
 
-export class Overlay {
+/** Réglages de la pastille lus ici (clés, défauts : voir chantiers/wispr-parite/api-keys.md). */
+const LIVE_KEY = 'overlay.livePreview'; // défaut false : aucun texte dans la pastille
+const HIDDEN_KEY = 'overlay.hiddenUntil'; // epoch ms ; 0 = visible
+const LANG_KEY = 'general.language';
+
+/** Événements : 'hiddenChange' (hidden: boolean, until: number). */
+export class Overlay extends EventEmitter {
   private win: BrowserWindow | null = null;
   private loaded = false;
   private last: DictaStatus = { state: 'idle' };
@@ -158,20 +166,22 @@ export class Overlay {
       this.push(this.last);
     });
     this.reposition();
-    this.win.showInactive();
+    this.applyVisibility();
     // Toujours présente, sur toutes les pages : suit l'écran du curseur, se réaffiche si macOS l'a masquée
     // (changement de bureau, sortie de veille, plein écran).
     this.follow = setInterval(() => {
       if (!this.win || this.win.isDestroyed()) return;
       if (!this.hovered) this.reposition();
-      if (!this.win.isVisible()) this.win.showInactive();
+      this.applyVisibility();
       this.win.setAlwaysOnTop(true, 'screen-saver');
     }, 500);
+    ipcMain.on('overlay:menu', this.onMenu);
     readDockPrefs();
     watchFullScreen(() => this.reposition());
     this.dockPoll = setInterval(() => this.watchAutoDock(), 100);
     this.prefsPoll = setInterval(readDockPrefs, 10_000);
     this.win.on('closed', () => {
+      ipcMain.removeListener('overlay:menu', this.onMenu);
       for (const t of [this.follow, this.dockPoll, this.prefsPoll]) if (t) clearInterval(t);
       if (this.slot && !this.slot.isDestroyed()) this.slot.destroy();
     });
@@ -449,11 +459,12 @@ export class Overlay {
     }
     // Recalculé à chaque apparition (début de dictée / note) : écran du curseur, Dock affiché ou non.
     if (s.state !== prev && (prev === 'idle' || prev === 'done' || prev === 'error')) this.reposition();
-    if (this.win && !this.win.isVisible()) {
+    if (this.win && !this.win.isVisible() && this.shouldShow()) {
       this.reposition();
       this.win.showInactive();
     }
     this.push(s);
+    if (this.hidden && this.last.state === 'idle') this.applyVisibility();
   }
 
   async capture(): Promise<Buffer | null> {
@@ -462,8 +473,93 @@ export class Overlay {
   }
 
   private push(s: DictaStatus): void {
-    // Aucun mot dicté n'apparaît dans la pastille : on garde barres + états, jamais le texte.
-    const { partialText: _hidden, ...visible } = s;
-    if (this.win && this.loaded) this.win.webContents.send('overlay:status', visible);
+    // Par défaut aucun mot dicté n'apparaît dans la pastille : barres + états, jamais le texte.
+    // Réglage overlay.livePreview (désactivé par défaut) : fin du texte provisoire, uniquement pendant l'écoute d'une dictée.
+    const { partialText, ...visible } = s;
+    const live = settings.get(LIVE_KEY) === true && s.state === 'recording' && s.mode !== 'note' && partialText;
+    const out = live ? { ...visible, partialText: previewTail(partialText) } : visible;
+    if (this.win && this.loaded) this.win.webContents.send('overlay:status', out);
   }
+
+  // ---- Masquer la pastille (c13) ----
+  private hideTimer: NodeJS.Timeout | null = null;
+
+  /** Date de réapparition (epoch ms) ou 0 si la pastille n'est pas masquée. */
+  get hiddenUntil(): number {
+    const u = Number(settings.get(HIDDEN_KEY) ?? 0);
+    return isHiddenAt(u) ? u : 0;
+  }
+  get hidden(): boolean {
+    return this.hiddenUntil > 0;
+  }
+
+  /** Masque la pastille au repos pendant `ms` (1 h par défaut) ; elle réapparaît seule. Pendant une dictée elle reste visible (retour d'état). */
+  hideFor(ms = HIDE_MS): void {
+    const until = Date.now() + Math.max(1000, Math.min(ms, 24 * HIDE_MS));
+    settings.set(HIDDEN_KEY, until);
+    this.armHideTimer();
+    this.applyVisibility();
+    this.emit('hiddenChange', true, until);
+  }
+
+  /** Réaffiche tout de suite (menu de la barre des menus, Réglages). */
+  unhide(): void {
+    if (!Number(settings.get(HIDDEN_KEY) ?? 0)) return;
+    settings.set(HIDDEN_KEY, 0);
+    if (this.hideTimer) clearTimeout(this.hideTimer);
+    this.hideTimer = null;
+    this.applyVisibility();
+    this.emit('hiddenChange', false, 0);
+  }
+
+  private armHideTimer(): void {
+    if (this.hideTimer) clearTimeout(this.hideTimer);
+    this.hideTimer = null;
+    const left = this.hiddenUntil - Date.now();
+    if (left > 0) this.hideTimer = setTimeout(() => this.unhide(), Math.min(left + 50, 2 ** 31 - 1));
+  }
+
+  private shouldShow(): boolean {
+    return !this.hidden || this.last.state !== 'idle';
+  }
+
+  private applyVisibility(): void {
+    const w = this.win;
+    if (!w || w.isDestroyed()) return;
+    if (!this.hidden && Number(settings.get(HIDDEN_KEY) ?? 0)) settings.set(HIDDEN_KEY, 0); // échéance passée (app relancée)
+    if (this.shouldShow()) {
+      if (!w.isVisible()) w.showInactive();
+    } else if (w.isVisible()) {
+      this.setInteractive(false);
+      w.hide();
+    }
+    if (this.hidden && !this.hideTimer) this.armHideTimer();
+  }
+
+  // ---- Menu clic droit : langue (f8), aperçu (c14), masquer (c13), position ----
+  private onMenu = (e: Electron.IpcMainEvent): void => {
+    if (!this.win || this.win.isDestroyed() || e.sender !== this.win.webContents) return;
+    const cur = languageOf(settings.get(LANG_KEY)) ?? 'fr';
+    const menu = Menu.buildFromTemplate([
+      {
+        label: 'Langue de dictée',
+        submenu: LANGUAGES.map((l) => ({
+          label: l.label,
+          type: 'radio' as const,
+          checked: l.code === cur,
+          click: () => settings.set(LANG_KEY, l.code),
+        })),
+      },
+      {
+        label: 'Aperçu du texte pendant la dictée',
+        type: 'checkbox',
+        checked: settings.get(LIVE_KEY) === true,
+        click: (m) => settings.set(LIVE_KEY, m.checked),
+      },
+      { type: 'separator' },
+      { label: 'Masquer la pastille pendant 1 heure', click: () => this.hideFor() },
+      { label: 'Remettre la pastille en bas', click: () => this.resetPosition() },
+    ]);
+    menu.popup({ window: this.win, callback: () => this.setInteractive(false) });
+  };
 }

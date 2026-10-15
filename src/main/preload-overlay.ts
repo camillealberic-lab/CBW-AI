@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('dicta', {
   setHover: (on: boolean) => ipcRenderer.send('overlay:hover', !!on),
   /** Boutons du mode survol : 'dictate' (écoute) ou 'note' (prise de notes). */
   action: (name: 'dictate' | 'note') => ipcRenderer.send('overlay:action', name),
+  /** Clic droit sur la pastille : menu natif (langue, aperçu, masquer 1 h, position) ouvert côté main. */
+  menu: () => ipcRenderer.send('overlay:menu'),
   /** Glisser la pastille : 'start' | 'end' ; 'reset' (double-clic) = place par défaut. */
   drag: (arg: 'start' | 'end' | 'reset' | { phase: 'start' | 'end' | 'reset'; w?: number; h?: number }) =>
     ipcRenderer.send('overlay:drag', arg),

@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Veille Wispr Flow</title>
+<meta name="description" content="Veille complète sur Wispr Flow (mise en forme, voix, intégrations, forums) et propositions à décider pour CBW AI. 14 octobre 2026.">
+<link rel="stylesheet" href="../../assets/fonts/fonts.css">
+<style>
+:root{
+  --noir:#1E1E1C; --encre:#1C1C1E; --blanc:#FFFFFF;
+  --orange:#FF5A1F; --bleu:#2B3BFF; --vert:#1FD26A;
+  --fond:#FFFFFF; --fond-2:#F4F4F2; --fond-3:#ECECE8; --surface:#FFFFFF;
+  --texte:#1E1E1C; --texte-sec:#5F5F5A; --texte-3:#6E6E6A;
+  --trait:#1E1E1C; --fil:#DDDDDD; --fil-fort:#C4C4BF;
+  --inverse-fond:#1C1C1E; --inverse-texte:#FFFFFF;
+  --erreur:#B3261E; --focus:#2B3BFF; --lien:#2B3BFF;
+  --police:'Archivo',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  color-scheme:light dark;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --fond:#1A1B1D; --fond-2:#202124; --fond-3:#2C2D31; --surface:#25262A;
+    --texte:#ECECEA; --texte-sec:#A3A3A0; --texte-3:#8C8C88;
+    --trait:#D9D9D6; --fil:#3A3B3E; --fil-fort:#55565B;
+    --inverse-fond:#ECECEA; --inverse-texte:#1C1C1E;
+    --erreur:#FF6B5E; --focus:#7C86FF; --lien:#8F98FF;
+  }
+}
+:root[data-theme="dark"]{
+  --fond:#1A1B1D; --fond-2:#202124; --fond-3:#2C2D31; --surface:#25262A;
+  --texte:#ECECEA; --texte-sec:#A3A3A0; --texte-3:#8C8C88;
+  --trait:#D9D9D6; --fil:#3A3B3E; --fil-fort:#55565B;
+  --inverse-fond:#ECECEA; --inverse-texte:#1C1C1E;
+  --erreur:#FF6B5E; --focus:#7C86FF; --lien:#8F98FF;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-padding-top:72px;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--fond);color:var(--texte);font-family:var(--police);font-size:16px;line-height:1.6;overflow-x:hidden}
+a{color:var(--lien);text-underline-offset:2px}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+code,kbd{font-family:var(--mono);font-size:.86em}
+code{background:var(--fond-2);padding:1px 5px}
+.wrap{max-width:1040px;margin:0 auto;padding:0 16px}
+@media (min-width:720px){.wrap{padding:0 32px}}
+
+/* barre collante */
+.nav{position:sticky;top:0;z-index:10;background:var(--fond);border-bottom:2px solid var(--trait)}
+.nav .wrap{display:flex;align-items:center;gap:12px;min-height:56px}
+.nav ul{list-style:none;margin:0;padding:0;display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:none}
+.nav ul::-webkit-scrollbar{display:none}
+.nav a{display:block;white-space:nowrap;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--texte);text-decoration:none;padding:8px 10px;border-bottom:3px solid transparent}
+.nav a:hover{background:var(--fond-2)}
+.nav a.actif{border-bottom-color:var(--texte)}
+.compteur{flex:none;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.04em;text-decoration:none;color:var(--inverse-texte);background:var(--inverse-fond);padding:8px 10px;white-space:nowrap}
+.compteur:hover{text-decoration:none}
+
+/* en-tête */
+header.tete{padding:48px 0 32px;border-bottom:2px solid var(--trait)}
+.barres{display:grid;grid-template-columns:repeat(3,48px);gap:6px;margin-bottom:24px}
+.barres i{display:block;height:8px}
+.barres i:nth-child(1){background:var(--orange)}
+.barres i:nth-child(2){background:var(--bleu)}
+.barres i:nth-child(3){background:var(--vert)}
+.label{font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--texte-sec)}
+h1{font-size:clamp(34px,7vw,64px);font-weight:900;font-stretch:85%;line-height:.98;letter-spacing:-.035em;margin:12px 0 16px}
+.chapo{font-size:18px;max-width:720px;color:var(--texte-sec);margin:0}
+.legende{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:24px;font-size:13px;color:var(--texte-sec);align-items:center}
+
+/* badges */
+.b{display:inline-block;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.05em;padding:2px 6px;line-height:1.4;vertical-align:2px;white-space:nowrap}
+.b-p{background:var(--vert);color:var(--noir)}
+.b-o{background:var(--bleu);color:#fff}
+.b-s{border:1px solid var(--texte-sec);color:var(--texte-sec);padding:1px 5px}
+.b-bug{background:var(--erreur);color:#fff}
+
+/* sections */
+section{padding:56px 0 24px;border-bottom:2px solid var(--trait)}
+section:last-of-type{border-bottom:0}
+h2{font-size:clamp(30px,5vw,44px);font-weight:900;font-stretch:85%;line-height:1;letter-spacing:-.03em;margin:8px 0 24px}
+h3{font-size:22px;font-weight:800;letter-spacing:-.01em;line-height:1.2;margin:40px 0 12px}
+h4{font-size:16px;font-weight:800;margin:24px 0 8px}
+p{margin:0 0 14px;max-width:760px}
+ul.liste,ol.liste{padding-left:20px;margin:0 0 16px;max-width:780px}
+ul.liste li,ol.liste li{margin-bottom:8px}
+.note{font-size:13px;color:var(--texte-sec)}
+
+/* synthèse */
+.synthese{display:grid;gap:0;border:2px solid var(--trait);margin:0 0 32px}
+.synthese li{list-style:none;padding:14px 16px;border-bottom:1px solid var(--fil);display:grid;grid-template-columns:28px 1fr;gap:8px}
+.synthese li:last-child{border-bottom:0}
+.synthese .n{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--texte-sec);padding-top:2px}
+.leviers{display:grid;gap:16px;grid-template-columns:1fr;margin-bottom:24px}
+@media (min-width:820px){.leviers{grid-template-columns:repeat(3,1fr)}}
+.levier{border:2px solid var(--trait);padding:20px;background:var(--surface);position:relative}
+.levier::before{content:"";position:absolute;left:-2px;top:-2px;width:44px;height:8px}
+.levier.l1::before{background:var(--orange)}
+.levier.l2::before{background:var(--bleu)}
+.levier.l3::before{background:var(--vert)}
+.levier h3{margin:8px 0 8px;font-size:20px}
+.levier p{font-size:15px;margin:0}
+.mieux{background:var(--fond-2);border-left:6px solid var(--vert);padding:16px 20px;font-size:17px;font-weight:600;max-width:none}
+
+/* exemples avant/après */
+.ex{border:2px solid var(--trait);margin:0 0 24px}
+.ex-tete{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;padding:10px 16px;border-bottom:2px solid var(--trait);background:var(--fond-2)}
+.ex-tete strong{font-size:15px}
+.ex-grille{display:grid;grid-template-columns:1fr}
+@media (min-width:860px){.ex-grille{grid-template-columns:repeat(4,1fr)}}
+.ex-col{padding:14px 16px;border-bottom:1px solid var(--fil);min-width:0}
+@media (min-width:860px){.ex-col{border-bottom:0;border-right:1px solid var(--fil)}.ex-col:last-child{border-right:0}}
+.ex-col .label{display:block;margin-bottom:8px}
+.txt{font-family:var(--mono);font-size:13px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;margin:0}
+.ex-col.dit .txt{color:var(--texte-sec)}
+.ex-col.prop{background:var(--fond-2)}
+.nl{color:var(--bleu);font-weight:700}
+.ex-col.bug .txt{color:var(--erreur)}
+.ex-col .src{font-size:12px;color:var(--texte-sec);margin-top:10px}
+
+/* blocs de code / règles */
+.regles{border:2px solid var(--trait);margin:0 0 16px}
+.regles-tete{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 8px 8px 16px;border-bottom:2px solid var(--trait)}
+.regles pre{margin:0;padding:16px;font-family:var(--mono);font-size:12.5px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere;max-height:520px;overflow:auto;background:var(--fond-2)}
+.btn{font-family:var(--police);font-size:14px;font-weight:800;min-height:36px;padding:6px 14px;border:1px solid var(--fil-fort);background:var(--surface);color:var(--texte);cursor:pointer;border-radius:0}
+.btn:hover{background:var(--fond-2);border-color:var(--texte)}
+.btn-p{background:var(--inverse-fond);color:var(--inverse-texte);border-color:var(--inverse-fond)}
+.btn-p:hover{background:var(--inverse-fond);opacity:.88}
+
+/* tableaux */
+.tab{width:100%;overflow-x:auto;margin:0 0 24px;border:2px solid var(--trait)}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:640px}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--fil)}
+th{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--fond-2);border-bottom:2px solid var(--trait)}
+tr:last-child td{border-bottom:0}
+td.eff{font-family:var(--mono);font-weight:700;white-space:nowrap}
+td strong{font-weight:800}
+
+/* comparaisons courtes */
+.trois{display:grid;grid-template-columns:1fr;gap:16px;margin:0 0 24px}
+@media (min-width:820px){.trois{grid-template-columns:repeat(3,1fr)}}
+.bloc{border:2px solid var(--trait);padding:18px}
+.bloc h4{margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.bloc h4::before{content:"";width:10px;height:10px;flex:none;background:var(--c,var(--texte))}
+.bloc ul{margin:0;padding-left:18px;font-size:14.5px}
+.bloc li{margin-bottom:6px}
+
+/* pipeline */
+.pipe{display:grid;grid-template-columns:1fr;gap:0;border:2px solid var(--trait);margin:0 0 24px}
+@media (min-width:820px){.pipe{grid-template-columns:repeat(4,1fr)}}
+.pipe div{padding:14px 16px;border-bottom:1px solid var(--fil);font-size:14px}
+@media (min-width:820px){.pipe div{border-bottom:0;border-right:1px solid var(--fil)}.pipe div:last-child{border-right:0}}
+.pipe .label{display:block;margin-bottom:6px;color:var(--texte)}
+
+/* forums */
+.theme{display:grid;grid-template-columns:1fr;gap:4px 16px;padding:16px 0;border-bottom:1px solid var(--fil)}
+@media (min-width:720px){.theme{grid-template-columns:240px 1fr}}
+.theme:first-of-type{border-top:2px solid var(--trait)}
+.theme h4{margin:0 0 6px;font-size:16px}
+.freq{display:flex;gap:3px;align-items:center}
+.freq i{width:12px;height:12px;border:1.5px solid var(--texte)}
+.freq i.on{background:var(--texte)}
+.freq span{font-family:var(--mono);font-size:11px;color:var(--texte-sec);margin-left:6px}
+blockquote{margin:0 0 8px;padding:0 0 0 12px;border-left:3px solid var(--fil-fort);font-size:15px}
+blockquote cite{font-style:normal;font-size:12px;color:var(--texte-sec);display:block}
+
+/* bugs */
+.bugcarte{border:2px solid var(--trait);border-left:8px solid var(--erreur);padding:18px 20px;margin:0 0 16px}
+.bugcarte h3{margin:6px 0 10px;font-size:20px}
+
+/* à décider */
+.dec-barre{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 20px;padding:12px;border:2px solid var(--trait);background:var(--fond-2)}
+.dec-barre .grand{font-family:var(--mono);font-size:13px;font-weight:700;margin-right:auto}
+.filtres{display:flex;flex-wrap:wrap;gap:0;margin:0 0 20px}
+.filtres button{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;min-height:40px;padding:6px 12px;border:2px solid var(--trait);margin:0 -2px -2px 0;background:var(--surface);color:var(--texte);cursor:pointer}
+.filtres button[aria-pressed="true"]{background:var(--inverse-fond);color:var(--inverse-texte)}
+.groupe-titre{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:32px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--trait)}
+.cartes{display:grid;grid-template-columns:1fr;gap:16px}
+@media (min-width:820px){.cartes{grid-template-columns:repeat(2,1fr)}}
+.carte{border:2px solid var(--trait);background:var(--surface);display:flex;flex-direction:column}
+.carte-corps{padding:18px 18px 14px;flex:1}
+.carte-meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.eff-b{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 6px;border:1px solid var(--texte)}
+.conseil{font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 6px;background:var(--fond-3);color:var(--texte)}
+.carte h3{font-size:18px;margin:0 0 8px}
+.carte p{font-size:14.5px;margin:0 0 8px}
+.carte .source{font-size:12px;color:var(--texte-sec);margin:0}
+.choix{display:grid;grid-template-columns:repeat(3,1fr);border-top:2px solid var(--trait)}
+.choix button{font-family:var(--police);font-size:14px;font-weight:800;min-height:44px;border:0;border-right:1px solid var(--fil);background:var(--surface);color:var(--texte);cursor:pointer;border-radius:0}
+.choix button:last-child{border-right:0}
+.choix button:hover{background:var(--fond-2)}
+.choix button[aria-pressed="true"][data-v="ajouter"]{background:var(--vert);color:var(--noir)}
+.choix button[aria-pressed="true"][data-v="plus-tard"]{background:var(--inverse-fond);color:var(--inverse-texte)}
+.choix button[aria-pressed="true"][data-v="non"]{background:var(--fond-3);color:var(--texte-sec);text-decoration:line-through}
+.carte.tranchee{border-color:var(--fil-fort)}
+.toast{position:fixed;left:16px;right:16px;bottom:16px;max-width:420px;margin:0 auto;background:var(--inverse-fond);color:var(--inverse-texte);padding:12px 16px;font-weight:700;font-size:14px;display:none;z-index:20}
+.toast.vu{display:block}
+footer{padding:32px 0 64px;font-size:13px;color:var(--texte-sec)}
+@media (prefers-reduced-motion:no-preference){a,.btn,.choix button,.nav a{transition:background-color .2s var(--ease),color .2s var(--ease)}}
+</style>
+</head>
+<body>
+
+<nav class="nav" aria-label="Sommaire">
+  <div class="wrap">
+    <ul>
+      <li><a href="#synthese">Synthèse</a></li>
+      <li><a href="#forme">1 Mise en forme</a></li>
+      <li><a href="#voix">2 Voix</a></li>
+      <li><a href="#integrations">3 Intégrations</a></li>
+      <li><a href="#forums">4 Forums</a></li>
+      <li><a href="#prompt">5 Prompt et noms</a></li>
+      <li><a href="#bugs">6 Bugs</a></li>
+      <li><a href="#decider">À décider</a></li>
+    </ul>
+    <a class="compteur" href="#decider" id="compteur" title="Aller aux décisions">0 / 0 tranchés</a>
+  </div>
+</nav>
+
+<main>
+<header class="tete">
+  <div class="wrap">
+    <div class="barres" aria-hidden="true"><i></i><i></i><i></i></div>
+    <span class="label">Veille · 14 octobre 2026 · CBW AI</span>
+    <h1>Wispr Flow, vu de près</h1>
+    <p class="chapo">Comment Wispr met en forme le texte, capte la voix, ce qu'il propose et ce qu'en disent ses utilisateurs. Puis ce qu'on garde pour CBW AI : chaque idée est en bas de page, à trancher en un clic.</p>
+    <div class="legende">
+      <span><span class="b b-p">PROUVÉ</span> doc ou changelog officiel</span>
+      <span><span class="b b-o">OBSERVÉ</span> avis, test, rétro-ingénierie</span>
+      <span><span class="b b-s">SUPPOSÉ</span> notre déduction</span>
+    </div>
+  </div>
+</header>
+
+<!-- ================= SYNTHÈSE ================= -->
+<section id="synthese">
+  <div class="wrap">
+    <span class="label">L'essentiel</span>
+    <h2>Ce qu'il faut retenir</h2>
+    <ol class="synthese">
+      <li><span class="n">1</span><span><strong>Les retours à la ligne de Wispr viennent de deux mécanismes.</strong> Des commandes (« new line », « new paragraph ») et surtout une mise en page automatique : un paragraphe à chaque changement de sujet, les passages longs découpés, et pour les e-mails la salutation et la signature sur leurs propres lignes. <span class="b b-p">PROUVÉ</span> Chez nous, un paragraphe n'apparaît qu'au-delà de ~80 mots : c'est l'écart que vous sentez.</span></li>
+      <li><span class="n">2</span><span><strong>Quand on compte à voix haute, Wispr fait une liste.</strong> « Premièrement… deuxièmement… » devient une liste numérotée, et les mots « premièrement » disparaissent. <span class="b b-p">PROUVÉ</span></span></li>
+      <li><span class="n">3</span><span><strong>Wispr a dû reculer sur le nettoyage agressif.</strong> Le niveau « High » a été retiré, et en juillet 2026 un réglage trop zélé était « the biggest driver of recent accuracy issues ». <span class="b b-p">PROUVÉ</span> Cela valide notre choix d'un nettoyage fidèle.</span></li>
+      <li><span class="n">4</span><span><strong>Côté voix, Wispr est 100 % cloud</strong>, vise 700 ms après la fin de la parole, et reconnaît officiellement que les AirPods font perdre les premiers mots. <span class="b b-p">PROUVÉ</span> Nous transcrivons sur le Mac et gardons 300 ms d'audio avant l'appui.</span></li>
+      <li><span class="n">5</span><span><strong>Aucune intégration Slack, Gmail ou Notion chez Wispr</strong> : tout passe par la dictée système. <span class="b b-p">PROUVÉ</span> Leurs vraies forces sont ailleurs : snippets, réécriture à la voix, ton par app, historique avec réessai.</span></li>
+      <li><span class="n">6</span><span><strong>Sur les forums, l'usage n°1 est de parler à une IA</strong> (62 % des dictées d'un testeur sur 90 jours). Les griefs n°1 et n°2 : le prix (~35 % des avis négatifs) et le cloud (~30 %). <span class="b b-o">OBSERVÉ</span></span></li>
+      <li><span class="n">7</span><span><strong>Le prompt de Wispr n'a jamais fuité.</strong> Ce qui est sûr : un Llama affiné, nourri du texte à l'écran pour les noms propres, sans capture d'écran selon la doc. <span class="b b-p">PROUVÉ</span> Le reste est déduit. <span class="b b-s">SUPPOSÉ</span></span></li>
+      <li><span class="n">8</span><span><strong>Deux bugs chez nous</strong> : une dictée de 6 mots ou moins ne passe pas par l'IA, donc « Salut Karim virgule à la ligne » sort tel quel ; et sans réseau, aucune commande n'est appliquée. <span class="b b-p">PROUVÉ</span> (vérifié en local)</span></li>
+    </ol>
+
+    <h3>Les trois leviers</h3>
+    <div class="leviers">
+      <div class="levier l1">
+        <span class="label">Levier 1</span>
+        <h3>Un texte qui respire, en français</h3>
+        <p>Paragraphes, salutations, listes numérotées, espaces fines : la mise en page que vous aimez chez Wispr, mais pensée pour le français (leurs styles sont réservés à l'anglais). Ce sont surtout des règles de prompt : peu d'effort, gain visible dès la prochaine dictée.</p>
+      </div>
+      <div class="levier l2">
+        <span class="label">Levier 2</span>
+        <h3>Ne jamais perdre une dictée</h3>
+        <p>Choix du micro, alerte « aucun son », audio gardé avec un bouton Réessayer, version brute à portée de raccourci. Les pannes de Wispr en 2026 ont coûté cher en confiance : on peut faire de la fiabilité un argument.</p>
+      </div>
+      <div class="levier l3">
+        <span class="label">Levier 3</span>
+        <h3>Local, gratuit, fidèle : le dire</h3>
+        <p>Les deux premières raisons de quitter Wispr sont exactement nos points forts. Les mettre en avant (site, accueil) coûte presque rien. Il faut aussi soigner l'usage n°1 : dicter des prompts à Claude ou ChatGPT.</p>
+      </div>
+    </div>
+    <p class="mieux">Où CBW AI est déjà meilleur : transcription sur le Mac (Wispr ne marche pas sans réseau), gratuit et sans plafond (contre 2 000 mots/semaine), aucune capture d'écran, premiers mots protégés par la pré-écoute, nettoyage fidèle par défaut, et des notes de réunion locales qui savent qui a dit quoi.</p>
+  </div>
+</section>
+
+<!-- ================= 1 MISE EN FORME ================= -->
+<section id="forme">
+  <div class="wrap">
+    <span class="label">Section 1</span>
+    <h2>Mise en forme du texte</h2>
+    <p>Ce que Wispr fait au texte une fois la voix transcrite : retours à la ligne, listes, ponctuation, corrections. Le point qui vous importe le plus, les retours à la ligne, vient en premier.</p>
+
+    <h3>Les retours à la ligne chez Wispr</h3>
+    <div class="trois">
+      <div class="bloc" style="--c:var(--bleu)">
+        <h4>Commandes dites</h4>
+        <ul>
+          <li>« new line », « next line », « line break », « skip a line » = retour à la ligne.</li>
+          <li>« new paragraph », « start a new paragraph » = nouveau paragraphe. <span class="b b-p">PROUVÉ</span></li>
+          <li>Elles marchent même quand la mise en forme est coupée. <span class="b b-p">PROUVÉ</span></li>
+          <li>Il faut marquer une pause avant, sinon la commande est prise pour du texte. <span class="b b-o">OBSERVÉ</span></li>
+        </ul>
+      </div>
+      <div class="bloc" style="--c:var(--vert)">
+        <h4>Mise en page automatique</h4>
+        <ul>
+          <li>Paragraphe à chaque changement de sujet, et découpe des passages longs. Aucun seuil chiffré publié. <span class="b b-p">PROUVÉ</span></li>
+          <li>Les pauses de la voix comptent probablement dans la décision. <span class="b b-s">SUPPOSÉ</span></li>
+          <li>Un avis français : « Plus besoin de préciser "point", "retour à la ligne" ». <span class="b b-o">OBSERVÉ</span></li>
+        </ul>
+      </div>
+      <div class="bloc" style="--c:var(--orange)">
+        <h4>E-mails</h4>
+        <ul>
+          <li>Salutation, corps et signature sur des lignes séparées. <span class="b b-p">PROUVÉ</span></li>
+          <li>« Hi Alex, » et non « Hi, Alex ». <span class="b b-p">PROUVÉ</span></li>
+          <li>La même dictée donne « Hello Jordan, » dans Gmail et « hey Jordan » dans Slack. <span class="b b-o">OBSERVÉ</span></li>
+          <li>Hors anglais, c'est moins fiable : un test en japonais sort « un bloc dense ». <span class="b b-o">OBSERVÉ</span></li>
+        </ul>
+      </div>
+    </div>
+    <p class="note">Sources : <a href="https://docs.wisprflow.ai/articles/5373093536-how-do-i-use-smart-formatting-and-backtrack" target="_blank" rel="noopener">Smart Formatting &amp; Backtrack</a> · <a href="https://docs.wisprflow.ai/articles/6568835559-why-wispr-flow-sometimes-removes-or-changes-words-on-android-smart-formatting" target="_blank" rel="noopener">mots modifiés (Android)</a> · <a href="https://docs.wisprflow.ai/articles/2368263928-how-to-setup-flow-styles" target="_blank" rel="noopener">Styles</a> · <a href="https://booststash.com/wispr-flow-review-2025/" target="_blank" rel="noopener">Booststash</a> · <a href="https://mrktcorrect.com/blog/wispr-flow-review" target="_blank" rel="noopener">mrktcorrect</a> · <a href="https://apps.apple.com/fr/app/wispr-flow-ai-voice-keyboard/id6497229487?see-all=reviews&amp;platform=iphone" target="_blank" rel="noopener">App Store FR</a> · <a href="https://ic-eight.com/articles/wispr-flow-speech-captured-writing-needed-understanding.html" target="_blank" rel="noopener">IC Eight</a></p>
+
+    <h3>Exemples : ce qu'on dit, Wispr, CBW AI aujourd'hui, la proposition</h3>
+    <p class="note">Le signe <span class="nl">↵</span> marque un retour à la ligne. Wispr n'a publié aucun test en français : sa colonne applique ses règles documentées (en anglais) à nos phrases. La colonne CBW AI est vérifiée quand c'est indiqué, sinon déduite des règles du prompt v1.7.</p>
+
+    <div class="ex">
+      <div class="ex-tete"><strong>Commande dans une dictée courte</strong><span><span class="b b-bug">BUG</span></span></div>
+      <div class="ex-grille">
+        <div class="ex-col dit"><span class="label">Vous dites</span><p class="txt">Salut Karim virgule à la ligne</p></div>
+        <div class="ex-col"><span class="label">Wispr</span><p class="txt">Salut Karim,<span class="nl">↵</span></p><p class="src">Commandes toujours appliquées <span class="b b-p">PROUVÉ</span></p></div>
+        <div class="ex-col bug"><span class="label">CBW AI v1.7</span><p class="txt">Salut Karim virgule à la ligne.</p><p class="src">Vérifié en local <span class="b b-p">PROUVÉ</span></p></div>
+        <div class="ex-col prop"><span class="label">Proposé</span><p class="txt">Salut Karim,<span class="nl">↵</span></p><p class="src">Correctif de code, section 6</p></div>
+      </div>
+    </div>
+
+    <div class="ex">
+      <div class="ex-tete"><strong>Mail : salutation, paragraphes, signature</strong><span class="label">Contexte : Mail</span></div>
+      <div class="ex-grille">
+        <div class="ex-col dit"><span class="label">Vous dites</span><p class="txt">bonjour Claire euh je te confirme que la livraison est prévue jeudi matin, le transporteur passera vers 9h. par contre il faudra quelqu'un à l'accueil pour signer. sinon pour la facture je te l'envoie demain avec le bon de commande. merci et bonne journée Thomas</p></div>
+        <div class="ex-col"><span class="label">Wispr</span><p class="txt">Salutation sur sa ligne, paragraphe au changement de sujet (« sinon pour la facture »), signature en bas.</p><p class="src">Règle e-mail <span class="b b-p">PROUVÉ</span> · en français <span class="b b-s">SUPPOSÉ</span></p></div>
+        <div class="ex-col"><span class="label">CBW AI v1.7</span><p class="txt">Bonjour Claire, je te confirme que la livraison est prévue jeudi matin, le transporteur passera vers 9 h. Par contre, il faudra quelqu'un à l'accueil pour signer. Pour la facture, je te l'envoie demain avec le bon de commande. Merci et bonne journée, Thomas.</p><p class="src">Un seul bloc (moins de 80 mots) <span class="b b-s">SUPPOSÉ</span></p></div>
+        <div class="ex-col prop"><span class="label">Proposé</span><p class="txt">Bonjour Claire,<span class="nl">↵</span>
+<span class="nl">↵</span>
+Je te confirme que la livraison est prévue jeudi matin, le transporteur passera vers 9 h. Par contre, il faudra quelqu'un à l'accueil pour signer.<span class="nl">↵</span>
+<span class="nl">↵</span>
+Pour la facture, je te l'envoie demain avec le bon de commande.<span class="nl">↵</span>
+<span class="nl">↵</span>
+Merci et bonne journée,<span class="nl">↵</span>
+Thomas</p></div>
+      </div>
+    </div>
+
+    <div class="ex">
+      <div class="ex-tete"><strong>Liste comptée à voix haute</strong></div>
+      <div class="ex-grille">
+        <div class="ex-col dit"><span class="label">Vous dites</span><p class="txt">pour la mise en ligne il reste trois étapes premièrement valider les textes deuxièmement compresser les images et troisièmement tester sur mobile</p></div>
+        <div class="ex-col"><span class="label">Wispr</span><p class="txt">Liste numérotée, « premièrement », « deuxièmement » retirés.</p><p class="src"><span class="b b-p">PROUVÉ</span> (anglais)</p></div>
+        <div class="ex-col"><span class="label">CBW AI v1.7</span><p class="txt">Pour la mise en ligne, il reste trois étapes :<span class="nl">↵</span>
+- valider les textes ;<span class="nl">↵</span>
+- compresser les images ;<span class="nl">↵</span>
+- tester sur mobile.</p><p class="src">Tirets, d'après la règle actuelle <span class="b b-s">SUPPOSÉ</span></p></div>
+        <div class="ex-col prop"><span class="label">Proposé</span><p class="txt">Pour la mise en ligne, il reste trois étapes :<span class="nl">↵</span>
+1. Valider les textes.<span class="nl">↵</span>
+2. Compresser les images.<span class="nl">↵</span>
+3. Tester sur mobile.</p></div>
+      </div>
+    </div>
+
+    <div class="ex">
+      <div class="ex-tete"><strong>Commandes variées et emoji</strong></div>
+      <div class="ex-grille">
+        <div class="ex-col dit"><span class="label">Vous dites</span><p class="txt">coucou retour à la ligne c'est bon pour samedi émoji pouce nouveau paragraphe je ramène le dessert</p></div>
+        <div class="ex-col"><span class="label">Wispr</span><p class="txt">Emoji converti, ligne et paragraphe distincts.</p><p class="src"><span class="b b-p">PROUVÉ</span> (anglais)</p></div>
+        <div class="ex-col"><span class="label">CBW AI v1.7</span><p class="txt">« retour à la ligne » et « émoji pouce » ne sont pas dans le prompt : risque de les voir écrits en toutes lettres.</p><p class="src"><span class="b b-s">SUPPOSÉ</span></p></div>
+        <div class="ex-col prop"><span class="label">Proposé</span><p class="txt">Coucou<span class="nl">↵</span>
+C'est bon pour samedi 👍<span class="nl">↵</span>
+<span class="nl">↵</span>
+Je ramène le dessert.</p></div>
+      </div>
+    </div>
+
+    <div class="ex">
+      <div class="ex-tete"><strong>Selon l'app (exemple officiel de Wispr)</strong><span class="label">Contexte : Gmail / Slack</span></div>
+      <div class="ex-grille">
+        <div class="ex-col dit"><span class="label">On dit</span><p class="txt">hey alex thanks for sending over the proposal i'll review it by friday</p></div>
+        <div class="ex-col"><span class="label">Wispr · Gmail</span><p class="txt">Hey Alex, thanks for sending over the proposal. I'll review it by Friday.</p><p class="src"><span class="b b-p">PROUVÉ</span></p></div>
+        <div class="ex-col"><span class="label">Wispr · Slack, en milieu de message</span><p class="txt">sounds good, let's sync tomorrow morning</p><p class="src">Minuscule, sans point, comme le texte autour <span class="b b-p">PROUVÉ</span></p></div>
+        <div class="ex-col"><span class="label">CBW AI</span><p class="txt">Majuscule et point partout : nous ne lisons pas le texte autour du curseur.</p><p class="src"><a href="https://docs.wisprflow.ai/articles/4678293671-feature-context-awareness" target="_blank" rel="noopener">Context Awareness</a></p></div>
+      </div>
+    </div>
+
+    <h3>Listes, ponctuation, nombres : le reste du tableau</h3>
+    <div class="tab"><table>
+      <thead><tr><th>Sujet</th><th>Wispr</th><th>CBW AI v1.7</th><th>Idée</th></tr></thead>
+      <tbody>
+        <tr><td>Tiret long (—)</td><td>Jamais ajouté de lui-même <span class="b b-p">PROUVÉ</span></td><td>Rien n'est dit</td><td>L'interdire</td></tr>
+        <tr><td>Espaces fines françaises</td><td>Ajoutées avant ; : ? ! et dans « », sauf dans le code <span class="b b-p">PROUVÉ</span></td><td>Rien</td><td>Les faire dans le code, pas dans le prompt</td></tr>
+        <tr><td>Point final en messagerie</td><td>Retiré pour 1-2 phrases selon le style <span class="b b-p">PROUVÉ</span></td><td>Toujours un point</td><td>Option « style messagerie »</td></tr>
+        <tr><td>Nombres</td><td>Tout en chiffres (445, $1,000, 125°) <span class="b b-p">PROUVÉ</span></td><td>Chiffres pour le technique, lettres pour les petits nombres</td><td>Garder (norme française), ajouter %, °, €</td></tr>
+        <tr><td>Adresses e-mail dictées</td><td>Rien de documenté</td><td>Rien</td><td>« arobase », « point com » : on peut faire mieux que Wispr</td></tr>
+        <tr><td>« Scratch that »</td><td>Retire ce qui précède et la formule <span class="b b-p">PROUVÉ</span></td><td>« laisse tomber », « oublie »</td><td>Ajouter « efface ça », « annule ça »</td></tr>
+        <tr><td>« Actually » seul</td><td>Ne suffit pas à corriger <span class="b b-p">PROUVÉ</span></td><td>« A, non, en fait B »</td><td>Rappeler qu'« en fait » seul ne corrige rien</td></tr>
+        <tr><td>Niveaux de nettoyage</td><td>Aucun / Léger / Moyen (« High » retiré) <span class="b b-p">PROUVÉ</span></td><td>Léger / Standard, fidèles</td><td>Ne rien changer : notre choix est validé</td></tr>
+        <tr><td>Ton par app</td><td>Majuscules et ponctuation par catégorie d'app, anglais seulement <span class="b b-p">PROUVÉ</span></td><td>L'app ne règle que la forme</td><td>Possible en français (voir À décider)</td></tr>
+        <tr><td>Virgules</td><td>Point faible le plus cité <span class="b b-o">OBSERVÉ</span></td><td>—</td><td>Rien à copier</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>Les règles proposées pour prompt.ts</h3>
+    <p>Elles remplacent trois puces de la section « Forme » du prompt actuel (commandes, « pas de mise en forme non dictée », listes à tirets). À passer au benchmark avant adoption : le seuil « plus de trois phrases » remplace « ~80 mots », et il faut mesurer les paragraphes ajoutés à tort.</p>
+    <div class="regles">
+      <div class="regles-tete"><span class="label">Bloc à intégrer dans CORE</span><button class="btn" type="button" data-copier="regles-texte">Copier les règles</button></div>
+<pre id="regles-texte"># Mise en page : retours à la ligne et paragraphes
+- Commandes dictées (applique-les toujours, ne les écris jamais) :
+  « à la ligne », « retour à la ligne », « nouvelle ligne », « ligne suivante », « va à la ligne » = un retour à la ligne simple.
+  « point à la ligne » = un point puis un retour à la ligne.
+  « nouveau paragraphe », « paragraphe suivant », « saute une ligne », « sauter une ligne » = une ligne vide (deux retours à la ligne).
+  Si la commande est employée comme un vrai contenu (« il est allé à la ligne d'arrivée »), garde les mots.
+- Salutation et signature (message, mail, quelle que soit l'app) : si la dictée commence par une salutation adressée à quelqu'un (« Bonjour Paul », « Salut l'équipe », « Hello Karim », « Madame, Monsieur »), écris-la seule sur sa ligne, suivie d'une virgule, puis passe à la ligne. Pas de virgule entre la salutation et le nom (« Bonjour Paul, » et non « Bonjour, Paul »). Si la dictée finit par une formule de fin (« merci », « bonne journée », « à demain », « bien à toi », « cordialement ») suivie ou non d'un prénom, mets-la sur sa propre ligne après une ligne vide ; le prénom qui signe va sur la ligne suivante. N'ajoute jamais de salutation ni de signature qui n'ont pas été dites.
+- Paragraphes automatiques : dès que la dictée fait plus de trois phrases, commence un nouveau paragraphe (ligne vide) à chaque changement net de sujet ou d'étape (« autre chose », « sinon », « par ailleurs », « deuxième point », « pour finir », passage d'un constat à une demande). Un paragraphe ne dépasse pas quatre ou cinq phrases : au-delà, coupe à la frontière d'idée la plus naturelle. Ne coupe jamais au milieu d'une phrase, ne déplace jamais une phrase, n'ajoute ni titre ni intertitre.
+- Une dictée d'une à trois phrases sur un seul sujet reste un seul bloc. En cas de doute : pas de nouveau paragraphe.
+- Terminal ou éditeur de code (&lt;contexte app="Terminal|iTerm|Warp|Code|Cursor|Xcode…"&gt;) : aucun retour à la ligne non dicté.
+
+# Listes
+- Si la personne compte ses éléments (« un… deux… trois… », « premièrement… deuxièmement… », « d'abord… ensuite… enfin… » avec au moins trois éléments), fais une liste numérotée « 1. », « 2. »… sur des lignes séparées, précédée de la phrase d'annonce terminée par « : ». Retire les marqueurs parlés (« premièrement », « ensuite », « enfin »), qui deviennent les numéros.
+- Si elle annonce une énumération sans compter (« trois choses : … », « la liste : … ») ou dit « liste à puces », fais une liste à tirets « - ».
+- Une petite série dans une phrase (« du pain, du lait et des œufs ») reste une phrase. Une liste dictée n'est jamais réordonnée ni complétée.
+
+# Ponctuation et signes
+- Commandes dictées : « virgule », « point », « point-virgule », « deux-points », « point d'interrogation », « point d'exclamation », « points de suspension », « tiret », « ouvre / ferme les guillemets », « ouvre / ferme la parenthèse » : applique-les, ne les écris pas, sauf si le mot est clairement du contenu.
+- N'ajoute jamais de tiret cadratin (—) qui n'a pas été dicté : utilise une virgule, deux-points ou un point.
+- « émoji » ou « smiley » suivi d'un nom (« émoji cœur », « émoji pouce », « smiley qui rit ») = l'emoji correspondant (❤️, 👍, 😂), seulement si le nom désigne un emoji sans ambiguïté ; sinon garde les mots.
+- Adresses dictées : « arobase » = @, « point com / point fr » = .com / .fr, « tiret » ou « tiret du six » = -, « tiret bas » = _, « slash » = /, tout attaché et en minuscules (« paul point martin arobase gmail point com » → paul.martin@gmail.com). Idem pour un site (« cbw studio point fr » → cbwstudio.fr) seulement si c'est clairement une adresse.
+- Nombres : garde la règle actuelle, et écris en chiffres les pourcentages (« 20 % »), les degrés (« 125 °C ») et les montants (« 1 000 € »). Ne transforme jamais une valeur approximative en valeur précise (« un virgule quelque chose pour cent » reste tel quel).
+
+# Auto-corrections (ajout à « À supprimer », point 4)
+- « Efface ça », « supprime ça », « annule ça », « oublie ce que je viens de dire » : retire la phrase ou le passage qui précède immédiatement, et la formule elle-même.
+- « En fait » ou « non » seul ne corrige rien : il faut une vraie seconde version qui remplace la première (« à 14 h, en fait 15 h » → « à 15 h » ; « en fait, j'ai adoré le film » reste tel quel).</pre>
+    </div>
+    <p class="note">Points à vérifier au benchmark : l'exemple 6 actuel (liste à tirets) passerait en liste numérotée, il faut une seule convention ; le garde-fou <code>novelWordRatio</code> ne doit pas pénaliser les emojis ni les adresses e-mail. Source : <code>01-mise-en-forme.md</code> §7 et §9.</p>
+
+    <h3>Les autres outils de Wispr autour du texte</h3>
+    <ul class="liste">
+      <li><strong>Mode commande</strong> (Fn+Ctrl) : on sélectionne un texte et on dit « make this more concise ». Phrases déclencheuses en anglais seulement. <span class="b b-p">PROUVÉ</span></li>
+      <li><strong>Transforms</strong> (bêta, mai 2026) : « Polish » et « Prompt Engineer » par raccourci, jusqu'à 8 personnalisés, option « appliquer après chaque dictée ». <span class="b b-p">PROUVÉ</span></li>
+      <li><strong>Snippets</strong> : une phrase-raccourci est remplacée par un texte enregistré (4 000 caractères, texte riche depuis juillet 2026). <span class="b b-p">PROUVÉ</span></li>
+      <li><strong>Annuler l'édition IA</strong> : dans l'historique, un bouton remet la transcription brute. Si la mise en forme échoue, Wispr colle le brut. <span class="b b-p">PROUVÉ</span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= 2 VOIX ================= -->
+<section id="voix">
+  <div class="wrap">
+    <span class="label">Section 2</span>
+    <h2>Captation de la voix</h2>
+    <p>Comment Wispr écoute, transcrit et colle. En résumé : tout part dans le cloud, très vite, avec beaucoup de filets de sécurité ajoutés en 2026 après des pannes.</p>
+
+    <h3>Le trajet d'une dictée chez Wispr</h3>
+    <div class="pipe">
+      <div><span class="label">1 · Touche</span>Maintenir Fn = push-to-talk ; double appui = mains libres ; Échap annule (avec « Undo »). <span class="b b-p">PROUVÉ</span></div>
+      <div><span class="label">2 · Envoi</span>L'audio part compressé vers leurs serveurs <em>pendant</em> qu'on parle, avec le contexte de l'app. <span class="b b-o">OBSERVÉ</span></div>
+      <div><span class="label">3 · Cloud</span>Reconnaissance par Canto (leur modèle maison depuis le 17/09/2026), puis nettoyage par un Llama affiné. Objectif : 700 ms. <span class="b b-p">PROUVÉ</span></div>
+      <div><span class="label">4 · Collage</span>Presse-papiers temporaire + ⌘V, restauré ~0,5 s après (3-5 s pour Word, Outlook, bureau à distance). <span class="b b-p">PROUVÉ</span></div>
+    </div>
+
+    <h3>Les faits marquants</h3>
+    <ul class="liste">
+      <li><strong>Durée max 20 min</strong> sur ordinateur, avec son d'alerte et message à 19 min, puis collage automatique. <span class="b b-p">PROUVÉ</span> Chez nous : 5 min, arrêt sans prévenir.</li>
+      <li><strong>Micro muet détecté tout de suite</strong> au démarrage (depuis le 9/10/2026), puis messages à 5 s et 15 s de silence. <span class="b b-p">PROUVÉ</span></li>
+      <li><strong>AirPods et Bluetooth</strong> : 0,5 à 2 s de réveil du micro, donc premiers mots perdus. Wispr conseille d'attendre ou de passer au filaire. <span class="b b-p">PROUVÉ</span> Notre pré-écoute de 300 ms protège mieux.</li>
+      <li><strong>Choix du micro</strong> dans les réglages et directement sur la barre Flow, avec vumètre et « Auto-detect ». Capot du Mac fermé géré. <span class="b b-p">PROUVÉ</span></li>
+      <li><strong>Musique</strong> : option « couper tout le son pendant la dictée » (désactivée sur Mac) et « mettre en pause » (expérimental, payant), jamais pendant un appel. <span class="b b-p">PROUVÉ</span></li>
+      <li><strong>Chuchoter</strong> : plus de mode dédié ; « works with soft speech, but microphone position matters ». <span class="b b-p">PROUVÉ</span> C'est l'avis français le plus enthousiaste. <span class="b b-o">OBSERVÉ</span></li>
+      <li><strong>Historique</strong> : audio réécoutable et « Retry » pendant 14 jours ; audio sauvé si l'app plante en pleine dictée (mai 2026). <span class="b b-p">PROUVÉ</span></li>
+      <li><strong>Hors ligne</strong> : impossible. <span class="b b-p">PROUVÉ</span> Une base locale de 694 Mo garde 198 Mo d'audio et le texte lu à l'écran, non chiffrés. <span class="b b-o">OBSERVÉ</span></li>
+      <li><strong>Clavier AZERTY</strong> : problème connu de collage sur les claviers non QWERTY. <span class="b b-p">PROUVÉ</span> À tester chez nous.</li>
+      <li><strong>Poids</strong> : ~800 Mo de RAM au repos selon de vieilles mesures. <span class="b b-o">OBSERVÉ</span></li>
+    </ul>
+    <p class="note">Sources : <a href="https://docs.wisprflow.ai/articles/2612050838-supported-unsupported-keyboard-hotkey-shortcuts" target="_blank" rel="noopener">raccourcis</a> · <a href="https://docs.wisprflow.ai/articles/3566082841-fix-missing-first-words-in-transcriptions" target="_blank" rel="noopener">premiers mots perdus</a> · <a href="https://docs.wisprflow.ai/articles/9192039587-using-wispr-flow-discreetly-microphone-guide" target="_blank" rel="noopener">guide micro</a> · <a href="https://docs.wisprflow.ai/articles/7231650589-auto-mute-music-while-dictating-on-macos-how-audio-detection-works" target="_blank" rel="noopener">musique</a> · <a href="https://docs.wisprflow.ai/articles/7971211038-fix-text-not-pasting-after-dictation" target="_blank" rel="noopener">collage</a> · <a href="https://wisprflow.ai/post/technical-challenges" target="_blank" rel="noopener">blog technique</a> · <a href="https://www.baseten.co/resources/customers/wispr-flow/" target="_blank" rel="noopener">Baseten</a> · <a href="https://www.wensenwu.com/thoughts/wispr-flow-investigation" target="_blank" rel="noopener">rétro-ingénierie Wensen Wu</a> · <a href="https://wisprflow.ai/whats-new" target="_blank" rel="noopener">changelog</a></p>
+
+    <h3>CBW AI face à Wispr</h3>
+    <div class="trois">
+      <div class="bloc" style="--c:var(--vert)">
+        <h4>Déjà fait, souvent mieux</h4>
+        <ul>
+          <li>Gestes de touche plus riches (triple appui = prise de notes).</li>
+          <li>Micro pré-ouvert au premier appui + 300 ms de pré-écoute.</li>
+          <li>Transcription locale, par segments pendant la dictée.</li>
+          <li>Filtre des hallucinations de silence (« merci d'avoir regardé »).</li>
+          <li>Presse-papiers restauré seulement s'il n'a pas changé.</li>
+          <li>Pastille au niveau de la barre Flow (plein écran, aimantée).</li>
+        </ul>
+      </div>
+      <div class="bloc" style="--c:var(--orange)">
+        <h4>Fait moins bien</h4>
+        <ul>
+          <li>5 min max, arrêt silencieux.</li>
+          <li>Micro muet découvert à la fin seulement.</li>
+          <li>Dernière dictée copiable depuis le menu seulement.</li>
+          <li>Délai fixe de 250 ms pour rendre le presse-papiers.</li>
+          <li>Collage sur AZERTY non vérifié.</li>
+        </ul>
+      </div>
+      <div class="bloc" style="--c:var(--texte-sec)">
+        <h4>Pas fait</h4>
+        <ul>
+          <li>Choix du micro, préférence micro du Mac face au Bluetooth.</li>
+          <li>Historique avec audio et Réessayer.</li>
+          <li>Récupérer après Échap.</li>
+          <li>Pause de la musique.</li>
+          <li>Gestion d'un micro débranché ou d'un appel entrant.</li>
+          <li>Message quand la saisie sécurisée bloque le raccourci.</li>
+        </ul>
+      </div>
+    </div>
+    <p><strong>À ne pas copier</strong> : envoyer l'audio et le texte de l'écran au cloud par défaut, et une base locale non chiffrée. Notre avantage, c'est le local et le chiffrement.</p>
+  </div>
+</section>
+
+<!-- ================= 3 INTÉGRATIONS ================= -->
+<section id="integrations">
+  <div class="wrap">
+    <span class="label">Section 3</span>
+    <h2>Fonctions et intégrations</h2>
+    <p>Wispr ne s'intègre à aucune app par API : il tape là où est le curseur, comme nous. Sa différence tient à des fonctions autour de la dictée. Effort : S ≤ 1 jour · M 2-5 jours · L 1-2 semaines · XL plus.</p>
+    <div class="tab"><table>
+      <thead><tr><th>Fonction</th><th>Wispr</th><th>CBW AI</th><th>Intérêt pour vous</th><th>Effort</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Snippets</strong> (phrase → texte)</td><td>Oui, texte riche, partage d'équipe <span class="b b-p">PROUVÉ</span></td><td>Non</td><td><strong>Élevé</strong> : signature, adresse, lien d'agenda</td><td class="eff">S-M</td></tr>
+        <tr><td><strong>Réécrire la sélection à la voix</strong></td><td>Command Mode, bêta payante <span class="b b-p">PROUVÉ</span></td><td>Non</td><td><strong>Élevé</strong> : « rends ça plus poli »</td><td class="eff">M</td></tr>
+        <tr><td>Ton par type d'app</td><td>4 catégories × 4 styles, anglais seulement <span class="b b-p">PROUVÉ</span></td><td>Niveau global</td><td>Moyen-élevé : Slack détendu, Mail soigné</td><td class="eff">M</td></tr>
+        <tr><td>Annuler l'édition IA</td><td>Oui <span class="b b-p">PROUVÉ</span></td><td>Brut ↔ propre dans l'historique</td><td>Moyen : coller le brut en un raccourci</td><td class="eff">S</td></tr>
+        <tr><td>Transforms (prompts perso)</td><td>8 par raccourci <span class="b b-p">PROUVÉ</span></td><td>Non</td><td>Moyen, après la réécriture vocale</td><td class="eff">M</td></tr>
+        <tr><td>Dictionnaire</td><td>Manuel, étoile prioritaire, équipe <span class="b b-p">PROUVÉ</span></td><td>200 termes</td><td>Acquis ; l'étoile est un petit plus</td><td class="eff">S</td></tr>
+        <tr><td>Apprentissage des corrections</td><td>Oui <span class="b b-p">PROUVÉ</span></td><td>Oui (<code>learn.ts</code>)</td><td>Acquis</td><td class="eff">—</td></tr>
+        <tr><td>Noms lus à l'écran</td><td>Texte d'accessibilité <span class="b b-p">PROUVÉ</span></td><td>Oui, 40 noms max, sans capture</td><td>Acquis, plus sobre que Wispr</td><td class="eff">—</td></tr>
+        <tr><td>Historique</td><td>Cherchable, audio 14 j, réessayer <span class="b b-p">PROUVÉ</span></td><td>20 dernières</td><td>Moyen-élevé : réessayer une dictée ratée</td><td class="eff">S-M</td></tr>
+        <tr><td>Notes de réunion</td><td>Notetaker (cloud, agenda) depuis le 5/08/2026 <span class="b b-p">PROUVÉ</span></td><td><strong>Oui</strong>, local, qui a dit quoi</td><td>Acquis, en avance</td><td class="eff">—</td></tr>
+        <tr><td>Statistiques</td><td>Mots/min, rang, carte de chaleur, partage <span class="b b-p">PROUVÉ</span></td><td>Mots, série, temps gagné</td><td>Acquis ; partage optionnel</td><td class="eff">S</td></tr>
+        <tr><td>MCP (notes lues par Claude)</td><td>Réunions, pas les dictées <span class="b b-p">PROUVÉ</span></td><td>Non (notes déjà en .md)</td><td>Moyen</td><td class="eff">M</td></tr>
+        <tr><td>Bloc-notes vocal</td><td>Scratchpad <span class="b b-p">PROUVÉ</span></td><td>Non</td><td>Faible-moyen</td><td class="eff">M</td></tr>
+        <tr><td>Slack, Gmail, Notion par API</td><td>Non</td><td>Non</td><td>Nul : ne pas en faire</td><td class="eff">—</td></tr>
+        <tr><td>IDE (@fichier, variables)</td><td>Cursor, Windsurf <span class="b b-p">PROUVÉ</span></td><td>Non</td><td>Faible pour vous</td><td class="eff">L</td></tr>
+        <tr><td>Équipes (dictionnaire partagé)</td><td>Oui, SSO, audit <span class="b b-p">PROUVÉ</span></td><td>Non</td><td>Faible aujourd'hui ; un export suffit d'abord</td><td class="eff">S / XL</td></tr>
+        <tr><td>Texte affiché pendant qu'on parle</td><td>Non (demandé) <span class="b b-o">OBSERVÉ</span></td><td>Non</td><td>Moyen, coûteux en local</td><td class="eff">L</td></tr>
+        <tr><td>Hors ligne</td><td>Non <span class="b b-p">PROUVÉ</span></td><td>Partiel (transcription locale)</td><td><strong>Argument fort</strong></td><td class="eff">—</td></tr>
+        <tr><td>Prix</td><td>Gratuit 2 000 mots/sem., puis 15 $/mois <span class="b b-p">PROUVÉ</span></td><td>Gratuit, sans plafond</td><td><strong>Argument fort</strong></td><td class="eff">—</td></tr>
+        <tr><td>iPhone, Android, Windows</td><td>Oui</td><td>Mac seulement</td><td>Faible pour vous</td><td class="eff">XL</td></tr>
+      </tbody>
+    </table></div>
+    <h3>Ce que Wispr a dû retirer ou corriger après des plaintes</h3>
+    <ul class="liste">
+      <li>Le nettoyage « High », puis un réglage trop agressif corrigé le 9/07/2026. <span class="b b-p">PROUVÉ</span></li>
+      <li>Des semaines de pannes en juin 2026 (« Flow has been less reliable than it should be »), d'où une redondance entre fournisseurs. <span class="b b-p">PROUVÉ</span></li>
+      <li>La barre fixe, rendue déplaçable ; les mises à jour qui redémarraient l'app en pleine tâche, différées. <span class="b b-p">PROUVÉ</span></li>
+      <li>L'affaire des captures d'écran (2025-2026) : doc réécrite en « texte, pas de captures ». <span class="b b-o">OBSERVÉ</span> (sources concurrentes)</li>
+    </ul>
+    <p class="note">Sources : <a href="https://wisprflow.ai/whats-new" target="_blank" rel="noopener">changelog</a> · <a href="https://wisprflow.ai/pricing" target="_blank" rel="noopener">tarifs</a> · <a href="https://docs.wisprflow.ai/articles/5784437944-create-and-use-snippets" target="_blank" rel="noopener">snippets</a> · <a href="https://docs.wisprflow.ai/articles/4816967992-how-to-use-command-mode" target="_blank" rel="noopener">Command Mode</a> · <a href="https://docs.wisprflow.ai/articles/8068950331-how-to-use-transforms-beta" target="_blank" rel="noopener">Transforms</a> · <a href="https://docs.wisprflow.ai/articles/8760230576-your-usage-tab-track-your-dictation-stats-in-wispr-flow" target="_blank" rel="noopener">statistiques</a> · <a href="https://github.com/Wispr-AI/wispr-flow-plugin" target="_blank" rel="noopener">plugin MCP</a></p>
+  </div>
+</section>
+
+<!-- ================= 4 FORUMS ================= -->
+<section id="forums">
+  <div class="wrap">
+    <span class="label">Section 4</span>
+    <h2>Forums et avis</h2>
+    <p>Environ 190 prises de parole lues : Hacker News, App Store FR et US, Product Hunt, 25 articles dont 8 en français. Reddit et X sont inaccessibles (cités de seconde main), et beaucoup d'articles viennent de concurrents. Les fréquences servent à classer, pas à mesurer.</p>
+
+    <h3>Comment les gens s'en servent</h3>
+    <ul class="liste">
+      <li><strong>Parler à une IA</strong> (Claude Code, Cursor, ChatGPT) : 62 % des dictées d'un testeur sur 90 jours, contre 2 % pour les e-mails. <span class="b b-o">OBSERVÉ</span> <a href="https://mrktcorrect.com/blog/wispr-flow-review" target="_blank" rel="noopener">mrktcorrect</a></li>
+      <li><strong>Messages courts</strong> (Slack, Teams, WhatsApp) : forte. <strong>E-mails</strong> : on en parle beaucoup, on en fait peu.</li>
+      <li><strong>Écriture longue</strong> (scripts YouTube, briefs) et <strong>accessibilité</strong> (tendinite, bébé dans les bras) : récurrent et très chargé d'émotion.</li>
+    </ul>
+
+    <h3>Ce qui est adoré</h3>
+    <div class="theme"><div><h4>Le nettoyage « magique »</h4><div class="freq" aria-label="Fréquence 5 sur 5"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><span>~40 % des avis positifs</span></div></div><div>
+      <blockquote>« an "umm three, no! four!" just results in "four" »<cite><a href="https://news.ycombinator.com/item?id=47559537" target="_blank" rel="noopener">fragmede, HN, 29/03/2026</a></cite></blockquote>
+      <blockquote>« enfin corrige intelligemment ce que je dis à l'oral ! »<cite><a href="https://apps.apple.com/fr/app/wispr-flow-ai-voice-keyboard/id6497229487?see-all=reviews&amp;platform=iphone" target="_blank" rel="noopener">App Store FR, 08/09</a></cite></blockquote>
+    </div></div>
+    <div class="theme"><div><h4>Bien mieux que la dictée Apple</h4><div class="freq" aria-label="Fréquence 3 sur 5"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div></div><div>
+      <blockquote>« Apple's solution feels like it's from the last century »<cite><a href="https://news.ycombinator.com/item?id=48193437" target="_blank" rel="noopener">terabytest, HN, 19/05/2026</a></cite></blockquote>
+    </div></div>
+    <div class="theme"><div><h4>Listes et mise en forme</h4><div class="freq" aria-label="Fréquence 3 sur 5"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i></div></div><div>
+      <blockquote>« it will literally put it in a perfect list for you »<cite>App Store US, 28/09/2026</cite></blockquote>
+      <blockquote>« WisprFlow gets all of the bulleted lists formatted correctly »<cite><a href="https://news.ycombinator.com/item?id=47721892" target="_blank" rel="noopener">qq66, HN, 10/04/2026</a></cite></blockquote>
+    </div></div>
+    <div class="theme"><div><h4>Chuchoter</h4><div class="freq" aria-label="Fréquence 2 sur 5"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><span>surtout en français</span></div></div><div>
+      <blockquote>« On peut vraiment chuchoter dans le micro et ça ne perd aucune information »<cite>App Store FR, 25/07</cite></blockquote>
+    </div></div>
+    <div class="theme"><div><h4>Mélange de langues</h4><div class="freq" aria-label="Fréquence 2 sur 5"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div></div><div>
+      <blockquote>« smart enough to keep those English words in English »<cite><a href="https://www.producthunt.com/products/wisprflow/reviews" target="_blank" rel="noopener">Product Hunt</a></cite></blockquote>
+    </div></div>
+
+    <h3>Ce qui agace</h3>
+    <div class="theme"><div><h4>Le prix, l'abonnement</h4><div class="freq" aria-label="Fréquence 4 sur 5"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><span>~35 % des avis négatifs</span></div></div><div>
+      <blockquote>« Wisprflow is not $12/month better than ios »<cite><a href="https://news.ycombinator.com/item?id=48198223" target="_blank" rel="noopener">prepend, HN, 19/05/2026</a></cite></blockquote>
+      <blockquote>« I really don't get it why anyone would still pay for Wispr Flow »<cite><a href="https://news.ycombinator.com/item?id=50068571" target="_blank" rel="noopener">bresc, HN, 13/10/2026</a></cite></blockquote>
+    </div></div>
+    <div class="theme"><div><h4>Le cloud, la vie privée</h4><div class="freq" aria-label="Fréquence 4 sur 5"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><span>~30 %</span></div></div><div>
+      <blockquote>« didnt want to pay $12/month… or have my audio sent to the cloud »<cite><a href="https://news.ycombinator.com/item?id=47514710" target="_blank" rel="noopener">jyoutir, HN, 25/03/2026</a></cite></blockquote>
+      <blockquote>Affaire des captures d'écran : un utilisateur banni, puis excuses du CTO.<cite><a href="https://embertype.com/blog/the-day-wispr-flow-banned-a-user/" target="_blank" rel="noopener">EmberType (concurrent), 05/05/2026</a></cite></blockquote>
+    </div></div>
+    <div class="theme"><div><h4>Baisse de qualité, pannes</h4><div class="freq" aria-label="Fréquence 3 sur 5"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><span>~20 %</span></div></div><div>
+      <blockquote>« wisprflow has been degraded recently »<cite><a href="https://news.ycombinator.com/item?id=50046242" target="_blank" rel="noopener">kartik017, HN, 11/10/2026</a></cite></blockquote>
+      <blockquote>Taux d'erreur mesuré passé de 9,0 % à 11,2 % en un mois, sur 525 extraits.<cite><a href="https://news.ycombinator.com/item?id=48548002" target="_blank" rel="noopener">telenardo, HN, 15/06/2026</a></cite></blockquote>
+    </div></div>
+    <div class="theme"><div><h4>Sur-correction, mots inventés</h4><div class="freq" aria-label="Fréquence 2 sur 5"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><span>rare mais tue la confiance</span></div></div><div>
+      <blockquote>« trying to rewrite what I say »<cite><a href="https://www.getvoibe.com/resources/is-wispr-flow-reliable/" target="_blank" rel="noopener">App Store US 1★, via Voibe (concurrent)</a></cite></blockquote>
+      <blockquote>Hallucinations « plusieurs fois par jour », désinstallé après une semaine.<cite><a href="https://jimmysong.io/zh/blog/uninstalling-wisprflow/" target="_blank" rel="noopener">Jimmy Song, 08/2025</a></cite></blockquote>
+    </div></div>
+    <div class="theme"><div><h4>Pas d'aperçu pendant qu'on parle</h4><div class="freq" aria-label="Fréquence 2 sur 5"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><span>~15 %</span></div></div><div>
+      <blockquote>« Dommage que l'on ne voit pas la transcription avant la fin »<cite>App Store FR, 08/09</cite></blockquote>
+      <blockquote>« does the entire transcription in one pass after you finish speaking »<cite><a href="https://news.ycombinator.com/item?id=46824506" target="_blank" rel="noopener">mkw5053, HN, 30/01/2026</a></cite></blockquote>
+    </div></div>
+    <div class="theme"><div><h4>Poids, Windows</h4><div class="freq" aria-label="Fréquence 2 sur 5"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><span>~10 %</span></div></div><div>
+      <blockquote>« it's electron based and uses 800 megabytes of RAM »<cite><a href="https://www.producthunt.com/products/wisprflow/reviews" target="_blank" rel="noopener">Product Hunt</a></cite></blockquote>
+    </div></div>
+
+    <h3>En français</h3>
+    <ul class="liste">
+      <li>Consensus des blogs : français très précis, accents compris ; erreurs sur les noms propres rares. Note 8,4/10. <span class="b b-o">OBSERVÉ</span> <a href="https://shiftia.fr/tests/wispr-flow-dictee-vocale-ia/" target="_blank" rel="noopener">Shiftia</a></li>
+      <li>Irritants : interface pas traduite en français, prix en dollars, pas d'AZERTY sur iPhone, styles en anglais seulement, serveurs aux États-Unis. <span class="b b-o">OBSERVÉ</span></li>
+      <li>Aucun test français rigoureux : les « 97,2 % » qui circulent ne sont pas sourcés.</li>
+    </ul>
+
+    <h3>Pourquoi on part, pourquoi on reste</h3>
+    <div class="trois">
+      <div class="bloc" style="--c:var(--orange)"><h4>On part pour</h4><ul><li>l'abonnement ;</li><li>le cloud et la vie privée ;</li><li>la baisse de qualité ;</li><li>le poids, Windows ;</li><li>l'absence de Linux.</li></ul><p class="note" style="margin-top:10px">Plus de 20 « Show HN : alternative gratuite à Wispr » en 2026.</p></div>
+      <div class="bloc" style="--c:var(--vert)"><h4>On reste pour</h4><ul><li>la vitesse ;</li><li>la qualité du nettoyage ;</li><li>le dictionnaire.</li></ul><blockquote style="margin-top:10px">« What's missing for me to switch… is the ability to provide a dictionary »<cite><a href="https://news.ycombinator.com/item?id=46629201" target="_blank" rel="noopener">frankdilo, HN</a></cite></blockquote></div>
+      <div class="bloc" style="--c:var(--bleu)"><h4>Astuces des gros utilisateurs</h4><ul><li>Parler comme à un collègue.</li><li>Dire aussi ce qu'on a déjà essayé.</li><li>Blocs de 30 à 90 s.</li><li>Dicter la prose, taper chiffres et code.</li><li>Casque plutôt qu'AirPods.</li></ul></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 5 PROMPT ================= -->
+<section id="prompt">
+  <div class="wrap">
+    <span class="label">Section 5</span>
+    <h2>Le prompt de Wispr et les noms propres</h2>
+    <p><strong>Verdict : aucun prompt de Wispr n'a été publié, ni n'a fuité.</strong> Rien dans GitHub, les gists, le blog technique ou les interviews lues. Les transcriptions complètes des podcasts n'ont pas été lues : c'est la limite de cette veille.</p>
+
+    <div class="trois">
+      <div class="bloc" style="--c:var(--vert)">
+        <h4>Prouvé</h4>
+        <ul>
+          <li>Le nettoyage tourne sur un <strong>Llama affiné</strong> : « Llama is controllable and customizable » (CTO). Plus de 100 tokens en moins de 250 ms.</li>
+          <li>Les noms viennent du <strong>texte visible à l'écran</strong>, par exemple les destinataires d'un mail.</li>
+          <li>Pas de capture d'écran selon la doc ; mots de passe et apps bancaires ignorés.</li>
+          <li>Contexte coupé = seuls le nom de l'app et le domaine partent.</li>
+        </ul>
+      </div>
+      <div class="bloc" style="--c:var(--bleu)">
+        <h4>Observé</h4>
+        <ul>
+          <li>Un appel dédié extrait les noms propres (« Extracted 5 proper nouns », <code>/llm/extract_asr_words</code>).</li>
+          <li>Champs envoyés : niveau de nettoyage, style, type d'app, texte avant / après le curseur, sélection, URL.</li>
+          <li>La base locale contient une colonne <code>screenshot</code>, malgré la doc.</li>
+        </ul>
+      </div>
+      <div class="bloc" style="--c:var(--texte-sec)">
+        <h4>Supposé</h4>
+        <ul>
+          <li>Le prompt reçoit ces champs, plus le dictionnaire et les noms extraits.</li>
+          <li>Le modèle affiné a appris la mise en forme par l'exemple : peu de règles écrites, beaucoup d'entraînement.</li>
+          <li>Les pauses de la voix aident à placer les paragraphes.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Où en est CBW AI sur les noms</h3>
+    <p>Nous lisons déjà l'app active et jusqu'à 40 noms à l'écran, sans capture, et nous les donnons au prompt et à la transcription, avec apprentissage des corrections. C'est au niveau de Wispr, en plus sobre : seuls des noms partent, jamais le texte.</p>
+    <p><strong>Le garde-fou à garder</strong> : un nom vu à l'écran ne sert qu'à corriger un mot mal entendu, jamais à insérer un nom qui n'a pas été prononcé. « En cas de doute, garde le mot transcrit. »</p>
+    <h4>Concurrents lisibles</h4>
+    <ul class="liste">
+      <li><strong>VoiceInk</strong> (code ouvert) : meilleure référence pour apprendre des corrections (diff, relecture par IA, file de validation). <a href="https://github.com/Beingpax/VoiceInk/tree/main/VoiceInk/Features/Dictionary/AutoLearn" target="_blank" rel="noopener">code</a></li>
+      <li><strong>FreeFlow, OpenWhispr</strong> : capture d'écran envoyée à un modèle de vision. Plus simple, plus intrusif : à éviter.</li>
+      <li><strong>Superwhisper</strong> : texte d'accessibilité, comme Wispr et nous. <a href="https://superwhisper.com/docs/modes/super" target="_blank" rel="noopener">doc</a></li>
+    </ul>
+    <p class="note">Sources : <a href="https://www.baseten.co/resources/customers/wispr-flow/" target="_blank" rel="noopener">Baseten</a> · <a href="https://wisprflow.ai/post/technical-challenges" target="_blank" rel="noopener">blog technique</a> · <a href="https://docs.wisprflow.ai/articles/4678293671-feature-context-awareness" target="_blank" rel="noopener">Context Awareness</a> · <a href="https://www.wensenwu.com/thoughts/wispr-flow-investigation" target="_blank" rel="noopener">Wensen Wu</a> · <a href="https://github.com/ThisisShashwat/wisprflow-sdk" target="_blank" rel="noopener">SDK non officiel</a></p>
+  </div>
+</section>
+
+<!-- ================= 6 BUGS ================= -->
+<section id="bugs">
+  <div class="wrap">
+    <span class="label">Section 6</span>
+    <h2>Bugs trouvés chez nous</h2>
+
+    <div class="bugcarte">
+      <span class="b b-bug">BUG</span> <span class="b b-p">PROUVÉ</span>
+      <h3>Une dictée de 6 mots ou moins ne passe pas par l'IA</h3>
+      <p>Pour aller vite, <code>shouldSkipLLM</code> saute l'IA quand la dictée est courte et sans « euh ». Mais le nettoyage de secours ne connaît pas les commandes. Résultat, vérifié en local : « Salut Karim virgule à la ligne » sort <code>Salut Karim virgule à la ligne.</code></p>
+      <p><strong>Correctif</strong> : ne jamais sauter l'IA si la dictée contient une commande.</p>
+      <div class="regles"><div class="regles-tete"><span class="label">src/llm/prompt.ts</span></div><pre>const SPOKEN_COMMAND_RE = /\b(?:à la ligne|retour à la ligne|nouvelle ligne|ligne suivante|saute(?:r)? une ligne|nouveau paragraphe|paragraphe suivant|virgule|point(?: d'interrogation| d'exclamation|-virgule| virgule)?|deux[- ]points|tiret|guillemets?|parenthèses?|émoji|emoji|arobase)\b/i;
+// dans shouldSkipLLM : ajouter  &amp;&amp; !SPOKEN_COMMAND_RE.test(t)</pre></div>
+    </div>
+
+    <div class="bugcarte">
+      <span class="b b-bug">BUG</span> <span class="b b-p">PROUVÉ</span>
+      <h3>Commandes de ponctuation non appliquées sans IA</h3>
+      <p>Quand aucun moteur ne répond (panne réseau, quotas), <code>fallbackClean</code> colle le texte avec les mots « à la ligne », « virgule »… Wispr, lui, applique ses commandes même sans mise en forme.</p>
+      <p><strong>Correctif</strong> : appliquer sans IA au moins « nouveau paragraphe » → ligne vide, « à la ligne » et variantes → retour à la ligne, « virgule » → « , », « point d'interrogation » → « ? ».</p>
+    </div>
+
+    <div class="bugcarte" style="border-left-color:var(--fil-fort)">
+      <span class="b b-s">À VÉRIFIER</span>
+      <h3>Trois points à tester</h3>
+      <ul class="liste">
+        <li><strong>Clavier AZERTY</strong> : le ⌘V envoyé par le helper doit viser la touche « V » quel que soit le clavier. Wispr a ce bug.</li>
+        <li><strong>Deux dictées rapprochées</strong> : une nouvelle dictée pendant le traitement semble abandonner la précédente. Mieux vaut finir de coller la première.</li>
+        <li><strong>Le prompt ne dit pas ce qu'est un paragraphe</strong> : « nouveau paragraphe » n'est défini nulle part comme une ligne vide.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= À DÉCIDER ================= -->
+<section id="decider">
+  <div class="wrap">
+    <span class="label">À vous</span>
+    <h2>À décider</h2>
+    <p>Chaque idée des quatre veilles, sans doublon. Choisissez Ajouter, Plus tard ou Non : vos choix restent dans ce navigateur. Puis « Copier mes choix » et recollez la liste dans la conversation. Le repère « Conseillé » signale les priorités suggérées par la veille.</p>
+    <div class="dec-barre">
+      <span class="grand" id="compteur-bas">0 / 0 tranchés</span>
+      <button class="btn btn-p" type="button" id="copier-choix">Copier mes choix</button>
+      <button class="btn" type="button" id="effacer-choix">Tout effacer</button>
+    </div>
+    <div class="filtres" role="group" aria-label="Filtrer">
+      <button type="button" data-filtre="tout" aria-pressed="true">Toutes</button>
+      <button type="button" data-filtre="ouvert" aria-pressed="false">À trancher</button>
+      <button type="button" data-filtre="conseil" aria-pressed="false">Conseillées</button>
+      <button type="button" data-filtre="tranche" aria-pressed="false">Tranchées</button>
+    </div>
+    <div id="propositions"></div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">Veille du 14 octobre 2026 · fichiers sources dans <code>chantiers/veille-wispr-complete/</code> (01 à 04) et <code>chantiers/prompt-v16/veille-wispr.md</code>. Rien n'a été publié.</div>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  'use strict';
+  var CLE = 'cbw-veille-wispr-choix-v1';
+  var LIBELLES = { 'ajouter': 'Ajouter', 'plus-tard': 'Plus tard', 'non': 'Non' };
+
+  var GROUPES = [
+    { id: 'bugs', titre: 'Bugs à corriger' },
+    { id: 'forme', titre: 'Mise en forme (prompt.ts)' },
+    { id: 'voix', titre: 'Captation et fiabilité' },
+    { id: 'fonctions', titre: 'Nouvelles fonctions' },
+    { id: 'image', titre: 'Accueil, site et image' }
+  ];
+
+  var P = [
+    // Bugs
+    { id: 'b1', g: 'bugs', c: true, e: 'S', t: 'Faire passer par l\'IA les dictées courtes qui contiennent une commande',
+      d: '« Salut Karim virgule à la ligne » ne sortira plus avec les mots « virgule à la ligne ».', s: 'Veille 01 §7 n°4, §8.1' },
+    { id: 'b2', g: 'bugs', c: true, e: 'S', t: 'Appliquer les commandes même sans IA (panne réseau)',
+      d: 'Si aucun moteur ne répond, « à la ligne », « virgule », « point d\'interrogation » sont quand même appliqués au lieu d\'être collés en toutes lettres.', s: 'Veille 01 §8.2' },
+    { id: 'b3', g: 'bugs', c: false, e: 'S', t: 'Vérifier le collage sur clavier AZERTY',
+      d: 'Wispr a un bug connu de collage sur les claviers non QWERTY. Un test suffit à s\'assurer qu\'on ne l\'a pas.', s: 'Veille 02 §4, §7' },
+    { id: 'b4', g: 'bugs', c: false, e: 'S', t: 'Ne plus perdre une dictée quand on en relance une',
+      d: 'Une nouvelle dictée pendant le traitement semble abandonner la précédente (à vérifier). On finirait de coller la première.', s: 'Veille 02 §7' },
+
+    // Mise en forme
+    { id: 'm1', g: 'forme', c: true, e: 'S', t: 'Paragraphes automatiques plus généreux',
+      d: 'Dès plus de trois phrases, une ligne vide à chaque changement de sujet, et jamais plus de quatre ou cinq phrases d\'affilée. Vos longs messages respirent comme chez Wispr.', s: 'Veille 01 §1.2, §7 n°1, §9 · Veille 04 n°10' },
+    { id: 'm2', g: 'forme', c: true, e: 'S', t: 'Salutation et signature sur leur propre ligne',
+      d: '« Bonjour Claire, » seul en haut, « Merci et bonne journée, » puis le prénom en bas, dans n\'importe quelle app. Rien n\'est ajouté si vous ne l\'avez pas dit.', s: 'Veille 01 §1.2, §7 n°2, §9' },
+    { id: 'm3', g: 'forme', c: true, e: 'S', t: 'Plus de façons de dire « à la ligne »',
+      d: '« retour à la ligne », « nouvelle ligne », « va à la ligne », « saute une ligne », « paragraphe suivant » fonctionnent ; « nouveau paragraphe » donne une vraie ligne vide.', s: 'Veille 01 §1.1, §7 n°3, §9' },
+    { id: 'm4', g: 'forme', c: true, e: 'S', t: 'Liste numérotée quand vous comptez',
+      d: '« premièrement… deuxièmement… » devient 1. 2. 3., et les mots « premièrement » disparaissent. Les tirets restent pour « trois choses : … ».', s: 'Veille 01 §2, §7 n°5 · Veille 04 §4' },
+    { id: 'm5', g: 'forme', c: false, e: 'S', t: 'Jamais de tiret long (—) inventé',
+      d: 'Le tiret cadratin, marque des textes écrits par une IA, n\'apparaît que si vous l\'avez dicté. Règle de prompt plus filet de sécurité dans le code.', s: 'Veille 01 §2, §7 n°6, §8.4' },
+    { id: 'm6', g: 'forme', c: false, e: 'S', t: 'Espaces fines françaises automatiques',
+      d: 'Espace insécable avant ; : ? ! et dans les guillemets « », sauf dans le code et les terminaux. Une typographie française propre, que Wispr fait et que nous ne faisons pas.', s: 'Veille 01 §6, §8.3 · Veille 04 n°14' },
+    { id: 'm7', g: 'forme', c: false, e: 'S', t: 'Emojis dictés',
+      d: '« émoji cœur » → ❤️, « émoji pouce » → 👍, seulement quand le nom désigne un emoji sans ambiguïté.', s: 'Veille 01 §2, §7 n°11' },
+    { id: 'm8', g: 'forme', c: false, e: 'S', t: 'Adresses e-mail et sites dictés',
+      d: '« paul point martin arobase gmail point com » → paul.martin@gmail.com. Wispr ne le fait pas : un petit avantage.', s: 'Veille 01 §2, §7 n°12' },
+    { id: 'm9', g: 'forme', c: false, e: 'S', t: 'Pourcentages, degrés et euros en chiffres',
+      d: '« vingt pour cent » → 20 %, « mille euros » → 1 000 €. Une valeur floue reste floue (« un virgule quelque chose pour cent »).', s: 'Veille 01 §2, §7 n°10' },
+    { id: 'm10', g: 'forme', c: false, e: 'S', t: '« Efface ça » pour annuler une phrase',
+      d: '« efface ça », « annule ça », « oublie ce que je viens de dire » retirent la phrase précédente et la formule. Un « en fait » isolé ne corrige plus rien par erreur.', s: 'Veille 01 §4, §7 n°13-14' },
+    { id: 'm11', g: 'forme', c: false, e: 'S', t: 'Aucun retour à la ligne inventé dans un terminal ou un éditeur de code',
+      d: 'Dans Terminal, Cursor ou Xcode, seulement les retours que vous dictez. Évite d\'envoyer une commande par erreur.', s: 'Veille 01 §1.4, §7 n°17' },
+    { id: 'm12', g: 'forme', c: false, e: 'S-M', t: 'Mode « prompt pour l\'IA »',
+      d: 'Dans Claude, ChatGPT ou Cursor : garder tout le contexte et toutes les contraintes dictés, structurer en listes sans résumer. C\'est l\'usage n°1 des gros utilisateurs de Wispr.', s: 'Veille 04 §2, n°1 · Veille 01 §5 (Prompt Engineer)' },
+    { id: 'm13', g: 'forme', c: false, e: 'M', t: 'Ton selon l\'app (Slack détendu, Mail soigné)',
+      d: 'Une même dictée donne « Hello Jordan, » dans Mail et « hey Jordan » sans point final dans Slack. Wispr ne le fait qu\'en anglais : en français, on serait seuls.', s: 'Veille 01 §3.2, §7 n°8 · Veille 03 §5' },
+    { id: 'm14', g: 'forme', c: false, e: 'L', t: 'Raccord avec le texte déjà écrit',
+      d: 'Dicter au milieu d\'une phrase donne une minuscule et pas de point final. Demande de lire le texte autour du curseur.', s: 'Veille 01 §1.4, §7 n°9' },
+
+    // Voix
+    { id: 'c1', g: 'voix', c: true, e: 'M', t: 'Choisir son micro, et éviter les AirPods automatiquement',
+      d: 'Un réglage Micro avec vumètre. En automatique, le micro du Mac passe avant le Bluetooth, qui coupe les premiers mots et abîme le son de la musique.', s: 'Veille 02 §2, §7 · Veille 04 §3' },
+    { id: 'c2', g: 'voix', c: true, e: 'S', t: 'Alerte « aucun son du micro »',
+      d: 'Après 1,5 s sans son, la pastille le dit, au lieu de découvrir à la fin que rien n\'a été capté.', s: 'Veille 02 §1, §7 · Veille 03 §5' },
+    { id: 'c3', g: 'voix', c: true, e: 'M', t: 'Historique avec audio et bouton Réessayer',
+      d: 'Les dernières dictées gardent leur audio (chiffré, sur le Mac, 7 jours, supprimable). Une dictée ratée se relance en un clic, même après un plantage.', s: 'Veille 02 §4, §7 · Veille 03 §5 · Veille 04 n°7' },
+    { id: 'c4', g: 'voix', c: true, e: 'S', t: 'Coller la version brute en un raccourci',
+      d: 'Si l\'IA a trop corrigé, un raccourci remplace le texte par ce que vous avez réellement dit.', s: 'Veille 03 §5 · Veille 04 n°2' },
+    { id: 'c5', g: 'voix', c: false, e: 'S', t: 'Dictées de 20 minutes avec avertissement',
+      d: 'Au lieu de 5 min avec arrêt sans prévenir : un son doux et un message une minute avant la fin, puis collage automatique.', s: 'Veille 02 §1, §7 · Veille 04 n°9' },
+    { id: 'c6', g: 'voix', c: false, e: 'S', t: 'Récupérer une dictée annulée par Échap',
+      d: 'Un message « Dictée annulée · Récupérer » pendant 5 secondes.', s: 'Veille 02 §7' },
+    { id: 'c7', g: 'voix', c: false, e: 'S', t: 'Raccourcis « coller / copier la dernière dictée »',
+      d: '⌘⌃V recolle la dernière dictée n\'importe où ; un clic dans l\'historique la copie.', s: 'Veille 02 §1, §7' },
+    { id: 'c8', g: 'voix', c: false, e: 'S', t: 'Délai de presse-papiers adapté à l\'app',
+      d: 'Word, Outlook et le bureau à distance ont plus de temps pour coller : moins de collages ratés.', s: 'Veille 02 §4, §7' },
+    { id: 'c9', g: 'voix', c: false, e: 'M', t: 'Mettre la musique en pause pendant la dictée',
+      d: 'Option désactivée par défaut : Spotify ou Musique en pause puis relancés, jamais pendant un appel.', s: 'Veille 02 §2, §7' },
+    { id: 'c10', g: 'voix', c: false, e: 'S', t: 'Micro débranché ou appel entrant : garder ce qui a été dit',
+      d: 'La dictée s\'arrête proprement et colle ce qui a été capté, au lieu d\'échouer.', s: 'Veille 02 §2, §7' },
+    { id: 'c11', g: 'voix', c: false, e: 'S', t: 'Prévenir quand la saisie sécurisée bloque le raccourci',
+      d: 'Quand un champ mot de passe ou un Terminal bloque la touche, la pastille l\'explique au lieu de ne rien faire.', s: 'Veille 02 §1, §7' },
+    { id: 'c12', g: 'voix', c: false, e: 'S', t: 'Réglage « voix basse » pour chuchoter',
+      d: 'Tester d\'abord le chuchotement, puis, si besoin, une option qui abaisse le seuil de détection. C\'est l\'avis français le plus enthousiaste sur Wispr.', s: 'Veille 02 §2, §7 · Veille 04 §4, n°8' },
+    { id: 'c13', g: 'voix', c: false, e: 'S', t: 'Masquer la pastille pendant 1 heure',
+      d: 'Clic droit sur la pastille, ou réglage « visible seulement pendant la dictée ».', s: 'Veille 02 §2, §7' },
+    { id: 'c14', g: 'voix', c: false, e: 'L', t: 'Aperçu du texte pendant qu\'on parle',
+      d: 'La pastille montre le texte qui arrive. Demandé par les déçus de Wispr, mais coûteux en transcription locale.', s: 'Veille 03 §5 · Veille 04 n°6' },
+    { id: 'c15', g: 'voix', c: false, e: 'M', t: 'Dicter avec un bouton de souris',
+      d: 'Les boutons latéraux d\'une souris lancent la dictée, comme « Mouse Flow ».', s: 'Veille 02 §1, §7 · Veille 03 §5' },
+
+    // Fonctions
+    { id: 'f1', g: 'fonctions', c: true, e: 'S-M', t: 'Snippets : une phrase-raccourci insère un texte',
+      d: 'Dire « ma signature » ou « mon lien agenda » insère le texte enregistré. Entièrement local, sans IA. Le meilleur gain par jour de travail selon la veille.', s: 'Veille 03 §1, §5 (priorité 1) · Veille 01 §5' },
+    { id: 'f2', g: 'fonctions', c: true, e: 'M', t: 'Réécrire la sélection à la voix',
+      d: 'Sélectionner un texte et dire « rends ça plus poli » ou « fais une liste ». Réutilise la lecture de la sélection et le routeur IA déjà en place.', s: 'Veille 03 §5 (priorité 2) · Veille 01 §5' },
+    { id: 'f3', g: 'fonctions', c: false, e: 'M', t: 'Raccourcis de réécriture personnalisés',
+      d: 'Vos propres consignes (« version LinkedIn », « résumé en 3 points ») sur un raccourci, comme les Transforms de Wispr. Après la réécriture vocale.', s: 'Veille 03 §1, §5 · Veille 01 §5' },
+    { id: 'f4', g: 'fonctions', c: false, e: 'S', t: 'Dictionnaire : mots prioritaires et règles de remplacement',
+      d: 'Une étoile sur les mots importants ; une règle « asian » → « agent » appliquée à coup sûr. Le dictionnaire est ce qui retient les gens chez Wispr.', s: 'Veille 03 §5 · Veille 04 §3, n°5' },
+    { id: 'f5', g: 'fonctions', c: false, e: 'S-M', t: 'Importer des noms depuis Contacts et Calendrier',
+      d: 'Sur accord, en local : les prénoms de vos contacts sont bien écrits dès le premier jour.', s: 'Veille prompt-v16 §4 n°5' },
+    { id: 'f6', g: 'fonctions', c: false, e: 'S', t: 'Même dictionnaire pour les notes de réunion',
+      d: 'Les noms appris en dictée servent aussi aux comptes rendus (à vérifier si c\'est déjà le cas). Wispr le fait.', s: 'Veille 04 n°13' },
+    { id: 'f7', g: 'fonctions', c: false, e: 'S', t: 'Exporter et importer le dictionnaire',
+      d: 'Partager son vocabulaire avec une équipe de PME, avant de construire de vraies équipes.', s: 'Veille 03 §5' },
+    { id: 'f8', g: 'fonctions', c: false, e: 'S', t: 'Choisir la langue en un clic sur la pastille',
+      d: 'Passer de français à anglais sans ouvrir les réglages.', s: 'Veille 02 §2 · Veille 03 §5' },
+    { id: 'f9', g: 'fonctions', c: false, e: 'M', t: 'Notes de réunion lisibles par Claude (MCP)',
+      d: 'Claude Desktop ou ChatGPT peuvent chercher dans vos comptes rendus. Les notes sont déjà en fichiers .md, donc peu urgent.', s: 'Veille 03 §1, §5' },
+    { id: 'f10', g: 'fonctions', c: false, e: 'M', t: 'Bloc-notes vocal',
+      d: 'Une fenêtre où dicter et retravailler un brouillon, comme le Scratchpad de Wispr.', s: 'Veille 03 §1, §5' },
+    { id: 'f11', g: 'fonctions', c: false, e: 'S', t: 'Statistiques : carte de chaleur et carte à partager',
+      d: 'Un calendrier de vos jours de dictée et une image à publier sur LinkedIn.', s: 'Veille 03 §1, §5' },
+
+    // Image
+    { id: 's1', g: 'image', c: true, e: 'S', t: 'Page « Ce qui sort de votre Mac » sur le site',
+      d: 'Local, gratuit, sans plafond, sans capture d\'écran : exactement les griefs n°1 et n°2 contre Wispr. Rien ne sera publié sans votre accord.', s: 'Veille 03 §5 · Veille 04 n°3-4' },
+    { id: 's2', g: 'image', c: false, e: 'S', t: 'Guide « bien dicter » et test du micro à l\'accueil',
+      d: '« Parlez comme à un collègue », « casque plutôt qu\'AirPods », « tapez les chiffres et le code », et le raccourci affiché sur l\'Accueil les premiers jours.', s: 'Veille 03 §1, §5 · Veille 04 §3, n°15' },
+    { id: 's3', g: 'image', c: false, e: 'S', t: 'Mesurer et publier la mémoire utilisée au repos',
+      d: 'Wispr est critiqué pour ses ~800 Mo de RAM. Un chiffre bas et vérifié devient un argument.', s: 'Veille 04 §5, n°12' }
+  ];
+
+  function fr(s){
+    return s.replace(/ ([:;?!»])/g, ' $1').replace(/« /g, '« ');
+  }
+  function esc(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function lire(){
+    try { var v = JSON.parse(localStorage.getItem(CLE) || '{}'); return (v && typeof v === 'object') ? v : {}; }
+    catch (e) { return {}; }
+  }
+  function ecrire(v){
+    try { localStorage.setItem(CLE, JSON.stringify(v)); } catch (e) { /* stockage indisponible : choix gardés pour cette visite */ }
+  }
+
+  var choix = lire();
+  var filtre = 'tout';
+  var zone = document.getElementById('propositions');
+
+  function rendre(){
+    var html = '';
+    GROUPES.forEach(function(gr){
+      var items = P.filter(function(p){ return p.g === gr.id; });
+      html += '<h3 class="groupe-titre" data-groupe="' + gr.id + '">' + esc(gr.titre) + ' · ' + items.length + '</h3><div class="cartes">';
+      items.forEach(function(p){
+        var v = choix[p.id] || '';
+        html += '<article class="carte' + (v ? ' tranchee' : '') + '" data-id="' + p.id + '">' +
+          '<div class="carte-corps"><div class="carte-meta">' +
+          '<span class="eff-b" title="Effort">EFFORT ' + esc(p.e) + '</span>' +
+          (p.c ? '<span class="conseil">CONSEILLÉ</span>' : '') +
+          '</div><h3>' + esc(fr(p.t)) + '</h3><p>' + esc(fr(p.d)) + '</p>' +
+          '<p class="source">Source : ' + esc(p.s) + '</p></div>' +
+          '<div class="choix" role="group" aria-label="Décision : ' + esc(p.t) + '">' +
+          ['ajouter','plus-tard','non'].map(function(k){
+            return '<button type="button" data-v="' + k + '" aria-pressed="' + (v === k) + '">' + LIBELLES[k] + '</button>';
+          }).join('') + '</div></article>';
+      });
+      html += '</div>';
+    });
+    zone.innerHTML = html;
+    appliquerFiltre();
+    compter();
+  }
+
+  function appliquerFiltre(){
+    zone.querySelectorAll('.carte').forEach(function(el){
+      var id = el.getAttribute('data-id');
+      var p = P.filter(function(x){ return x.id === id; })[0];
+      var t = !!choix[id];
+      var vis = filtre === 'tout' || (filtre === 'ouvert' && !t) || (filtre === 'tranche' && t) || (filtre === 'conseil' && p.c);
+      el.hidden = !vis;
+    });
+    zone.querySelectorAll('.groupe-titre').forEach(function(h){
+      var grille = h.nextElementSibling;
+      var aucune = !grille.querySelector('.carte:not([hidden])');
+      h.hidden = aucune; grille.hidden = aucune;
+    });
+  }
+
+  function compter(){
+    var n = P.filter(function(p){ return !!choix[p.id]; }).length;
+    var txt = n + ' / ' + P.length + ' tranchés';
+    document.getElementById('compteur').textContent = txt;
+    var a = 0, l = 0, r = 0;
+    P.forEach(function(p){ if (choix[p.id] === 'ajouter') a++; else if (choix[p.id] === 'plus-tard') l++; else if (choix[p.id] === 'non') r++; });
+    document.getElementById('compteur-bas').textContent = txt + ' · ' + a + ' à ajouter · ' + l + ' plus tard · ' + r + ' non';
+  }
+
+  zone.addEventListener('click', function(ev){
+    var b = ev.target.closest('.choix button');
+    if (!b) return;
+    var carte = b.closest('.carte');
+    var id = carte.getAttribute('data-id');
+    var v = b.getAttribute('data-v');
+    if (choix[id] === v) delete choix[id]; else choix[id] = v;
+    ecrire(choix);
+    carte.querySelectorAll('.choix button').forEach(function(x){ x.setAttribute('aria-pressed', String(choix[id] === x.getAttribute('data-v'))); });
+    carte.classList.toggle('tranchee', !!choix[id]);
+    compter();
+  });
+
+  document.querySelectorAll('.filtres button').forEach(function(b){
+    b.addEventListener('click', function(){
+      filtre = b.getAttribute('data-filtre');
+      document.querySelectorAll('.filtres button').forEach(function(x){ x.setAttribute('aria-pressed', String(x === b)); });
+      appliquerFiltre();
+    });
+  });
+
+  var toastEl = document.getElementById('toast');
+  var toastT = null;
+  function toast(m){
+    toastEl.textContent = m; toastEl.classList.add('vu');
+    clearTimeout(toastT); toastT = setTimeout(function(){ toastEl.classList.remove('vu'); }, 2600);
+  }
+  function copier(texte, ok){
+    function repli(){
+      var ta = document.createElement('textarea');
+      ta.value = texte; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.left = '-9999px';
+      document.body.appendChild(ta); ta.select();
+      var r = false; try { r = document.execCommand('copy'); } catch (e) { r = false; }
+      document.body.removeChild(ta);
+      toast(r ? ok : 'Copie impossible : sélectionnez le texte à la main.');
+    }
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(texte).then(function(){ toast(ok); }, repli);
+      } else { repli(); }
+    } catch (e) { repli(); }
+  }
+
+  document.getElementById('copier-choix').addEventListener('click', function(){
+    var lignes = ['Mes choix, veille Wispr Flow (' + P.filter(function(p){ return !!choix[p.id]; }).length + ' / ' + P.length + ' tranchés)', ''];
+    ['ajouter','plus-tard','non'].forEach(function(k){
+      var items = P.filter(function(p){ return choix[p.id] === k; });
+      if (!items.length) return;
+      lignes.push(LIBELLES[k].toUpperCase());
+      items.forEach(function(p){ lignes.push('- [' + p.id + '] ' + p.t + ' → ' + LIBELLES[k]); });
+      lignes.push('');
+    });
+    var reste = P.filter(function(p){ return !choix[p.id]; });
+    if (reste.length) {
+      lignes.push('PAS ENCORE TRANCHÉ (' + reste.length + ')');
+      reste.forEach(function(p){ lignes.push('- [' + p.id + '] ' + p.t); });
+    }
+    copier(lignes.join('\n').trim(), 'Choix copiés : collez-les dans la conversation.');
+  });
+
+  document.getElementById('effacer-choix').addEventListener('click', function(){
+    if (!window.confirm('Effacer tous vos choix ?')) return;
+    choix = {}; ecrire(choix); rendre();
+  });
+
+  document.querySelectorAll('[data-copier]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var el = document.getElementById(b.getAttribute('data-copier'));
+      if (el) copier(el.textContent, 'Règles copiées.');
+    });
+  });
+
+  // sommaire : section active
+  var liens = Array.prototype.slice.call(document.querySelectorAll('.nav ul a'));
+  if ('IntersectionObserver' in window) {
+    var obs = new IntersectionObserver(function(entrees){
+      entrees.forEach(function(en){
+        if (!en.isIntersecting) return;
+        var id = en.target.id;
+        liens.forEach(function(a){ a.classList.toggle('actif', a.getAttribute('href') === '#' + id); });
+      });
+    }, { rootMargin: '-80px 0px -70% 0px' });
+    document.querySelectorAll('main section[id]').forEach(function(s){ obs.observe(s); });
+  }
+
+  rendre();
+})();
+</script>
+</body>
+</html>

@@ -17,6 +17,11 @@ export function findBin(name: string, env?: string): string | undefined {
     path.join(dataDir(), 'bin', name),
   ]);
 }
+/** Prompt Whisper borné (≈ 224 jetons max) : on garde la fin, la plus proche de l'audio. */
+export const boundPrompt = (p: string | undefined): string | undefined => {
+  const t = (p ?? '').trim();
+  return t ? (t.length > 900 ? t.slice(-900) : t) : undefined;
+};
 export const whisperBin = (): string | undefined => findBin('whisper-cli', process.env.DICTA_WHISPER_BIN);
 export const whisperServerBin = (): string | undefined => findBin('whisper-server', process.env.DICTA_WHISPER_SERVER_BIN);
 
@@ -235,7 +240,8 @@ class WhisperServer {
     fd.append('no_timestamps', 'true');
     fd.append('language', opts.language || 'fr');
     fd.append('temperature', '0.0');
-    if (opts.prompt) fd.append('prompt', opts.prompt);
+    const prompt = boundPrompt(opts.prompt);
+    if (prompt) fd.append('prompt', prompt);
     const r = await fetch(`http://127.0.0.1:${this.port}/inference`, { method: 'POST', body: fd, signal: opts.signal });
     if (!r.ok) throw new Error(`whisper-server HTTP ${r.status}`);
     return r.text();
@@ -341,7 +347,8 @@ async function transcribeCli(wav: Buffer | string, opts: TranscribeOpts): Promis
   }
 
   const args = ['-m', model, '-f', file, '-l', opts.language || 'fr', '-nt', '-np', '-t', '4'];
-  if (opts.prompt) args.push('--prompt', opts.prompt);
+  const prompt = boundPrompt(opts.prompt);
+  if (prompt) args.push('--prompt', prompt);
   const t0 = Date.now();
   try {
     const out = await new Promise<string>((resolve, reject) => {

@@ -1,7 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('dictaRecorder', {
-  onArm: (cb: () => void) => ipcRenderer.on('rec:arm', () => cb()),
+  onArm: (cb: (cfg?: unknown) => void) => ipcRenderer.on('rec:arm', (_e, c) => cb(c)),
+  onList: (cb: (id: number) => void) => ipcRenderer.on('rec:list', (_e, id) => cb(id)),
+  devices: (id: number, list: unknown) => ipcRenderer.send('rec:devices', id, list),
+  noInput: () => ipcRenderer.send('rec:noinput'),
+  limit: (kind: string, remainingMs: number) => ipcRenderer.send('rec:limit', kind, remainingMs),
+  interrupted: (reason: string) => ipcRenderer.send('rec:interrupted', reason),
   onDisarm: (cb: () => void) => ipcRenderer.on('rec:disarm', () => cb()),
   onStart: (cb: (opts?: unknown) => void) => ipcRenderer.on('rec:start', (_e, o) => cb(o)),
   onPause: (cb: () => void) => ipcRenderer.on('rec:pause', () => cb()),

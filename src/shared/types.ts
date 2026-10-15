@@ -36,6 +36,38 @@ export interface CleanResult {
  *   cleanTranscript(raw: string, opts?: CleanOptions): Promise<CleanResult>
  * Le router utilise src/llm/prompt.ts (buildMessages / postProcess).
  */
+/** Contexte de l'app active (lu localement, jamais journalisé). Texte de l'écran = non fiable. */
+export interface DictationContext {
+  /** Nom affiché de l'app active (« Slack », « Mail », « Cursor »). */
+  app?: string;
+  bundleId?: string;
+  /** Domaine seulement pour un navigateur (« linear.app »), jamais le chemin complet. */
+  url?: string;
+  /** Noms propres / termes rares vus à l'écran, ≤ 40, chacun ≤ 60 car., dédoublonnés. */
+  names?: string[];
+  /**
+   * m14 : ≤ 300 derniers caractères avant le curseur (texte déjà écrit), pour le raccord
+   * (majuscule, espace, ponctuation). Jamais journalisé. Absent = début de champ ou lecture impossible.
+   */
+  before?: string;
+}
+
+/** f4 : règle de remplacement du dictionnaire, appliquée après le LLM (« asian » → « agent »). */
+export interface ReplacementRule {
+  from: string;
+  to: string;
+}
+
+/** f3 : raccourci de réécriture personnalisé (nom dit à voix haute → instruction). */
+export interface RewritePreset {
+  /** Identifiant stable (facultatif, généré par l'UI). */
+  id?: string;
+  /** Nom court affiché et reconnu à la voix (« version LinkedIn »). */
+  name: string;
+  /** Consigne envoyée au modèle (« réécris pour LinkedIn, ton pro, sans hashtags »). */
+  instruction: string;
+}
+
 export interface CleanOptions {
   /** Ordre de fallback. Défaut : depuis la config utilisateur. */
   providers?: ProviderId[];
@@ -45,6 +77,18 @@ export interface CleanOptions {
   level?: 'light' | 'standard';
   /** Vocabulaire propre (noms, jargon) à respecter. Défaut : config (cleanup.vocabulary). */
   vocabulary?: string[];
+  /** App active + noms visibles à l'écran (bloc <contexte> du message user). */
+  context?: DictationContext;
+  /** m12 : mode « prompt pour l'IA ». 'auto' (défaut) = actif dans ChatGPT/Claude/Cursor/terminal ; 'on' toujours ; 'off' jamais. */
+  promptMode?: 'auto' | 'on' | 'off';
+  /** m13 : le ton suit l'app (Slack détendu, Mail soigné) — forme seulement. Défaut true. */
+  toneByApp?: boolean;
+  /** m6 : espaces fines françaises (avant ; : ? !, dans « »). Défaut true, jamais en terminal/éditeur. */
+  frenchTypography?: boolean;
+  /** f4 : mots prioritaires du dictionnaire (placés en tête du bloc de vocabulaire). */
+  priorityVocabulary?: string[];
+  /** f4 : règles de remplacement appliquées après le LLM (aussi en repli sans réseau). */
+  replacements?: ReplacementRule[];
   signal?: AbortSignal;
 }
 

@@ -1,6 +1,7 @@
 import { ChildProcess, execFile, spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import * as readline from 'node:readline';
+import { MouseGesture } from './keysLogic';
 import { log } from './paths';
 import { findBin } from './whisper';
 
@@ -13,7 +14,7 @@ import { findBin } from './whisper';
  * Événements : 'arm' (1er appui d'une séquence : pré-ouverture du micro), 'down', 'up', 'cancel', 'escape'.
  */
 
-export type TriggerKey = 'fn' | 'lctrl' | 'rctrl';
+export type TriggerKey = 'fn' | 'lctrl' | 'rctrl' | 'none';
 /** « Fn×2 » → 'fn', « LCtrl×2 » (Control gauche) → 'lctrl', « RCtrl×2 » → 'rctrl', sinon null (accélérateur classique). */
 export const triggerOf = (acc: string): TriggerKey | null => {
   const a = acc.trim();
@@ -157,9 +158,17 @@ export class FnWatcher extends EventEmitter {
   status: 'off' | 'ready' | 'no-access' | 'unavailable' = 'off';
   /** Touche observée par le helper (fn ou Control droite). */
   trigger: TriggerKey = 'lctrl';
+  readonly mouse = new MouseGesture();
+  /** Bouton de souris suivi (4 ou 5…, 0 = aucun) : renvoyé au helper à chaque (re)lancement. */
+  mouseButton = 0;
+  /** Saisie sécurisée active (champ mot de passe…) : le raccourci ne reçoit plus rien. */
+  secureInput = false;
+  secureApp = '';
 
   constructor() {
     super();
+    for (const e of ['arm', 'down', 'up']) this.mouse.on(e, () => this.emit(e));
+    this.gesture.on('escape', () => this.mouse.reset());
     for (const e of ['arm', 'down', 'up', 'cancel', 'escape', 'triple', 'noteStop']) this.gesture.on(e, () => this.emit(e));
   }
 
@@ -175,6 +184,7 @@ export class FnWatcher extends EventEmitter {
       const p = spawn(bin, ['--trigger', this.trigger], { stdio: ['pipe', 'pipe', 'pipe'] }); // stdin gardé ouvert : fermé → le helper quitte
       this.proc = p;
       let settled = false;
+      if (this.mouseButton > 0) p.stdin?.write(`mouse ${this.mouseButton}\n`);
       const done = (ok: boolean) => {
         if (!settled) {
           settled = true;
@@ -187,7 +197,14 @@ export class FnWatcher extends EventEmitter {
         done(false);
       });
       readline.createInterface({ input: p.stdout! }).on('line', (line) => {
-        switch (line.trim()) {
+        const l = line.trim();
+        if (l.startsWith('secure ')) {
+          this.setSecure(l.startsWith('secure on'), l.slice(10).trim());
+          return;
+        }
+        if (l.startsWith('mouse-down')) return this.mouse.buttonDown();
+        if (l.startsWith('mouse-up')) return this.mouse.buttonUp();
+        switch (l) {
           case 'ready':
             this.status = 'ready';
             log('fn: helper prêt', bin);
@@ -209,7 +226,7 @@ export class FnWatcher extends EventEmitter {
             break;
           case 'pasted':
           case 'paste-failed':
-            this.pasteWaiters.shift()?.(line.trim() === 'pasted');
+            this.pasteWaiters.shift()?.(l === 'pasted');
             break;
           case 'key':
           case 'mod':
@@ -227,6 +244,22 @@ export class FnWatcher extends EventEmitter {
         done(false);
       });
     });
+  }
+
+  private setSecure(on: boolean, app: string): void {
+    if (on === this.secureInput) return;
+    this.secureInput = on;
+    this.secureApp = on ? app : '';
+    log('fn: saisie sécurisée', on ? `active (${app || 'app inconnue'})` : 'terminée');
+    this.emit('secure', on, this.secureApp);
+  }
+
+  /** Change le bouton de souris suivi à chaud (0 = aucun). */
+  setMouseButton(n: number): void {
+    this.mouseButton = n >= 4 && n <= 32 ? Math.round(n) : 0;
+    this.mouse.reset();
+    const p = this.proc;
+    if (p && this.status === 'ready' && p.stdin?.writable) p.stdin.write(`mouse ${this.mouseButton}\n`);
   }
 
   private pasteWaiters: ((ok: boolean) => void)[] = [];
@@ -252,6 +285,8 @@ export class FnWatcher extends EventEmitter {
 
   stop(): void {
     this.gesture.reset();
+    this.mouse.reset();
+    if (this.secureInput) this.setSecure(false, '');
     if (this.proc) {
       const p = this.proc;
       this.proc = null;
