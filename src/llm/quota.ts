@@ -289,9 +289,12 @@ export function parseRateHeaders(h: Headers, now = Date.now()): Partial<ModelLim
   return out;
 }
 
-/** Estimation grossière des tokens facturés par une requête (prompt ≈ 3 car./token + sortie max). */
+/**
+ * Estimation des tokens facturés par une requête (prompt + sortie max). Mesuré sur le prompt de nettoyage
+ * (français) : ~3,5 car./token chez Gemini, ~3,65 chez Groq gpt-oss → 3,4 garde une petite marge.
+ */
 export function estimateTokens(req: { system: string; user: string; maxTokens: number }, extraOut = 0): number {
-  return Math.ceil(((req.system?.length ?? 0) + (req.user?.length ?? 0)) / 3) + req.maxTokens + extraOut;
+  return Math.ceil(((req.system?.length ?? 0) + (req.user?.length ?? 0)) / 3.4) + req.maxTokens + extraOut;
 }
 
 /**

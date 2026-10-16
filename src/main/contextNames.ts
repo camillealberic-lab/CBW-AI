@@ -130,5 +130,6 @@ export function whisperNamesPrompt(vocabulary: string[], names: string[], lang =
     len += s.length + 2;
   }
   if (!out.length) return '';
-  return `${lang === 'fr' ? 'Noms' : 'Names'} : ${out.join(', ')}.`;
+  // Liste simple, sans étiquette : Whisper recopiait « Noms : » au début de la dictée.
+  return `${out.join(', ')}.`;
 }

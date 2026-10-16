@@ -6,7 +6,13 @@ import type { LLMProvider, ProviderErrorKind, ProviderId } from '../../shared/ty
 import * as quota from '../quota.ts';
 
 /** Provider + métadonnées utiles au router / à l'écran Réglages / au bench. */
+export type StreamReq = Parameters<LLMProvider['complete']>[0] & {
+  /** Streaming (comptes rendus) : reçoit le texte VISIBLE cumulé à chaque morceau. Ignoré = appel classique. */
+  onDelta?: (visibleSoFar: string) => void;
+};
+
 export interface DictaProvider extends LLMProvider {
+  complete(req: StreamReq): Promise<{ text: string; model: string }>;
   /** Modèle configuré. */
   model: string;
   /** Disponibilité détaillée (raison lisible si indisponible). Rapide (<300 ms). */
@@ -69,6 +75,39 @@ function kindForStatus(status: number): ProviderErrorKind {
   return 'unknown';
 }
 
+type ReqInit = { model?: string };
+
+/** Transforme une réponse HTTP en erreur (non 2xx) et met à jour le quota du modèle. Ne retourne jamais. */
+function throwHttpError(
+  provider: ProviderId,
+  res: Response,
+  text: string,
+  body: any,
+  init: ReqInit,
+  classify?: (status: number, body: any, text: string) => Partial<{ kind: ProviderErrorKind; daily: boolean; message: string; retryAfterMs: number }> | void,
+): never {
+    const apiMsg = body?.error?.message ?? (typeof body?.error === 'string' ? body.error : undefined) ?? text.slice(0, 200);
+    const refined = classify?.(res.status, body, text) || {};
+    const kind = refined.kind ?? kindForStatus(res.status);
+    const msg = String(refined.message ?? apiMsg ?? '');
+    const raw = `${msg} ${body?.error?.metadata?.raw ?? ''}`;
+    const retryAfterMs = parseRetryAfter(res.headers) ?? refined.retryAfterMs ?? retryFromMessage(raw);
+    const daily = refined.daily ?? (kind === 'quota' && DAILY_RE.test(raw) ? true : undefined);
+    if (init.model) {
+      // Quota connu AVANT la prochaine dictée : le modèle est mis à l'écart jusqu'au reset annoncé.
+      quota.observe(provider, init.model, res.headers, kind === 'quota' ? 429 : res.status, {
+        retryAfterMs,
+        daily,
+        message: `HTTP ${res.status} : ${msg}`,
+        fallbackMs: OVERLOAD_RE.test(raw) ? 15_000 : 60_000,
+      });
+      if (res.status === 404 || (res.status === 400 && /model.*(not|decommission|exist|support)/i.test(msg))) {
+        quota.blockModel(provider, init.model, 6 * 3_600_000, `modèle indisponible (HTTP ${res.status})`, false);
+      }
+    }
+    throw providerError(provider, kind, `HTTP ${res.status} : ${msg}`, { status: res.status, retryAfterMs, daily });
+}
+
 /**
  * POST/GET JSON avec timeout et mapping d'erreurs.
  * `classify` permet au provider d'affiner le type d'erreur à partir du corps.
@@ -110,31 +149,70 @@ export async function requestJson(
     /* corps non JSON */
   }
 
-  if (!res.ok) {
-    const apiMsg = body?.error?.message ?? (typeof body?.error === 'string' ? body.error : undefined) ?? text.slice(0, 200);
-    const refined = classify?.(res.status, body, text) || {};
-    const kind = refined.kind ?? kindForStatus(res.status);
-    const msg = String(refined.message ?? apiMsg ?? '');
-    const raw = `${msg} ${body?.error?.metadata?.raw ?? ''}`;
-    const retryAfterMs = parseRetryAfter(res.headers) ?? refined.retryAfterMs ?? retryFromMessage(raw);
-    const daily = refined.daily ?? (kind === 'quota' && DAILY_RE.test(raw) ? true : undefined);
-    if (init.model) {
-      // Quota connu AVANT la prochaine dictée : le modèle est mis à l'écart jusqu'au reset annoncé.
-      quota.observe(provider, init.model, res.headers, kind === 'quota' ? 429 : res.status, {
-        retryAfterMs,
-        daily,
-        message: `HTTP ${res.status} : ${msg}`,
-        fallbackMs: OVERLOAD_RE.test(raw) ? 15_000 : 60_000,
-      });
-      if (res.status === 404 || (res.status === 400 && /model.*(not|decommission|exist|support)/i.test(msg))) {
-        quota.blockModel(provider, init.model, 6 * 3_600_000, `modèle indisponible (HTTP ${res.status})`, false);
-      }
-    }
-    throw providerError(provider, kind, `HTTP ${res.status} : ${msg}`, { status: res.status, retryAfterMs, daily });
-  }
+  if (!res.ok) throwHttpError(provider, res, text, body, init, classify);
   if (init.model) quota.observe(provider, init.model, res.headers, res.status);
   if (body === undefined) throw providerError(provider, 'bad_output', 'réponse non JSON');
   return body;
+}
+
+/** Texte visible d'un flux : blocs <think> fermés retirés, bloc ouvert (en cours) masqué. */
+export function visibleStream(acc: string): string {
+  return acc.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<think>[\s\S]*$/i, '').replace(/^\s+/, '');
+}
+
+/**
+ * POST en streaming SSE (« data: {json} »). `onEvent` reçoit chaque objet JSON ; le quota du modèle est mis à jour
+ * à la fin (en-têtes). Erreurs HTTP : mêmes types que requestJson. Le délai couvre TOUT le flux.
+ */
+export async function requestSSE(
+  provider: ProviderId,
+  url: string,
+  init: { headers?: Record<string, string>; body: unknown; timeoutMs: number; signal?: AbortSignal; model?: string },
+  onEvent: (data: any) => void,
+  classify?: (status: number, body: any, text: string) => Partial<{ kind: ProviderErrorKind; daily: boolean; message: string; retryAfterMs: number }> | void,
+): Promise<void> {
+  let res: Response;
+  const signal = withTimeout(init.timeoutMs, init.signal);
+  try {
+    res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...init.headers }, body: JSON.stringify(init.body), signal });
+  } catch (e: any) {
+    if (isUserAbort(e, init.signal)) throw e;
+    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw providerError(provider, 'timeout', `délai dépassé (${init.timeoutMs} ms)`);
+    throw providerError(provider, 'network', `réseau : ${e?.cause?.code ?? e?.message ?? e}`);
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    let body: any;
+    try { body = text ? JSON.parse(text) : undefined; } catch { /* non JSON */ }
+    throwHttpError(provider, res, text, body, init, classify);
+  }
+  try {
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i: number;
+      while ((i = buf.indexOf('\n')) >= 0) {
+        const line = buf.slice(0, i).trim();
+        buf = buf.slice(i + 1);
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        let obj: any;
+        try { obj = JSON.parse(payload); } catch { continue; }
+        onEvent(obj);
+      }
+    }
+  } catch (e: any) {
+    if (isUserAbort(e, init.signal)) throw e;
+    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw providerError(provider, 'timeout', `délai dépassé (${init.timeoutMs} ms)`);
+    if (e?.kind) throw e;
+    throw providerError(provider, 'network', `flux interrompu : ${e?.message ?? e}`);
+  }
+  if (init.model) quota.observe(provider, init.model, res.headers, res.status);
 }
 
 /** Retire un éventuel bloc de raisonnement <think>…</think>. */
@@ -147,10 +225,11 @@ export async function openAIChat(
   provider: ProviderId,
   url: string,
   apiKey: string,
-  req: { model: string; system: string; user: string; temperature: number; maxTokens: number; signal?: AbortSignal; timeoutMs: number },
+  req: { model: string; system: string; user: string; temperature: number; maxTokens: number; signal?: AbortSignal; timeoutMs: number; onDelta?: (visibleSoFar: string) => void },
   extraBody: Record<string, unknown> = {},
   extraHeaders: Record<string, string> = {},
 ): Promise<{ text: string; model: string }> {
+  if (req.onDelta) return openAIChatStream(provider, url, apiKey, req, extraBody, extraHeaders);
   const body = await requestJson(provider, url, {
     headers: { authorization: `Bearer ${apiKey}`, ...extraHeaders },
     body: {
@@ -183,4 +262,52 @@ export async function openAIChat(
   if (choice.finish_reason === 'length') throw providerError(provider, 'bad_output', 'sortie tronquée (max tokens)');
   if (choice.finish_reason === 'content_filter') throw providerError(provider, 'bad_output', 'filtrée (content_filter)');
   return { text: stripThinking(content), model: String(body.model ?? req.model) };
+}
+
+/** Variante streaming d'openAIChat : mêmes garde-fous (vide, tronqué, filtré), texte cumulé envoyé à onDelta. */
+async function openAIChatStream(
+  provider: ProviderId,
+  url: string,
+  apiKey: string,
+  req: { model: string; system: string; user: string; temperature: number; maxTokens: number; signal?: AbortSignal; timeoutMs: number; onDelta?: (visibleSoFar: string) => void },
+  extraBody: Record<string, unknown>,
+  extraHeaders: Record<string, string>,
+): Promise<{ text: string; model: string }> {
+  let acc = '';
+  let shown = '';
+  let finish: string | undefined;
+  let model = req.model;
+  await requestSSE(
+    provider,
+    url,
+    {
+      headers: { authorization: `Bearer ${apiKey}`, ...extraHeaders },
+      body: {
+        model: req.model,
+        messages: [{ role: 'system', content: req.system }, { role: 'user', content: req.user }],
+        temperature: req.temperature,
+        ...extraBody,
+        stream: true,
+      },
+      timeoutMs: req.timeoutMs,
+      signal: req.signal,
+      model: req.model,
+    },
+    (ev) => {
+      if (ev?.error) throw providerError(provider, 'unknown', `erreur API : ${String(ev.error.message ?? JSON.stringify(ev.error))}`);
+      if (ev?.model) model = String(ev.model);
+      const ch = ev?.choices?.[0];
+      if (ch?.finish_reason) finish = ch.finish_reason;
+      const d = ch?.delta?.content;
+      if (typeof d === 'string' && d) {
+        acc += d;
+        const v = visibleStream(acc);
+        if (v !== shown) { shown = v; req.onDelta?.(v); }
+      }
+    },
+  );
+  if (!acc.trim()) throw providerError(provider, 'bad_output', 'réponse vide');
+  if (finish === 'length') throw providerError(provider, 'bad_output', 'sortie tronquée (max tokens)');
+  if (finish === 'content_filter') throw providerError(provider, 'bad_output', 'filtrée (content_filter)');
+  return { text: stripThinking(acc), model };
 }

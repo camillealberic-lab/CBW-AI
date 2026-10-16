@@ -29,3 +29,18 @@ if ! { [ -x "$CTX" ] && [ "$CTX" -nt scripts/context.swift ]; }; then
   codesign --force -s - "$CTX"
   echo "✓ $CTX"
 fi
+
+# Détection d'appel (scripts/callwatch.swift → vendor/bin/dicta-callwatch), même SDK / cible.
+CW=vendor/bin/dicta-callwatch
+if ! { [ -x "$CW" ] && [ "$CW" -nt scripts/callwatch.swift ]; }; then
+  swiftc -O -sdk "$SDK" -target arm64-apple-macos14.0 scripts/callwatch.swift -o "$CW"
+  codesign --force -s - "$CW"
+  echo "✓ $CW"
+fi
+
+# Moteur de réunion (paquet Swift scripts/meeting-engine → vendor/bin/dicta-meeting : FluidAudio + Parakeet).
+# En local un échec (hors ligne, SDK) n'empêche pas de lancer l'app (elle garde Whisper + sherpa) ; en CI il est bloquant.
+if ! bash scripts/meeting-engine/build.sh; then
+  [ -n "${CI:-}" ] && { echo "✗ dicta-meeting n'a pas compilé"; exit 1; }
+  echo "⚠ dicta-meeting non compilé : l'app utilisera Whisper + sherpa pour les notes"
+fi

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline' file:; font-src 'self' file: data:; script-src 'self' 'unsafe-inline'; img-src data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline' file:; font-src 'self' file: data:; script-src 'self' 'unsafe-inline'; img-src data:; media-src data:; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>CBW AI</title>
 <!--
   CBW AI — fenêtre principale (onboarding + hub). Contrat : docs/APP_API.md.
@@ -676,6 +676,21 @@ dialog.palette[open] { animation: rise var(--d-2) var(--ease-sortie); }
 .main .dragstrip { display: none; }
 .page { display: none; padding: var(--s5) var(--gout) var(--s6); max-width: 1120px; margin: 0 auto; }
 .page.active { display: block; }
+/* Notes v2 (design/app/notes.js) : écran Notes pleine hauteur, sans marges de page */
+#page-notes.v2 { padding: 0 !important; max-width: none !important; height: 100%; }
+#hub[data-page="notes"] .toolbar > [data-newnote] { display: none; } /* « Nouvelle note » est dans l'en-tête de l'écran Notes */
+#page-notes.v2 > :not(#notesRoot) { display: none !important; }
+#page-notes.v2 > #notesRoot { height: 100%; }
+#page-notes.active > #notesRoot { animation: none; }
+.eng-bar { height: 6px; background: var(--fil); margin-top: 8px; max-width: 360px; }
+.eng-bar i { display: block; height: 100%; background: var(--bleu); transform-origin: left; transform: scaleX(var(--p, 0)); transition: transform 240ms linear; }
+:root[data-theme="dark"] .eng-bar i { background: #7C86FF; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .eng-bar i { background: #7C86FF; } }
+dialog.lic { border: 2px solid var(--trait); padding: 0; width: min(720px, calc(100vw - 48px)); max-height: 80vh; background: var(--surface); color: var(--texte); box-shadow: var(--ombre-dure); }
+dialog.lic::backdrop { background: rgba(0,0,0,.35); }
+dialog.lic .lic-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 2px solid var(--trait); }
+dialog.lic h2 { margin: 0; font-size: 17px; font-weight: 800; }
+dialog.lic pre { margin: 0; padding: 16px; max-height: calc(80vh - 70px); overflow: auto; white-space: pre-wrap; font: 12px/1.5 var(--mono); }
 .page.active > * { animation: rise var(--d-3) var(--ease) both; }
 .page.active > :nth-child(2) { animation-delay: 40ms; } .page.active > :nth-child(3) { animation-delay: 80ms; }
 .page.active > :nth-child(4) { animation-delay: 120ms; } .page.active > :nth-child(5) { animation-delay: 160ms; }
@@ -1840,7 +1855,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
         <h1 id="h-set">Réglages</h1>
       </div>
       <div class="set-index" id="setIndex" role="tablist" aria-label="Sections des réglages"><i class="ind"></i>
-        <button data-sec="settings-general">Général</button><button data-sec="settings-audio">Micro</button><button data-sec="settings-keys">Raccourcis</button><button data-sec="settings-engine">Nettoyage IA</button><button data-sec="settings-whisper">Transcription</button><button data-sec="settings-privacy">Confidentialité</button></div>
+        <button data-sec="settings-general">Général</button><button data-sec="settings-audio">Micro</button><button data-sec="settings-keys">Raccourcis</button><button data-sec="settings-engine">Nettoyage IA</button><button data-sec="settings-whisper">Transcription</button><button data-sec="settings-notes">Notes</button><button data-sec="settings-privacy">Confidentialité</button></div>
 
       <p class="group-title" id="settings-general">Général</p>
       <div class="group">
@@ -1926,6 +1941,34 @@ body:not([data-view="hub"]) .side-resize { display: none; }
         <div class="row"><div class="label">État</div><span class="badge" id="whisperBadge"></span></div>
       </div>
 
+      <p class="group-title" id="settings-notes">Notes</p>
+      <div class="group">
+        <div class="row"><div class="label">Détecter les appels<span class="hint">Quand Zoom, Meet, Teams ou une autre app prend le micro, une carte « Réunion détectée » propose de prendre des notes. Aucun son n'est lu pour ça.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="notes.detectCalls" aria-label="Détecter les appels"><span></span></label></div>
+        <div class="row"><div class="label">Démarrer automatiquement<span class="hint">Lance les notes dès qu'un appel est détecté, sans attendre ton clic. Pense à prévenir les participants.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="notes.autoStart" aria-label="Démarrer automatiquement les notes quand un appel est détecté"><span></span></label></div>
+        <div class="row"><div class="label">Arrêter à la fin de l'appel<span class="hint">Quand l'appel se termine : « Toujours là ? » pendant 15 s, puis arrêt, avec 4 s pour reprendre.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="notes.autoStop" aria-label="Arrêter les notes à la fin de l'appel"><span></span></label></div>
+        <div class="row"><div class="label">Prévenir 1 minute avant une réunion<span class="hint">Lit ton Calendrier macOS, sur ce Mac : le titre et les invités servent au titre de la note et aux noms proposés. macOS demande l'autorisation à l'activation.</span></div>
+          <label class="switch"><input type="checkbox" id="calSwitch" aria-label="Prévenir 1 minute avant une réunion"><span></span></label></div>
+        <div class="row"><div class="label">Type de résumé par défaut<span class="hint">Auto : un résumé court et complet, dont le plan s'adapte au genre (réunion, brainstorm, cours…). Modifiable sur chaque note, menu … du résumé.</span></div>
+          <select data-setting="notes.template" aria-label="Type de résumé par défaut"><option value="auto">Auto (court complet, adapté)</option><option value="equipe">Point d'équipe</option><option value="un-a-un">1:1</option><option value="client">Rendez-vous client</option><option value="recrutement">Recrutement</option><option value="atelier">Atelier / brainstorm</option><option value="cours">Cours / conférence</option></select></div>
+        <div class="row"><div class="label">Capter aussi le son du Mac<span class="hint">Pour transcrire tes interlocuteurs en visio. macOS demande l'autorisation au premier usage.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="notes.systemAudio" aria-label="Capter aussi le son du Mac"><span></span></label></div>
+        <div class="row"><div class="label">Séparer les voix<span class="hint">Qui a dit quoi, calculé sur ce Mac après la réunion</span></div>
+          <label class="switch"><input type="checkbox" data-setting="notes.diarization" aria-label="Séparer les voix"><span></span></label></div>
+        <div class="row"><div class="label">Annuler l'écho du haut-parleur sur le micro<span class="hint">Utile sans casque : ta voix reste nette, celle des autres n'est pas captée deux fois</span></div>
+          <label class="switch"><input type="checkbox" data-setting="notes.echoCancel" aria-label="Annuler l'écho du haut-parleur sur le micro"><span></span></label></div>
+        <div class="row"><div class="label">Garder l'audio des réunions<span class="hint">Permet de réécouter un passage depuis la loupe. Stocké sur ce Mac, supprimé avec la note.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="notes.keepAudio" aria-label="Garder l'audio des réunions"><span></span></label></div>
+        <div class="row"><div class="label">Moteur de notes<span class="hint" id="engHint" role="status">…</span><div class="eng-bar" id="engBar" role="progressbar" aria-label="Téléchargement du moteur de notes" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><i></i></div></div>
+          <span class="row-ctl"><button class="btn" id="engDl" hidden>Télécharger maintenant</button><button class="btn ghost" id="engCancel" hidden>Arrêter</button></span></div>
+        <div class="row"><div class="label">Suspendre le téléchargement du moteur de notes<span class="hint">Il reprend où il s'était arrêté quand tu le réactives</span></div>
+          <label class="switch"><input type="checkbox" data-setting="notes.engineDownloadPaused" aria-label="Suspendre le téléchargement du moteur de notes"><span></span></label></div>
+        <div class="row"><div class="label">Moteur de transcription des réunions<span class="hint">Avancé. Automatique : le nouveau moteur dès qu'il est prêt (macOS 15 et plus).</span></div>
+          <select data-setting="notes.engine" aria-label="Moteur de transcription des réunions"><option value="auto">Automatique</option><option value="whisper">Classique (Whisper)</option></select></div>
+      </div>
+
       <p class="group-title" id="settings-privacy">Confidentialité &amp; à propos</p>
       <div class="group">
         <div class="row"><div class="label">Lire l'app active pour orthographier les noms<span class="hint">Nom de l'app, site et noms visibles à l'écran, lus sur ce Mac. Rien n'est enregistré ; mots de passe et apps sensibles ignorés.</span></div>
@@ -1942,6 +1985,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
           <button class="btn" id="clearBtn">Effacer</button></div>
         <div class="row"><div class="label">CBW AI<span class="hint" id="version"></span></div>
           <button class="btn ghost" id="replayBtn">Revoir la présentation</button></div>
+        <div class="row"><div class="label">Mentions des licences<span class="hint">Moteur de notes : FluidAudio (Apache-2.0), Parakeet TDT, pyannote, WeSpeaker (CC-BY-4.0)</span></div>
+          <button class="btn ghost" id="licBtn">Afficher</button></div>
       </div>
     </section>
   </main>
@@ -1950,6 +1995,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
 <script src="charts.js"></script>
 <script src="notes.js"></script>
 <div class="toasts" id="toasts" aria-live="polite"></div>
+<dialog class="lic" id="licDlg" aria-labelledby="licT"><div class="lic-h"><h2 id="licT">Mentions des licences</h2><button class="btn ghost" id="licClose">Fermer</button></div><pre id="licTxt"></pre></dialog>
 <dialog class="palette" id="palette" aria-label="Recherche"><input type="text" id="palInput" placeholder="Rechercher une page, un réglage, une note…" spellcheck="false" aria-label="Rechercher"><div class="pal-list" id="palList" role="listbox"></div></dialog>
 <dialog class="keyguide" id="keyGuide" aria-labelledby="kgTitle">
   <div class="kg-head">
@@ -2298,7 +2344,9 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     'dictionary.priority': [], 'dictionary.replacements': [], 'history.keepAudio': true, 'history.audioDays': 14,
     'snippets.enabled': true, 'rewrite.enabled': true, 'notepad.enabled': false, 'overlay.livePreview': false,
     'shortcuts.pasteLast': 'Control+Command+V', 'shortcuts.copyLast': 'Control+Command+C', 'shortcuts.rewrite': 'Control+Command+R', 'shortcuts.mouseButton': 0,
-    'appearance.theme': 'light'
+    'appearance.theme': 'light',
+    'notes.systemAudio': true, 'notes.diarization': true, 'notes.keepAudio': false, 'notes.echoCancel': true, 'notes.calendar': false,
+    'notes.template': 'auto', 'notes.detectCalls': true, 'notes.autoStart': false, 'notes.autoStop': true, 'notes.engine': 'auto', 'notes.engineDownloadPaused': false
   };
   function cget(key) {
     if (Object.prototype.hasOwnProperty.call(cfg, key) && cfg[key] !== undefined) return cfg[key];
@@ -3002,13 +3050,13 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   function openPage(p, sub) {
     if (!$('#page-' + p)) p = 'home';
     const same = page === p;
-    page = p;
+    page = p; $('#hub').dataset.page = p;
     $$('.page').forEach((x) => x.classList.toggle('active', x.id === 'page-' + p));
     $$('.nav-btn').forEach((b) => { if (b.dataset.page === p) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); });
     if (!same) $('#main').scrollTop = 0;
     moveNav(); setCrumb();
     if (p === 'home') refreshHome();
-    if (p === 'settings') { refreshStatuses(); refreshWhisper(); renderPermRows(); refreshMics(); setTimeout(moveIndex, 30); }
+    if (p === 'settings') { refreshStatuses(); refreshWhisper(); renderPermRows(); refreshMics(); setTimeout(moveIndex, 30); if (sub && /^settings-[a-z]+$/.test(sub)) scrollToSection(sub); }
     if (p === 'history') refreshHistory();
     if (p === 'snippets') refreshSnippets();
     if (p === 'style') { refreshPresets(); renderPromptMode(); }
@@ -3165,7 +3213,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     const b = e.target.closest('[data-copy]'); if (!b) return;
     const d = recent[+b.dataset.copy]; const mode = ($('input[name="rview"]:checked') || {}).value || 'text';
     const txt = mode === 'raw' ? d.raw : d.text;
-    try { await navigator.clipboard.writeText(txt); } catch (err) { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+    try { await (window.dictaApp && window.dictaApp.copyText ? window.dictaApp.copyText : (t) => navigator.clipboard.writeText(t))(txt); } catch (err) { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
     b.classList.add('copied'); b.innerHTML = '<svg width="14" height="14"><use href="#i-check"/></svg>';
     toast('Copié');
     setTimeout(() => { b.classList.remove('copied'); b.innerHTML = '<svg width="14" height="14"><use href="#i-copy"/></svg>'; }, 1300);
@@ -3478,7 +3526,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   $('#keyGuide').addEventListener('click', (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });
   $('#kgCopy').addEventListener('click', async () => {
     const txt = $('#kgText').value;
-    try { await navigator.clipboard.writeText(txt); } catch (err) { $('#kgText').select(); document.execCommand('copy'); }
+    try { await (window.dictaApp && window.dictaApp.copyText ? window.dictaApp.copyText : (t) => navigator.clipboard.writeText(t))(txt); } catch (err) { $('#kgText').select(); document.execCommand('copy'); }
     $('#kgCopy').textContent = 'Copié ✓'; toast('Prompt copié : colle-le dans Claude, ChatGPT ou Gemini');
     setTimeout(() => { $('#kgCopy').textContent = 'Copier le prompt'; }, 2200);
   });
@@ -3527,7 +3575,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     $('#whisperLine').innerHTML = '<span class="dot ' + (ws.ready ? 'ok' : 'warn') + '"></span>Transcription sur ton Mac';
   }
   // Index collant des Réglages + défilement espion
-  const SECS = ['settings-general', 'settings-audio', 'settings-keys', 'settings-engine', 'settings-whisper', 'settings-privacy'];
+  const SECS = ['settings-general', 'settings-audio', 'settings-keys', 'settings-engine', 'settings-whisper', 'settings-notes', 'settings-privacy'];
   function scrollToSection(id) {
     const a = $('#' + id); if (!a) return;
     setTimeout(() => { a.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' }); a.classList.remove('flash'); void a.offsetWidth; a.classList.add('flash'); }, 30);
@@ -3590,7 +3638,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   /* ═════════ Parité Wispr : historique, bloc-notes, snippets, remplacements, réécriture, micro, stats ═════════ */
   const grp = (n) => (api[n] && typeof api[n] === 'object') ? api[n] : null;
   async function copyText(txt) {
-    try { await navigator.clipboard.writeText(txt); } catch (err) { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+    try { await (window.dictaApp && window.dictaApp.copyText ? window.dictaApp.copyText : (t) => navigator.clipboard.writeText(t))(txt); } catch (err) { const t = document.createElement('textarea'); t.value = txt; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
   }
   const errMsg = (e) => String((e && e.message) || e || 'Erreur').replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
   const plural = (n, one, many) => n + ' ' + (n > 1 ? many : one);
@@ -3952,6 +4000,63 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     show('onboarding', 0);
   });
 
+  /* ═════════ Réglages › Notes : détection d'appel, calendrier, moteur de notes, licences (docs/APP_API.md › Notes v2) ═════════ */
+  (function reunions() {
+    const cal = $('#calSwitch'); if (!cal) return;
+    const grpA = (k) => (api[k] && typeof api[k] === 'object' ? api[k] : null);
+    const emsg = (e) => String((e && e.message) || e || 'Erreur').replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+    cal.checked = !!cget('notes.calendar');
+    cal.addEventListener('change', async () => {
+      const C = grpA('calendar');
+      if (!C) { cset('notes.calendar', cal.checked); return; }
+      const want = cal.checked; cal.disabled = true;
+      try {
+        const r = await C.enable(want);
+        cal.checked = !!(want && r && r.ok); cfg['notes.calendar'] = cal.checked;
+        if (want && !cal.checked) toast(r && r.access === 'denied' ? 'Accès au Calendrier refusé : autorise CBW AI dans Réglages Système › Confidentialité et sécurité › Calendriers.' : 'Le Calendrier n\'est pas accessible pour l\'instant.', 'err');
+        else if (want) toast('CBW AI te préviendra 1 minute avant tes réunions.');
+      } catch (e) { cal.checked = false; toast(emsg(e), 'err'); }
+      cal.disabled = false;
+    });
+    const EN = grpA('engine');
+    const hint = $('#engHint'), bar = $('#engBar'), dl = $('#engDl'), stop = $('#engCancel');
+    if (!EN) { hint.textContent = 'Transcription classique (Whisper).'; } else {
+      let st = null;
+      const WAIT = { idle: 'En attente : Mac actif', power: 'En attente : sur batterie', busy: 'En pause pendant une dictée ou une réunion', paused: 'Suspendu', offline: 'En attente : pas de réseau' };
+      const paint = () => {
+        if (!st) return;
+        const p = st.progress || {}, mb = Math.round(st.totalMB || 490);
+        const going = p.state === 'downloading' || p.state === 'verifying';
+        let t;
+        if (st.supported === false) t = 'Non disponible sur macOS 14 : la transcription classique est utilisée.';
+        else if (st.modelsReady || p.state === 'done') t = 'Moteur de notes prêt.';
+        else if (p.state === 'downloading') t = 'Téléchargement du moteur de notes… ' + Math.round(p.percent || 0) + ' % (≈ ' + mb + ' Mo). Les réunions marchent déjà avec la transcription classique.';
+        else if (p.state === 'verifying') t = 'Vérification du moteur de notes…';
+        else if (p.state === 'waiting') t = WAIT[p.waiting] || 'En attente';
+        else if (p.state === 'error') t = 'Téléchargement interrompu' + (p.error ? ' : ' + p.error : '') + '. Il reprendra plus tard.';
+        else t = (st.paused ? 'Suspendu. ' : '') + 'Pas encore téléchargé (≈ ' + mb + ' Mo). Il se télécharge quand le Mac est inactif et sur secteur ; en attendant, les réunions utilisent la transcription classique.';
+        hint.textContent = t;
+        bar.hidden = !going; bar.setAttribute('aria-valuenow', String(Math.round(p.percent || 0))); bar.style.setProperty('--p', String((p.percent || 0) / 100));
+        dl.hidden = st.supported === false || !!st.modelsReady || going || p.state === 'done';
+        stop.hidden = !going;
+      };
+      const load = async () => { try { st = await EN.status(); paint(); } catch (e) { hint.textContent = 'État du moteur indisponible.'; } };
+      load();
+      if (typeof api.onEngineProgress === 'function') api.onEngineProgress((p) => { if (!st) return; st.progress = p; if (p && p.state === 'done') st.modelsReady = true; paint(); });
+      dl.addEventListener('click', async () => { try { await EN.downloadNow(); toast('Téléchargement du moteur de notes lancé.'); setTimeout(load, 800); } catch (e) { toast(emsg(e), 'err'); } });
+      stop.addEventListener('click', async () => { try { await EN.cancel(); setTimeout(load, 500); } catch (e) { toast(emsg(e), 'err'); } });
+      $$('[data-sec="settings-notes"]').forEach((b) => b.addEventListener('click', load));
+    }
+    const dlg = $('#licDlg');
+    $('#licBtn').addEventListener('click', async () => {
+      let t = '';
+      try { t = typeof api.licenses === 'function' ? await api.licenses() : ''; } catch (e) { t = ''; }
+      $('#licTxt').textContent = t || 'FluidAudio : Apache-2.0.\nParakeet TDT 0.6B v3 (NVIDIA, converti par FluidInference) : CC-BY-4.0.\npyannote community-1, WeSpeaker, PLDA BUT Speech@FIT : CC-BY-4.0.';
+      dlg.showModal();
+    });
+    $('#licClose').addEventListener('click', () => dlg.close());
+  })();
+
   /* ═════════ NOTES (prise de notes longue) ═════════ */
   let notes = [], noteState = null, noteCur = null;
   const notesPage = $('#page-notes');
@@ -4028,6 +4133,12 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   }
   async function startNote(btn) {
     if (!has('startNote')) return;
+    if (window.CBWNotes && typeof window.CBWNotes.mount === 'function') {
+      // Notes v2 : l'écran Notes (notes.js) démarre lui-même
+      if (view !== 'hub') show('hub', 'notes'); else if (page !== 'notes') openPage('notes');
+      if (notesHandle && notesHandle.start) { btnState(btn, 'loading'); try { await notesHandle.start(); } catch (e) { console.error(e); } btnState(btn, null); }
+      return;
+    }
     if (view !== 'hub') show('hub', 'notes'); else if (page !== 'notes') openPage('notes');
     btnState(btn, 'loading');
     noteState = { state: 'recording', elapsedMs: 0, words: 0 }; renderNoteState();
@@ -4061,6 +4172,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
   }
   on('note', (p) => {
     if (!p) return;
+    if (window.CBWNotes && typeof window.CBWNotes.mount === 'function') return; // Notes v2 : notes.js gère tout (indicateur en direct dans la liste, pas dans la barre latérale)
     noteState = p;
     if (p.state === 'recording' && p.level != null) setLevel(p.level);
     if (p.state === 'done') {
@@ -4097,7 +4209,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     noteState = null; $('#sideNote').classList.remove('on'); noteMode('list'); refreshNotes();
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && view === 'hub' && page === 'notes' && noteState && (noteState.state === 'recording' || noteState.state === 'paused') && !$('#cbwModal').open) { e.preventDefault(); $('#noteCancel').click(); }
+    if (e.key === 'Escape' && view === 'hub' && page === 'notes' && !window.CBWNotes && noteState && (noteState.state === 'recording' || noteState.state === 'paused') && !$('#cbwModal').open) { e.preventDefault(); $('#noteCancel').click(); }
   });
   $('#noteBack').addEventListener('click', () => { noteMode('list'); setCrumb(); refreshNotes(); if (/^#notes:/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search + '#notes'); });
   $('#noteCopy').addEventListener('click', async () => { const b = $('#noteCopy'); if (!noteCur) return; btnState(b, 'loading'); try { await api.copyNote(noteCur.id); btnState(b, null); btnState(b, 'success', 'Copié'); toast('Note copiée'); } catch (e) { btnState(b, null); toast('Copie impossible', 'err'); } });
@@ -4171,6 +4283,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     renderKeycaps(cget('general.shortcut'));
     refreshFnUsage();
     bindSettings(document);
+    { const cs = document.getElementById('calSwitch'); if (cs) cs.checked = !!cget('notes.calendar'); }
     CLOUD.forEach((id) => { const v = cget('providers.' + id + '.apiKey'); $$('input[data-key="' + id + '"]').forEach((i) => { i.value = v || ''; }); });
     // ouvre l'accordéon si un fournisseur secondaire a déjà une clé
     if (others.some((id) => String(cget('providers.' + id + '.apiKey') || '').trim())) $('#obMore').open = true;
@@ -4381,7 +4494,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
       reorganizeNote: async (id) => { const n = notesD.find((x) => x.meta.id === id); if (n) organize(id, n.meta.words, n.meta.durationMs); },
       deleteNote: async (id) => { const i = notesD.findIndex((x) => x.meta.id === id); if (i >= 0) notesD.splice(i, 1); },
       revealNote: async () => { /* Finder : rien en démo */ },
-      copyNote: async (id) => { const n = notesD.find((x) => x.meta.id === id); if (n) { try { await navigator.clipboard.writeText(n.markdown); } catch (e) { /* */ } } },
+      copyNote: async (id) => { const n = notesD.find((x) => x.meta.id === id); if (n) { try { await (window.dictaApp && window.dictaApp.copyText ? window.dictaApp.copyText : (t) => navigator.clipboard.writeText(t))(n.markdown); } catch (e) { /* */ } } },
       getActivity: async () => { const out = []; for (let i = 364; i >= 0; i--) { const d = new Date(now - i * 864e5); const wd = d.getDay(); const act = rnd() < (wd === 0 || wd === 6 ? .25 : .8) && i < 300; const w = act ? Math.round(80 + rnd() * 600) : 0; out.push({ date: d.toISOString().slice(0, 10), words: w, dictations: w ? Math.max(1, Math.round(w / 30)) : 0 }); } return out; },
       snippets: (() => { let l = [{ trigger: 'ma signature', text: 'Cordialement,\nCamille' }]; return { get: async () => l.slice(), set: async (x) => (l = x.slice()) }; })(),
       rewrite: (() => { let l = [{ id: 'court', name: 'Plus court', instruction: 'Raccourcis le texte en gardant tous les faits importants.' }, { id: 'poli', name: 'Plus poli', instruction: 'Réécris le texte sur un ton plus poli et courtois, sans changer le fond ni rien ajouter.' }]; return { getPresets: async () => l.slice(), setPresets: async (x) => (l = x.map((p, i) => Object.assign({ id: p.id || 'p' + Date.now() + i }, p))), run: async () => true }; })(),

@@ -1,6 +1,7 @@
 import { utilityProcess } from 'electron';
 import { EventEmitter } from 'node:events';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { distDir, log, modelsDir } from './paths';
 import type { Turn } from './diarize-worker';
@@ -29,8 +30,17 @@ export const DIA_MODELS = {
     sha256: 'ad4a1802485d8b34c722d2a9d04249662f2ece5d28a7a039063ca22f515a789e',
   },
 } as const;
-/** Seuil de regroupement (distance cosinus) : 0,8 sépare 2–4 voix sans éclater une voix en deux (0,5–0,75 sur-segmentait). */
-export const DIA_THRESHOLD = 0.8;
+/**
+ * Seuil de regroupement (distance cosinus, nombre de personnes inconnu). Recalibré (TitaNet small, 3 voix FR + 4 enregistrements réels sherpa
+ * synthétiques avec réverbération, plateau 0,5–0,7 correct à 97 % des trames ; 0,8 fusionnait deux voix) : 0,6,
+ * haut du plateau. Le sur-découpage résiduel est rattrapé par la fusion des centroïdes (DIA_MERGE_SIM).
+ * Avec un nombre de personnes fourni, le seuil est ignoré (numClusters imposé).
+ */
+export const DIA_THRESHOLD = 0.7;
+/** Deux groupes dont les centroïdes ont une similarité cosinus ≥ 0,7 sont la même personne (0,6 fusionnait à tort 4 voix chinoises réelles en une) (fusion). */
+export const DIA_MERGE_SIM = 0.7;
+/** Plafond de voix en mode automatique. */
+export const DIA_MAX_SPEAKERS = 8;
 
 export const diaModelsDir = (): string => path.join(modelsDir(), 'diarization');
 const modelPath = (k: keyof typeof DIA_MODELS): string => path.join(diaModelsDir(), DIA_MODELS[k].file);
@@ -108,13 +118,22 @@ export interface DiarizationResult {
   audioSec: number;
   ms: number;
   rssMB?: number;
+  /** Durée de parole détectée sur la piste système (s) : décide du mode deux pistes. */
+  sysVoicedSec?: number;
+  /** Groupes avant / après fusion. */
+  groups?: number;
+  merged?: number;
+  /** Moteur qui a séparé les voix : 'fluid' (FluidAudio) ou 'sherpa' (chaîne classique, défaut). */
+  engine?: 'fluid' | 'sherpa';
+  /** Deux pistes (FluidAudio) : voix trouvées sur le micro ; plusieurs → plus de « micro = Moi ». */
+  micTurns?: Turn[];
 }
 
 /**
  * Diarise le WAV complet d'une note dans un processus utilitaire (UI fluide, mémoire rendue à la fin).
  * Renvoie null si indisponible / en échec (la note est alors faite sans locuteurs).
  */
-export async function diarize(files: { mix: string; mic?: string; sys?: string }, signal?: AbortSignal): Promise<DiarizationResult | null> {
+export async function diarize(files: { mix: string; mic?: string; sys?: string }, signal?: AbortSignal, numSpeakers?: number): Promise<DiarizationResult | null> {
   if (!(await diaModels.ensure())) return null;
   if (signal?.aborted) return null;
   const script = path.join(distDir(), 'main', 'diarize-worker.js');
@@ -139,7 +158,7 @@ export async function diarize(files: { mix: string; mic?: string; sys?: string }
     signal?.addEventListener('abort', onAbort, { once: true });
     child.on('message', (m: { ok: boolean; error?: string; refineError?: string } & DiarizationResult) => {
       if (m.refineError) log('diarisation: affinage ignoré', m.refineError);
-      if (m.ok) finish({ mode: m.mode, turns: m.turns, audioSec: m.audioSec, ms: m.ms, rssMB: m.rssMB });
+      if (m.ok) finish({ mode: m.mode, turns: m.turns, audioSec: m.audioSec, ms: m.ms, rssMB: m.rssMB, sysVoicedSec: m.sysVoicedSec, groups: m.groups, merged: m.merged });
       else finish(null, m.error);
     });
     child.on('exit', (code) => finish(null, `processus terminé (${code})`));
@@ -147,8 +166,11 @@ export async function diarize(files: { mix: string; mic?: string; sys?: string }
       ...files,
       segmentation: modelPath('segmentation'),
       embedding: modelPath('embedding'),
-      threads: 4,
+      threads: Math.min(6, Math.max(4, os.cpus().length - 4)),
       threshold: DIA_THRESHOLD,
+      numSpeakers: numSpeakers && numSpeakers >= 1 ? Math.round(numSpeakers) : undefined,
+      mergeSim: DIA_MERGE_SIM,
+      maxSpeakers: DIA_MAX_SPEAKERS,
     });
   });
 }

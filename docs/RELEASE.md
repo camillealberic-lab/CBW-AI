@@ -1,6 +1,6 @@
 # Publier une version de CBW AI
 
-**Je pousse sur `main` → nouvelle version automatiquement.** La CI GitHub (`.github/workflows/release.yml`, Mac Apple Silicon) compile whisper.cpp + le helper fn, vérifie (typecheck), construit, signe ad hoc (même exigence désignée → autorisations conservées), puis publie la release avec le DMG, le zip et `latest.json`. Les apps installées se mettent à jour toutes seules (téléchargement en arrière-plan, installation au redémarrage).
+**Je pousse sur `main` → nouvelle version automatiquement.** La CI GitHub (`.github/workflows/release.yml`, Mac Apple Silicon) compile whisper.cpp + les helpers Swift (fn, plein écran, contexte et **dicta-meeting**, le moteur de réunion FluidAudio/Parakeet, cache SwiftPM), vérifie (typecheck), construit, signe ad hoc (même exigence désignée → autorisations conservées), puis publie la release avec le DMG, le zip et `latest.json`. Les apps installées se mettent à jour toutes seules (téléchargement en arrière-plan, installation au redémarrage).
 
 ## Numéro de version
 `<majeur>.<mineur>` de `package.json` + numéro de build : `1.0.42`, `1.0.43`… Rien n'est commité par la CI.
@@ -33,3 +33,9 @@ Relancer à la main : GitHub › Actions › release › *Run workflow*. Version
 `npm run dist:release` fabrique tout dans `dist-app/release/` (`SKIP_DMG=1` : zip seul ; `ASSET_BASE=http://127.0.0.1:8765` pour un serveur local).
 Test de l'updater sur une **copie** de l'app : `CBW_UPDATE_URL=http://127.0.0.1:8765/latest.json CBW_INSTALL_PATH=/tmp/x/CBW\ AI.app DICTA_AI_HOME=/tmp/x/home CBW_UPDATE_DELAY_MS=3000` — jamais sur `/Applications`.
 L'app vérifie la signature de `latest.json` et n'accepte que des URL GitHub Releases : pour un test local, signer le manifeste (`UPDATE_SIGNING_KEY="$(cat ~/.cbw-ai-signing/update-signing-key)" node scripts/sign-update.mjs sign dist-app/release/latest.json`) et servir le zip depuis une URL GitHub, sinon la mise à jour est refusée (comportement voulu).
+
+## Moteur de réunion (dicta-meeting)
+- Paquet Swift `scripts/meeting-engine/` (FluidAudio 0.17.7 épinglé) compilé par `scripts/build-fnwatch.sh` → `vendor/bin/dicta-meeting` (cible macOS 14, signature ad hoc, ~19 Mo, +9 Mo dans le zip de mise à jour : 138,4 Mo au total, mesuré). En local un échec de compilation n'est pas bloquant (l'app garde Whisper + sherpa) ; en CI (`CI` défini) il l'est.
+- `package-release.sh` vérifie ce binaire comme les autres (minos 14, signé) et refuse tout modèle Core ML dans le bundle : les modèles (~490 Mo) ne sont JAMAIS dans l'app ni dans le zip ; l'app les télécharge en arrière-plan (Mac inactif, sur secteur) dans `~/.dicta-ai/models/fluid`, SHA-256 vérifié, jamais retéléchargés à une mise à jour.
+- Changer de version de modèle ou de FluidAudio : relancer `node scripts/meeting-engine/pin-models.mjs` (régénère `src/main/fluidModels.manifest.ts`) après `dicta-meeting prepare --online` sur un dossier propre (`DICTA_MEETING_MODELS=/tmp/x`), et refaire le test de mise à jour sur une copie.
+- CI : étape Xcode 16+ (outils Swift 6.0) non éprouvée sur le runner `macos-14` : à surveiller à la première exécution.

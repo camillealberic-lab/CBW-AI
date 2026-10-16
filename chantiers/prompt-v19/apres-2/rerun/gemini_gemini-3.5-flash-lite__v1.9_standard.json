@@ -1,0 +1,47 @@
+{
+  "target": "gemini:gemini-3.5-flash-lite",
+  "prompt": "v1.9",
+  "level": "standard",
+  "date": "2026-10-15T09:25:56.514Z",
+  "p50": 1871,
+  "p90": 1871,
+  "mem": "—",
+  "rows": [
+    {
+      "id": "c03",
+      "cat": "filler",
+      "raw": "hum en fait le problème c'est que le client il a jamais reçu la facture",
+      "expected": "Le problème, c'est que le client n'a jamais reçu la facture.",
+      "output": "Le problème, c'est que le client n'a jamais reçu la facture.",
+      "rawModel": "Le problème, c'est que le client n'a jamais reçu la facture.",
+      "ms": 1871,
+      "inTok": 2528,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 1,
+      "lenRatio": 1,
+      "score": 10
+    },
+    {
+      "id": "c19",
+      "cat": "abandoned",
+      "raw": "je me demandais si, enfin, est-ce que tu pourrais relire mon rapport avant ce soir",
+      "expected": "Est-ce que tu pourrais relire mon rapport avant ce soir ?",
+      "output": "Est-ce que tu pourrais relire mon rapport avant ce soir ?",
+      "rawModel": "Est-ce que tu pourrais relire mon rapport avant ce soir ?",
+      "ms": 798,
+      "inTok": 2533,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 1,
+      "lenRatio": 1,
+      "score": 10
+    }
+  ]
+}

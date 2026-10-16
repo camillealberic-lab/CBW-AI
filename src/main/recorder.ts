@@ -46,6 +46,8 @@ export interface RecordingResult {
   speechEndAt: number;
   /** Capture interrompue (micro débranché, appel…) : l'audio capté jusque-là est gardé. */
   interrupted?: string;
+  /** Notes : reste non transcrit de chaque piste (parole sans pause finale), indices d'échantillons 16 kHz. */
+  tails?: { source: 'mic' | 'system'; wav: Buffer; start: number; end: number; from: number; to: number }[];
 }
 
 /**
@@ -96,9 +98,16 @@ export class Recorder extends EventEmitter {
     const fromRec = (e: Electron.IpcMainEvent): boolean => isTrustedSender(e, this.win?.webContents);
     ipcMain.on('rec:level', (e, v: number) => fromRec(e) && this.emit('level', Number(v) || 0));
     ipcMain.on('rec:started', (e, info) => fromRec(e) && this.emit('started', info));
-    ipcMain.on('rec:segment', (e, wav: ArrayBuffer, start: number, end: number, commit: boolean) => {
+    ipcMain.on('rec:segment', (e, wav: ArrayBuffer, start: number, end: number, commit: boolean, source?: string, from?: number, to?: number) => {
       if (!fromRec(e) || !(wav instanceof ArrayBuffer || ArrayBuffer.isView(wav))) return;
-      this.emit('segment', Buffer.from(wav as ArrayBuffer), Number(start) || 0, Number(end) || 0, !!commit);
+      // 5e à 7e arguments : piste d'origine et bornes de la parole (notes) ; ignorés par la dictée
+      this.emit('segment', Buffer.from(wav as ArrayBuffer), Number(start) || 0, Number(end) || 0, !!commit, source === 'system' ? 'system' : 'mic', Number(from) || Number(start) || 0, Number(to) || Number(end) || 0);
+    });
+    // Notes : le micro a disparu / changé / est revenu — la note continue (jamais d'arrêt automatique).
+    ipcMain.on('rec:device', (e, state: string, label: string) => {
+      if (!fromRec(e) || !['lost', 'recovered', 'fallback', 'muted'].includes(state)) return;
+      log(`recorder: micro de la note ${state}`);
+      this.emit('device', { state, label: String(label ?? '').slice(0, 200) });
     });
     ipcMain.on('rec:result', (e, r: any) => {
       if (!fromRec(e) || !r || typeof r !== 'object') return;
@@ -116,6 +125,9 @@ export class Recorder extends EventEmitter {
         total: r.total,
         speechEndAt: p.stopAt - Math.max(0, afterSpeechMs),
         interrupted: typeof r.interrupted === 'string' ? r.interrupted.slice(0, 40) : undefined,
+        tails: Array.isArray(r.tails)
+          ? r.tails.slice(0, 4).map((t: any) => ({ source: t.source === 'system' ? 'system' : 'mic', wav: Buffer.from(t.wav), start: Number(t.start) || 0, end: Number(t.end) || 0, from: Number(t.from) || 0, to: Number(t.to) || 0 }))
+          : undefined,
       });
       void media.resume();
     });
@@ -198,14 +210,15 @@ export class Recorder extends EventEmitter {
    * `wav` : PCM de la session renvoyé par blocs (événement 'pcm' : mélange, micro, Mac — PCM16 16 kHz) ;
    * `systemAudio` : capte aussi le son du Mac (notes) ; `probeSys` : autotest du chemin de capture.
    */
-  async start(opts: { note?: boolean; feed?: boolean; wav?: boolean; systemAudio?: boolean; probeSys?: boolean } = {}): Promise<void> {
+  async start(opts: { note?: boolean; feed?: boolean; wav?: boolean; systemAudio?: boolean; probeSys?: boolean; echoCancel?: boolean } = {}): Promise<void> {
     await this.init();
     if (this.disarmTimer) clearTimeout(this.disarmTimer);
     this.disarmTimer = null;
     if (this.pending) this.pending.reject(new Error('superseded'));
     this.pending = null;
     if (!opts.note && !opts.feed && cfg('audio.pauseMedia', true) !== false) void media.pause();
-    this.win!.webContents.send('rec:start', { ...opts, audio: audioConfig() });
+    // Notes : aucune limite de durée ni avertissement (maxMs = 0)
+    this.win!.webContents.send('rec:start', { ...opts, audio: opts.note ? { ...audioConfig(), maxMs: 0 } : audioConfig() });
   }
 
   pause(): void {

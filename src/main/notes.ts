@@ -11,10 +11,15 @@ import { dataDir, log } from './paths';
 import type { Recorder } from './recorder';
 import { settings } from './settings';
 import { playSound } from './sounds';
-import { transcribe, whisperModel } from './whisper';
-import { diaModels, diarize } from './diarization';
-import { assignSpeakers, replaceSpeaker, speakerSplits, speakerTranscript, type NoteSegment, type SpeakerTurn } from './speakers';
+import { transcribe, whisperMeetingServer, whisperModel } from './whisper';
+import { diaModels, diarize, type DiarizationResult } from './diarization';
+import { addBusyProbe, currentEngine, diarizeWithEngine, initMeetingEngine, transcribeChunk, transcribeFile } from './meetingEngine';
+import { dedupeEcho, labelSegments, replaceSpeaker, segmentsFromWords, speakerTranscript, type NoteSegment, type RawSegment, type Source } from './speakers';
+import { decodeWav, MEETING_VAD, Segmenter, uncovered, type Chunk, type Span } from '../shared/vad';
 import { readWavSlice, repairWav, WavWriter } from './wavfile';
+
+/** Étapes après l'arrêt (affichage immédiat de la note) : transcription prête → voix → compte rendu. */
+export type NoteStage = 'transcript' | 'voices' | 'summary' | 'done';
 
 /**
  * Mode « prise de notes » (docs/APP_API.md) : longue session → transcription au fil de l'eau
@@ -44,6 +49,8 @@ export interface NoteProgress {
   total?: number;
   message?: string;
   noteId?: string;
+  /** Étape après l'arrêt (state 'transcribing' / 'organizing') : voir NoteStage. */
+  stage?: NoteStage;
 }
 
 const notesDataDir = (): string => {
@@ -83,8 +90,15 @@ function removeAudio(id: string): void {
 interface NoteData {
   segments: NoteSegment[];
   diarized: boolean;
+  /** two-track : micro = « Moi » + son du Mac trié ; mix : une seule piste triée (présentiel). */
   mode?: 'two-track' | 'mix';
   diarizationMs?: number;
+  /** Nombre de personnes annoncé au démarrage (toi compris). */
+  numSpeakers?: number;
+  /** Moteur de transcription réellement utilisé : 'fluid' (Parakeet), 'whisper', 'mixed' (repli en cours de note). Absent = notes d'avant le moteur Parakeet (Whisper). */
+  engine?: 'fluid' | 'whisper' | 'mixed';
+  /** Moteur de séparation des voix : 'fluid' (FluidAudio) ou 'sherpa'. */
+  diarizationEngine?: 'fluid' | 'sherpa';
 }
 function readData(id: string): NoteData | null {
   try {
@@ -107,16 +121,16 @@ export const notesOutDir = (): string => {
   return d;
 };
 
-/** f6 : prompt Whisper des notes = prompt de base + dictionnaire partagé avec la dictée + contexte récent. */
-function notesWhisperPrompt(lang: string, ctx: string): string | undefined {
-  const base = lang === 'fr' ? String(settings.get('whisper.prompt') || '') : '';
-  let names = '';
+/**
+ * Prompt Whisper des notes : vocabulaire / noms seulement. Plus de « Dictée en français… » ni des 200 derniers
+ * caractères (ils faisaient halluciner et boucler Whisper, 01-audit-code §3.4).
+ */
+function notesWhisperPrompt(lang: string): string | undefined {
   try {
-    names = whisperNamesPrompt(vocabularyForNotes().vocabulary, [], lang);
+    return whisperNamesPrompt(vocabularyForNotes().vocabulary, [], lang) || undefined;
   } catch {
-    /* dictionnaire indisponible : prompt de base seul */
+    return undefined; // dictionnaire indisponible
   }
-  return `${base} ${names} ${ctx}`.replace(/\s+/g, ' ').trim() || undefined;
 }
 
 const countWords = (t: string): number => (t.match(/\S+/g) ?? []).length;
@@ -171,6 +185,22 @@ type OrganizeFn = (t: string, o: { signal?: AbortSignal; onProgress?: (s: number
   latencyMs: number;
 }>;
 
+/** Découpe une piste du WAV de session comme en direct (réglages réunion), lue par blocs de 30 s. */
+function offlineChunks(file: string): Chunk[] {
+  const out: Chunk[] = [];
+  const seg = new Segmenter((start, end, _c, sp) => out.push({ start, end, from: sp.from, to: sp.to }), MEETING_VAD);
+  const size = fs.statSync(file).size;
+  const total = Math.floor((size - 44) / 2); // échantillons
+  const BLOCK = 16000 * 30;
+  for (let at = 0; at < total; at += BLOCK) {
+    seg.push(decodeWav(readWavSlice(file, at / 16, Math.min(total, at + BLOCK) / 16)));
+    seg.compact();
+  }
+  const tail = seg.pendingBounds;
+  if (tail) out.push({ start: seg.tailFrom, end: seg.length, from: tail.from, to: tail.to });
+  return out;
+}
+
 /** Session de prise de notes (VAD → segments Whisper au fil de l'eau). */
 export class NoteSession extends EventEmitter {
   private recorder: Recorder;
@@ -180,7 +210,16 @@ export class NoteSession extends EventEmitter {
   private createdAt = new Date();
   private texts: string[] = [];
   /** Segments transcrits, horodatés sur la chronologie du WAV de session (ms). */
-  private segs: { startMs: number; endMs: number; text: string }[] = [];
+  private segs: RawSegment[] = [];
+  /** Passages déjà passés par Whisper (parole seule, en échantillons) par piste : sert au rattrapage à l'arrêt. */
+  private covered: Record<Source, Span[]> = { mic: [], system: [] };
+  private numSpeakers: number | undefined;
+  private sawSystem = false;
+  /** Moteur choisi au démarrage de la note (macOS ≥ 15 + modèles + binaire → 'fluid', sinon Whisper + sherpa). */
+  private engine: 'fluid' | 'whisper' = 'whisper';
+  private engineFails = 0;
+  private engineFailed = false;
+  private chunksBy = { fluid: 0, whisper: 0 };
   private wavs: { mix: WavWriter; mic: WavWriter | null; sys: WavWriter | null } | null = null;
   private queue: Promise<void> = Promise.resolve();
   private ac: AbortController | null = null;
@@ -195,8 +234,14 @@ export class NoteSession extends EventEmitter {
   constructor(recorder: Recorder) {
     super();
     this.recorder = recorder;
-    recorder.on('segment', (wav: Buffer, a: number, b: number, commit: boolean) => {
-      if (commit && (this.state === 'recording' || this.state === 'paused')) this.enqueue(wav, a, b);
+    initMeetingEngine(); // téléchargement des modèles en arrière-plan (idempotent)
+    addBusyProbe(() => this.busy);
+    recorder.on('segment', (wav: Buffer, a: number, b: number, commit: boolean, source: Source = 'mic', from = a, to = b) => {
+      if (commit && (this.state === 'recording' || this.state === 'paused')) this.enqueue(wav, a, b, source, from, to);
+    });
+    // Le micro disparaît / revient : la note continue ; l'UI est prévenue.
+    recorder.on('device', (e: { state: string; label: string }) => {
+      if (this.active) this.emit('device', e);
     });
     // WAV de session (notes) : blocs de 0,5 s, le dernier arrive juste avant le résultat de stop().
     recorder.on('pcm', (mix: Buffer, mic: Buffer | null, sys: Buffer | null) => {
@@ -277,32 +322,77 @@ export class NoteSession extends EventEmitter {
     });
   }
 
-  private enqueue(wav: Buffer, a = 0, b = 0): void {
+  private engineOn(): boolean {
+    return this.engine === 'fluid' && !this.engineFailed;
+  }
+  /** Moteur de transcription effectivement utilisé (pour le JSON de la note). */
+  private transcriptionEngine(): 'fluid' | 'whisper' | 'mixed' {
+    const { fluid, whisper } = this.chunksBy;
+    return fluid && whisper ? 'mixed' : fluid ? 'fluid' : 'whisper';
+  }
+  /** Segment tel qu'écrit dans <id>.json : sans les mots horodatés du moteur (volumineux, inutiles après l'attribution). */
+  private plainSeg(x: RawSegment): NoteSegment {
+    const { words: _w, ...rest } = x;
+    return { ...rest, speaker: '' };
+  }
+
+  /** Un morceau (≤ 25 s) d'une piste : transcrit dans l'ordre d'arrivée par le serveur « réunion ». */
+  private enqueue(wav: Buffer, a = 0, b = 0, source: Source = 'mic', from = a, to = b): void {
     const id = this.id;
     const startMs = Math.round(a / 16);
     const endMs = Math.round(b / 16);
     const signal = this.ac!.signal;
     this.queue = this.queue.then(async () => {
       if (signal.aborted || id !== this.id) return;
-      const ctx = this.texts.join(' ').slice(-200);
       const lang = String(settings.get('general.language') || 'fr');
       try {
         const t0 = Date.now();
-        const w = await transcribe(wav, { model: String(settings.get('whisper.model')), language: lang, prompt: notesWhisperPrompt(lang, ctx), signal });
+        let w: { text: string; ms: number; words?: { w: string; s: number; e: number }[] } | null = null;
+        if (this.engineOn()) {
+          try {
+            w = await transcribeChunk(wav, startMs, lang, signal);
+            this.engineFails = 0;
+            this.chunksBy.fluid++;
+          } catch (e) {
+            if (signal.aborted) return;
+            // Repli sans perte : ce morceau passe par Whisper ; 3 échecs d'affilée = Whisper pour le reste de la note.
+            this.engineFails++;
+            log(`${this.kind}: moteur Parakeet en erreur (${this.engineFails}) → Whisper pour ce morceau`, e instanceof Error ? e.message : e);
+            if (this.engineFails >= 3 && !this.engineFailed) {
+              this.engineFailed = true;
+              log(`${this.kind}: moteur Parakeet abandonné pour cette note → chaîne classique`);
+            }
+          }
+        }
+        if (!w) {
+          w = await transcribe(wav, { model: String(settings.get('whisper.model')), language: lang, prompt: notesWhisperPrompt(lang), signal, meeting: true });
+          this.chunksBy.whisper++;
+        }
         this.timings.segments++;
         this.timings.segMs += Date.now() - t0;
-        if (signal.aborted || !w.text) return;
+        if (signal.aborted) return;
+        this.covered[source].push({ from, to }); // traité (même vide : silence / hallucination filtrée)
+        if (!w.text) return;
+        if (source === 'system') this.sawSystem = true;
+        const seg: RawSegment = { startMs, endMs, text: w.text, source, speechStartMs: Math.round(from / 16), speechEndMs: Math.round(to / 16), ...(w.words?.length ? { words: w.words } : {}) };
         this.texts.push(w.text);
-        this.segs.push({ startMs, endMs, text: w.text });
-        fs.appendFileSync(this.txt(id), w.text + '\n'); // rien n'est perdu en cas de plantage
+        this.segs.push(seg);
+        fs.appendFileSync(this.txt(id), w.text + '\n'); // chaque morceau est sauvegardé dès qu'il est transcrit
+        // transcription en direct : texte + piste + horodatage (la voix « Moi » / Personne n vient à l'arrêt)
+        this.emit('live', { noteId: id, source, startMs: seg.speechStartMs, endMs: seg.speechEndMs, text: w.text });
         if (this.active) this.progress({ state: this.state as 'recording' | 'paused' });
       } catch (e) {
-        if (!signal.aborted) log(`${this.kind}: segment non transcrit`, e instanceof Error ? e.message : e);
+        // jamais jeté : le passage reste « non couvert » et sera rejoué depuis le WAV à l'arrêt
+        if (!signal.aborted) log(`${this.kind}: segment non transcrit (rattrapage à l'arrêt)`, e instanceof Error ? e.message : e);
       }
     });
   }
 
-  async start(opts: { feed?: boolean } = {}): Promise<void> {
+  /**
+   * `numSpeakers` : nombre de personnes présentes, toi compris (imposé au tri des voix). En réunion à deux pistes
+   * les autres sont numSpeakers − 1 ; en présentiel (pas de son du Mac utile) toutes sont triées sur le micro.
+   */
+  async start(opts: { feed?: boolean; numSpeakers?: number } = {}): Promise<void> {
     if (this.busy) return;
     const tag = this.kind;
     if (!whisperModel(String(settings.get('whisper.model')))) {
@@ -319,16 +409,29 @@ export class NoteSession extends EventEmitter {
     this.id = `${this.createdAt.toISOString().replace(/[-:]/g, '').replace(/\..*/, '')}-${Math.random().toString(36).slice(2, 6)}`;
     this.texts = [];
     this.segs = [];
+    this.covered = { mic: [], system: [] };
+    this.sawSystem = false;
+    this.numSpeakers = Number.isFinite(Number(opts.numSpeakers)) && Number(opts.numSpeakers) >= 1 ? Math.min(30, Math.round(Number(opts.numSpeakers))) : undefined;
     this.queue = Promise.resolve();
     this.ac = new AbortController();
     this.activeMs = 0;
     this.timings = { stopAt: 0, transcribedAt: 0, diarizedAt: 0, organizedAt: 0, segments: 0, segMs: 0, diarizeMs: 0, diarizeMode: '', speakers: 0 };
     fs.writeFileSync(this.txt(this.id), '');
     const isNote = this.kind === 'note';
+    // Choix automatique du moteur : macOS ≥ 15 ET modèles présents ET binaire présent → Parakeet/FluidAudio ; sinon Whisper + sherpa.
+    this.engineFails = 0;
+    this.engineFailed = false;
+    this.chunksBy = { fluid: 0, whisper: 0 };
+    const choice = isNote ? currentEngine() : { engine: 'whisper' as const, reason: 'dictée' };
+    this.engine = choice.engine;
+    log(`${tag}: moteur ${choice.engine === 'fluid' ? 'Parakeet + FluidAudio' : 'Whisper + sherpa'} (${choice.reason})`);
     if (isNote) {
       this.wavs = { mix: new WavWriter(wavFiles(this.id).mix), mic: null, sys: null };
       // modèles de voix (~46 Mo) prêts avant la fin de la note
-      if (settings.get('notes.diarization') !== false) void diaModels.ensure();
+      // (moteur Parakeet : ni modèle sherpa ni serveur Whisper au départ ; ils démarrent seulement en cas de repli)
+      if (settings.get('notes.diarization') !== false && this.engine !== 'fluid') void diaModels.ensure();
+      // serveur de transcription des notes (contexte audio complet, morceaux de 25 s) : chaud avant le 1er morceau
+      if (this.engine !== 'fluid') void whisperMeetingServer.start(String(settings.get('whisper.model'))).catch(() => false);
     }
     try {
       await this.recorder.start({
@@ -337,6 +440,7 @@ export class NoteSession extends EventEmitter {
         wav: isNote,
         systemAudio: isNote && settings.get('notes.systemAudio') !== false,
         probeSys: process.env.DICTA_SELFTEST_SYS_PROBE === '1',
+        echoCancel: (settings as unknown as { get(k: string): unknown }).get('notes.echoCancel') !== false,
       });
     } catch (e) {
       this.closeWavs();
@@ -405,6 +509,7 @@ export class NoteSession extends EventEmitter {
     this.endRecording();
     this.ac?.abort();
     this.recorder.cancel();
+    whisperMeetingServer.stop();
     this.state = 'idle';
     this.closeWavs();
     removeAudio(this.id);
@@ -412,6 +517,22 @@ export class NoteSession extends EventEmitter {
     log(`${this.kind}: annulée`, this.id);
     this.status({ state: 'idle' });
     this.progress({ state: 'error', message: 'Note annulée' });
+  }
+
+  /** Étape après l'arrêt : progression + événement 'stage' (l'UI affiche la note dès « transcript »). */
+  private stage(id: string, stage: NoteStage, extra: Record<string, unknown> = {}): void {
+    this.emit('stage', { noteId: id, stage, ...extra });
+  }
+
+  /** Brouillon visible tout de suite (transcription brute) : remplacé par le compte rendu à la fin. */
+  private saveDraft(id: string, transcript: string, existing?: NoteMeta): NoteMeta {
+    const { markdown, title } = rawNote(transcript, this.createdAt, 'Compte rendu en cours…');
+    const file = uniquePath(notesOutDir(), mdName(this.createdAt, title), existing?.path);
+    fs.writeFileSync(file, markdown);
+    const meta: NoteMeta = { id, title, createdAt: this.createdAt.toISOString(), durationMs: this.elapsed(), words: spokenWords(transcript), path: file, provider: 'pending' };
+    upsert(meta);
+    this.emit('draft', meta);
+    return meta;
   }
 
   /** Arrête l'enregistrement, termine la transcription, organise et enregistre la note. Renvoie son id. */
@@ -426,16 +547,44 @@ export class NoteSession extends EventEmitter {
     this.progress({ state: 'transcribing' });
     try {
       const rec = await this.recorder.stop();
-      if (rec.tail) this.enqueue(rec.tail, rec.tailStart, rec.total);
+      for (const t of rec.tails ?? []) this.enqueue(t.wav, t.start, t.end, t.source, t.from, t.to);
     } catch (e) {
       log('note: fin de capture', e);
     }
-    await this.queue;
     this.closeWavs();
+    // La séparation des voix (CPU) démarre tout de suite, en parallèle de la file Whisper (GPU) : elle n'a besoin
+    // que de l'audio, pas du texte.
+    const dia = this.startDiarization(id);
+    await this.queue;
+    // Dictaphone (moteur Parakeet) : la transcription en direct n'était qu'un aperçu ; la transcription définitive est
+    // refaite sur les FICHIERS ENTIERS (mots horodatés). Échec → rattrapage classique des passages non couverts.
+    if (!(this.engineOn() && (await this.finalPass(id)))) {
+      await this.catchUp(id); // passages non transcrits (échec, perdus) rejoués depuis le WAV de session
+      await this.queue;
+    }
+    this.whenIdleStopServer();
     this.timings.transcribedAt = Date.now();
     const plain = this.texts.join(' ').trim();
-    log(`note: transcription finie ${this.timings.transcribedAt - this.timings.stopAt} ms après l'arrêt, ${countWords(plain)} mots`);
-    const transcript = countWords(plain) >= 3 ? await this.speakers(id) : plain;
+    log(`note: transcription finie ${this.timings.transcribedAt - this.timings.stopAt} ms après l'arrêt, ${countWords(plain)} mots, ${this.segs.length} morceau(x)`);
+    const enough = countWords(plain) >= 3;
+    let draft: NoteMeta | undefined;
+    if (enough) {
+      // Étape 1 : transcription prête → la note existe déjà (brouillon) et ses segments sont lisibles.
+      try {
+        writeData(id, { segments: this.sortedSegs().map((x) => this.plainSeg(x)), diarized: false, numSpeakers: this.numSpeakers, engine: this.transcriptionEngine() });
+      } catch (e) {
+        log('note: segments non enregistrés', e);
+      }
+      draft = this.saveDraft(id, plain);
+      this.stage(id, 'transcript', { noteId: id, words: countWords(plain) });
+      this.progress({ state: 'transcribing', stage: 'transcript', noteId: id, message: 'Transcription prête' });
+    } else dia.abort();
+    this.stage(id, 'voices');
+    const transcript = enough ? await this.speakers(id, dia) : plain;
+    if (enough) {
+      draft = this.saveDraft(id, transcript, draft);
+      this.stage(id, 'summary');
+    }
     this.timings.diarizedAt = Date.now();
     // Repères tapés pendant la session : donnés à l'organisation (priorité de structure) ; titre imposé s'il a été saisi.
     const fmt = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, '0')}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
@@ -444,7 +593,7 @@ export class NoteSession extends EventEmitter {
       ? `${transcript}\n\nRepères notés par la personne pendant la session (à utiliser pour structurer la note, sans rien ajouter) :\n${marks}`
       : transcript;
     // Rien entendu (et aucun repère) : aucune note n'est enregistrée, la pastille repasse au repos.
-    if (countWords(plain) < 3 && !marks) {
+    if (!enough && !marks) {
       try { fs.unlinkSync(txtFile(id)); } catch { /* déjà absent */ }
       removeAudio(id);
       fs.rmSync(jsonFile(id), { force: true });
@@ -455,102 +604,161 @@ export class NoteSession extends EventEmitter {
       return null;
     }
     try {
-      return await this.organizeAndSave(id, forOrganize, this.createdAt, this.elapsed(), undefined, opts.title);
+      const done = await this.organizeAndSave(id, forOrganize, this.createdAt, this.elapsed(), draft, opts.title);
+      this.stage(id, 'done');
+      return done;
     } finally {
       this.state = 'idle';
       if (settings.get('notes.keepAudio') !== true) removeAudio(id);
     }
   }
 
-  /**
-   * Segments à cheval sur deux locuteurs (changement de voix sans pause nette pour le VAD) : coupés au
-   * changement et re-transcrits morceau par morceau depuis le WAV de session (peu de segments concernés).
-   */
-  private async splitAtTurns(segs: { startMs: number; endMs: number; text: string }[], turns: SpeakerTurn[], wav: string) {
-    const out: { startMs: number; endMs: number; text: string }[] = [];
-    const lang = String(settings.get('general.language') || 'fr');
-    let n = 0;
-    const t0 = Date.now();
-    for (const s of segs) {
-      const cuts = speakerSplits(s, turns);
-      if (!cuts.length) {
-        out.push(s);
-        continue;
-      }
-      const bounds = [s.startMs, ...cuts, s.endMs];
-      const pieces: { startMs: number; endMs: number; text: string }[] = [];
-      try {
-        for (let i = 0; i + 1 < bounds.length; i++) {
-          const ctx = [...out, ...pieces].map((x) => x.text).join(' ').slice(-200);
-          const w = await transcribe(readWavSlice(wav, bounds[i], bounds[i + 1]), {
-            model: String(settings.get('whisper.model')),
-            language: lang,
-            prompt: notesWhisperPrompt(lang, ctx),
-            signal: this.ac?.signal,
-          });
-          if (w.text) pieces.push({ startMs: bounds[i], endMs: bounds[i + 1], text: w.text });
-        }
-        if (!pieces.length) throw new Error('morceaux vides');
-        out.push(...pieces);
-        n++;
-      } catch (e) {
-        log('note: re-transcription d’un segment à cheval impossible', e instanceof Error ? e.message : e);
-        out.push(s);
-      }
-    }
-    if (n) log(`note: ${n} segment(s) à cheval sur deux locuteurs re-transcrits en ${Date.now() - t0} ms`);
-    return out;
+  private sortedSegs(): RawSegment[] {
+    return this.segs.slice().sort((a, b) => a.startMs - b.startMs);
+  }
+
+  /** Le serveur « réunion » (~0,6 Go) n'a plus lieu d'être une fois la transcription finie. */
+  private whenIdleStopServer(): void {
+    whisperMeetingServer.stop();
   }
 
   /**
-   * Diarisation du WAV de session → segments étiquetés (<id>.json) → transcription « [mm:ss] Locuteur : texte ».
-   * Désactivée, indisponible ou en échec : transcription simple (sans étiquettes), sans erreur.
+   * Transcription définitive du dictaphone : Parakeet sur chaque piste entière (micro, + son du Mac s'il a porté de la
+   * parole ; sinon le mélange), découpée en segments sur les pauses. Remplace l'aperçu en direct si elle réussit.
    */
-  private async speakers(id: string): Promise<string> {
-    const plain = this.texts.join(' ').trim();
-    const segs = this.segs.slice();
+  private async finalPass(id: string): Promise<boolean> {
     const f = wavFiles(id);
-    let data: NoteData = { segments: segs.map((s) => ({ ...s, speaker: '' })), diarized: false };
-    let out = plain;
-    if (settings.get('notes.diarization') !== false && fs.existsSync(f.mix)) {
-      this.status({ state: 'transcribing', mode: 'note', message: 'Note · séparation des voix…' });
-      this.progress({ state: 'transcribing', message: diaModels.downloading ? 'Téléchargement du modèle de voix…' : 'Séparation des voix…' });
-      const onDl = (p: { percent: number; state: string }) => {
-        if (p.state === 'downloading') this.progress({ state: 'transcribing', message: `Téléchargement du modèle de voix… ${p.percent} %` });
-      };
-      diaModels.on('progress', onDl);
-      try {
-        const two = fs.existsSync(f.mic) && fs.existsSync(f.sys);
-        const r = await diarize({ mix: f.mix, ...(two ? { mic: f.mic, sys: f.sys } : {}) }, this.ac?.signal);
-        if (r && r.turns.length) {
-          const split = await this.splitAtTurns(segs, r.turns, f.mix);
-          const labeled = assignSpeakers(split, r.turns);
-          const names = new Set(labeled.map((s) => s.speaker));
-          this.timings.diarizeMs = r.ms;
-          this.timings.diarizeMode = r.mode;
-          this.timings.speakers = names.size;
-          log(`note: diarisation ${r.mode} en ${r.ms} ms pour ${r.audioSec.toFixed(0)} s d'audio (${((r.ms / 10 / r.audioSec) || 0).toFixed(1)} %), ${names.size} locuteur(s) : ${[...names].join(', ')}, ${r.rssMB ?? '?'} Mo`);
-          data = { segments: labeled, diarized: true, mode: r.mode, diarizationMs: r.ms };
-          out = speakerTranscript(labeled);
-        } else log('note: diarisation indisponible → transcription sans locuteurs');
-      } catch (e) {
-        log('note: diarisation impossible → transcription sans locuteurs', e);
-      } finally {
-        diaModels.off('progress', onDl);
+    const two = fs.existsSync(f.mic) && fs.existsSync(f.sys);
+    const tracks: [Source, string][] = two ? [['mic', f.mic], ...(this.sawSystem ? ([['system', f.sys]] as [Source, string][]) : [])] : [['mic', f.mix]];
+    const lang = String(settings.get('general.language') || 'fr');
+    const t0 = Date.now();
+    try {
+      const segs: RawSegment[] = [];
+      for (const [source, file] of tracks) {
+        if (!fs.existsSync(file) || this.ac?.signal.aborted) return false;
+        const r = await transcribeFile(file, lang, this.ac?.signal);
+        segs.push(...segmentsFromWords(r.words, source));
       }
+      const liveWords = countWords(this.texts.join(' '));
+      const finalWords = segs.reduce((n, x) => n + countWords(x.text), 0);
+      // garde-fou : une passe finale nettement plus pauvre que l'aperçu (échec silencieux) n'écrase rien
+      if (finalWords < 0.5 * liveWords) {
+        log(`note: transcription du fichier entier plus courte que l'aperçu (${finalWords} < ${liveWords} mots) → aperçu gardé`);
+        return false;
+      }
+      this.segs = segs;
+      this.texts = segs.slice().sort((a, b) => a.startMs - b.startMs).map((x) => x.text);
+      fs.writeFileSync(this.txt(id), this.texts.join('\n') + '\n');
+      log(`note: transcription du fichier entier en ${Date.now() - t0} ms, ${finalWords} mots (aperçu en direct : ${liveWords}), ${segs.length} segment(s)`);
+      return true;
+    } catch (e) {
+      if (!this.ac?.signal.aborted) log('note: transcription du fichier entier impossible → aperçu + rattrapage', e instanceof Error ? e.message : e);
+      return false;
+    }
+  }
+
+  /**
+   * Rattrapage (04-muesli.md R7) : le découpage est rejoué sur chaque piste du WAV de session ; tout morceau de
+   * parole que la transcription en direct n'a pas couvert (échec, erreur, morceau perdu) est retranscrit.
+   */
+  private async catchUp(id: string): Promise<void> {
+    const f = wavFiles(id);
+    const two = fs.existsSync(f.mic) && fs.existsSync(f.sys);
+    const tracks: [Source, string][] = two ? [['mic', f.mic], ['system', f.sys]] : [['mic', f.mix]];
+    let n = 0;
+    const t0 = Date.now();
+    for (const [source, file] of tracks) {
+      if (!fs.existsSync(file) || this.ac?.signal.aborted) continue;
+      try {
+        for (const c of uncovered(offlineChunks(file), this.covered[source], 0.5)) {
+          if (c.to - c.from < 16 * 400) continue; // < 0,4 s de parole : bruit
+          this.enqueue(readWavSlice(file, c.start / 16, c.end / 16), c.start, c.end, source, c.from, c.to);
+          n++;
+        }
+      } catch (e) {
+        log('note: rattrapage impossible', e instanceof Error ? e.message : e);
+      }
+    }
+    if (n) log(`note: rattrapage de ${n} passage(s) non transcrit(s) (analyse ${Date.now() - t0} ms)`);
+  }
+
+  /** Lance la diarisation du WAV de session (processus séparé) ; résolu à null si indisponible. */
+  private startDiarization(id: string): { promise: Promise<Awaited<ReturnType<typeof diarize>>>; abort: () => void } {
+    const f = wavFiles(id);
+    const dac = new AbortController();
+    const outer = this.ac?.signal;
+    outer?.addEventListener('abort', () => dac.abort(), { once: true });
+    if (settings.get('notes.diarization') === false || !fs.existsSync(f.mix)) return { promise: Promise.resolve(null), abort: () => undefined };
+    const two = fs.existsSync(f.mic) && fs.existsSync(f.sys);
+    this.status({ state: 'transcribing', mode: 'note', message: 'Note · transcription…' });
+    const files = { mix: f.mix, ...(two ? { mic: f.mic, sys: f.sys } : {}) };
+    const run = async (): Promise<DiarizationResult | null> => {
+      if (this.engineOn()) {
+        try {
+          // parole sur la piste du Mac (décide du mode deux pistes, comme dans le worker sherpa)
+          const sysVoicedSec = two ? offlineChunks(f.sys).reduce((n, c) => n + (c.to - c.from), 0) / 16000 : 0;
+          const r = await diarizeWithEngine(files, { signal: dac.signal, numSpeakers: this.numSpeakers, sysVoicedSec });
+          if (r) return { ...r, engine: 'fluid' };
+        } catch (e) {
+          if (dac.signal.aborted) return null;
+          log('note: séparation des voix Parakeet/FluidAudio en erreur → chaîne classique (sherpa)', e instanceof Error ? e.message : e);
+        }
+      }
+      const r = await diarize(files, dac.signal, this.numSpeakers);
+      return r ? { ...r, engine: 'sherpa' } : null;
+    };
+    const promise = run().catch((e) => {
+      log('note: diarisation impossible → transcription sans locuteurs', e);
+      return null;
+    });
+    return { promise, abort: () => dac.abort() };
+  }
+
+  /**
+   * Voix → segments étiquetés (<id>.json) → transcription « [mm:ss] Locuteur : texte ». Aucune re-transcription :
+   * chaque phrase va à la voix qui la recouvre le plus ; en deux pistes la piste micro est « Moi » (jamais triée).
+   * Désactivée, indisponible ou en échec : transcription simple, sans erreur.
+   */
+  private async speakers(id: string, dia: { promise: Promise<Awaited<ReturnType<typeof diarize>>> }): Promise<string> {
+    const plain = this.texts.join(' ').trim();
+    const sorted = this.sortedSegs();
+    let data: NoteData = { segments: sorted.map((s) => this.plainSeg(s)), diarized: false, numSpeakers: this.numSpeakers, engine: this.transcriptionEngine() };
+    let out = plain;
+    this.status({ state: 'transcribing', mode: 'note', message: 'Note · séparation des voix…' });
+    this.progress({ state: 'transcribing', stage: 'voices', message: diaModels.downloading ? 'Téléchargement du modèle de voix…' : 'Séparation des voix…' });
+    const onDl = (p: { percent: number; state: string }) => {
+      if (p.state === 'downloading') this.progress({ state: 'transcribing', stage: 'voices', message: `Téléchargement du modèle de voix… ${p.percent} %` });
+    };
+    diaModels.on('progress', onDl);
+    try {
+      const r = await dia.promise;
+      if (r) {
+        const segs = r.mode === 'two-track' ? dedupeEcho(sorted) : sorted;
+        const labeled = labelSegments(segs, r.turns, r.mode, r.mode === 'mix' && this.numSpeakers === 1, r.micTurns);
+        const names = new Set(labeled.map((s) => s.speaker));
+        this.timings.diarizeMs = r.ms;
+        this.timings.diarizeMode = r.mode;
+        this.timings.speakers = names.size;
+        log(`note: diarisation ${r.engine ?? 'sherpa'} ${r.mode}${r.micTurns ? ` (voix sur le micro : ${new Set(r.micTurns.map((t) => t.speaker)).size})` : ''} en ${r.ms} ms pour ${r.audioSec.toFixed(0)} s d'audio (${((r.ms / 10 / r.audioSec) || 0).toFixed(1)} %), ${names.size} locuteur(s) (groupes ${r.groups ?? '?'} → ${r.merged ?? '?'}, nombre annoncé ${this.numSpeakers ?? 'auto'}), ${r.rssMB ?? '?'} Mo`);
+        data = { segments: labeled, diarized: true, mode: r.mode, diarizationMs: r.ms, numSpeakers: this.numSpeakers, engine: this.transcriptionEngine(), diarizationEngine: r.engine ?? 'sherpa' };
+        out = speakerTranscript(labeled);
+      } else log('note: diarisation indisponible → transcription sans locuteurs');
+    } finally {
+      diaModels.off('progress', onDl);
     }
     try {
       writeData(id, data);
     } catch (e) {
       log('note: segments non enregistrés', e);
     }
+    this.emit('voices', { noteId: id, segments: data.segments, diarized: data.diarized, mode: data.mode });
     return out;
   }
 
   private async organizeAndSave(id: string, transcript: string, createdAt: Date, durationMs: number, existing?: NoteMeta, forcedTitle?: string): Promise<string> {
     this.state = 'organizing';
     this.status({ state: 'cleaning', mode: 'note', message: 'Note · organisation…' });
-    this.progress({ state: 'organizing', elapsedMs: durationMs, words: spokenWords(transcript), noteId: id });
+    this.progress({ state: 'organizing', stage: 'summary', elapsedMs: durationMs, words: spokenWords(transcript), noteId: id });
     const organize: OrganizeFn | undefined = routerModule()?.organizeNotes;
     let markdown: string;
     let title: string;
@@ -651,7 +859,7 @@ export class NoteSession extends EventEmitter {
 // ── accès aux notes enregistrées
 export const listNotes = (): NoteMeta[] => readIndex();
 
-export function getNote(rawId: string): { meta: NoteMeta; markdown: string; transcript: string; segments?: NoteSegment[] } {
+export function getNote(rawId: string): { meta: NoteMeta; markdown: string; transcript: string; segments?: NoteSegment[]; engine?: 'fluid' | 'whisper' | 'mixed' } {
   const id = assertNoteId(rawId);
   const meta = readIndex().find((m) => m.id === id);
   if (!meta) throw new Error('Note introuvable');
@@ -664,8 +872,8 @@ export function getNote(rawId: string): { meta: NoteMeta; markdown: string; tran
   };
   const d = readData(id);
   const md = insideNotesOut(meta.path) ? read(meta.path) : '';
-  if (d?.diarized) return { meta, markdown: md, transcript: speakerTranscript(d.segments), segments: d.segments };
-  return { meta, markdown: md, transcript: read(txtFile(id)).trim() };
+  if (d?.diarized) return { meta, markdown: md, transcript: speakerTranscript(d.segments), segments: d.segments, ...(d.engine ? { engine: d.engine } : {}) };
+  return { meta, markdown: md, transcript: read(txtFile(id)).trim(), ...(d?.segments?.length ? { segments: d.segments } : {}), ...(d?.engine ? { engine: d.engine } : {}) };
 }
 
 /**

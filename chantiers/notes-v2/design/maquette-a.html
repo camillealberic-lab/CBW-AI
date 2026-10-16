@@ -1,0 +1,1261 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette A : le carnet d’abord. Réunion CBW AI</title>
+<link rel="stylesheet" href="../../../assets/fonts/fonts.css">
+<link rel="stylesheet" href="../../../design/cbw/tokens.css">
+<style>
+/* ===== Maquette A « Le carnet d’abord » =====
+   Concept : une page à toi, une marge pour la machine.
+   Page = tes mots (noir) + ajouts IA (gris). Marge = heure, source (loupe), état (le trait change de couleur).
+   Tokens CBW repris tels quels ; seules variables ajoutées ci-dessous. */
+:root{
+  --marge:88px;          /* colonne de marge : heures, loupes, titres de blocs */
+  --gout:24px;           /* gouttière : le trait de marge est centré dedans */
+  --col:640px;           /* mesure du texte : ~68 caractères en 17 px */
+  --t-titre:40px; --t-sujet:21px; --t-carnet:17px; --l:28px; --t-ui:14px;
+  --ia:var(--texte-sec); /* gris IA : #5F5F5A, 6,4:1 sur blanc */
+  --bureau:#E2E2DE;
+  --hl:var(--fond-3);
+  /* Voix : une teinte sourde par personne, jamais orange / bleu / vert (réservés aux états) */
+  --c-moi:var(--texte); --c-p2:#0F766E; --c-p3:#8A5A00; --c-p4:#9D174D;
+  --puce:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Crect width='5' height='5' fill='%231E1E1C'/%3E%3C/svg%3E");
+  --case:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18'%3E%3Crect x='1' y='1' width='16' height='16' fill='none' stroke='%231E1E1C' stroke-width='2'/%3E%3C/svg%3E");
+  --coche:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M2 7.5l3.2 3L12 3.5' fill='none' stroke='%23FFFFFF' stroke-width='2.2' stroke-linecap='square'/%3E%3C/svg%3E");
+}
+:root[data-theme="dark"]{
+  --bureau:#0F1012;
+  --c-p2:#5EEAD4; --c-p3:#E0B050; --c-p4:#F9A8D4;
+  --puce:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='5' height='5'%3E%3Crect width='5' height='5' fill='%23ECECEA'/%3E%3C/svg%3E");
+  --case:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18'%3E%3Crect x='1' y='1' width='16' height='16' fill='none' stroke='%23ECECEA' stroke-width='2'/%3E%3C/svg%3E");
+  --coche:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 14 14'%3E%3Cpath d='M2 7.5l3.2 3L12 3.5' fill='none' stroke='%231C1C1E' stroke-width='2.2' stroke-linecap='square'/%3E%3C/svg%3E");
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{font-family:var(--police);font-size:var(--t-ui);line-height:1.45;color:var(--texte);background:var(--bureau);-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0;border-radius:0}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+[hidden]{display:none!important}
+.sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:square;stroke-linejoin:miter;flex:none}
+.att{display:none!important}
+
+/* ---------- Échafaudage de la maquette (hors produit) ---------- */
+.maq{position:sticky;top:0;z-index:80;display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;padding:10px 20px;background:var(--fond);border-bottom:2px solid var(--trait)}
+.maq h1{margin:0;font-size:15px;font-weight:800;font-stretch:88%;letter-spacing:-.01em}
+.maq h1 small{display:block;font:500 12px/1.3 var(--mono);color:var(--texte-sec);font-stretch:100%;letter-spacing:0}
+.etapes{display:flex;border:2px solid var(--trait);margin:0;padding:0;list-style:none}
+.etapes li+li{border-left:1px solid var(--fil-fort)}
+.etapes button{min-height:44px;padding:0 14px;font-weight:700;font-size:14px;display:flex;gap:8px;align-items:center}
+.etapes button span{font:500 12px var(--mono);color:var(--texte-sec)}
+.etapes button[aria-pressed="true"]{background:var(--inverse-fond);color:var(--inverse-texte)}
+.etapes button[aria-pressed="true"] span{color:inherit}
+.opts{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto}
+.opt{min-height:44px;padding:0 12px;border:1px solid var(--fil-fort);background:var(--surface);font-size:13px;font-weight:600}
+.opt:hover{border-color:var(--texte)}
+.opt[aria-pressed="true"]{border-color:var(--texte);background:var(--fond-3)}
+
+/* ---------- Scène et fenêtre Mac ---------- */
+.scene{position:relative;display:grid;place-items:center;padding:28px 20px 40px;min-height:calc(100vh - 68px)}
+.win{container:win / inline-size;position:relative;width:min(1200px,100%);height:min(800px,calc(100vh - 110px));min-height:600px;background:var(--fond);border:1px solid var(--champ);display:flex;flex-direction:column;overflow:hidden}
+.tb{height:38px;flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;border-bottom:1px solid var(--fil)}
+.tb > i{width:12px;height:12px;border-radius:50%;background:var(--fil-fort)}
+.tb span{flex:1;text-align:center;font-size:13px;color:var(--texte-sec);margin-right:52px}
+.corps{flex:1;display:flex;min-height:0;position:relative}
+
+/* Rail de l’app (navigation existante, repliée en icônes pendant une note) */
+.rail{width:56px;flex:none;border-right:1px solid var(--fil);display:flex;flex-direction:column;align-items:center;padding:8px 0;gap:4px}
+.rail button{width:44px;height:44px;display:grid;place-items:center;color:var(--texte-sec)}
+.rail button:hover{background:var(--fond-2);color:var(--texte)}
+.rail button[aria-current="page"]{background:var(--fond-3);color:var(--texte);box-shadow:inset 3px 0 0 var(--trait)}
+.rail .bas{margin-top:auto}
+
+/* Liste des réunions */
+.liste{width:264px;flex:none;background:var(--fond-2);border-right:1px solid var(--fil);display:flex;flex-direction:column;min-height:0}
+.win[data-liste="fermee"] .liste{display:none}
+.l-tete{padding:14px 14px 6px}
+.l-tete h2{margin:0 0 10px;font-size:15px;font-weight:800}
+.cherche{position:relative}
+.cherche input{width:100%;height:44px;border:2px solid var(--trait);border-radius:0;background:var(--surface);padding:0 10px 0 38px;font-size:14px}
+.cherche input::placeholder{color:var(--texte-3)}
+.cherche svg{position:absolute;left:11px;top:12px;color:var(--texte-sec)}
+.dossiers{list-style:none;margin:8px 0 0;padding:0}
+.dossiers button{width:100%;min-height:44px;display:flex;justify-content:space-between;align-items:center;padding:0 10px;font-size:14px;font-weight:600;color:var(--texte-sec);border-left:3px solid transparent}
+.dossiers button:hover{color:var(--texte);background:var(--fond-3)}
+.dossiers button[aria-pressed="true"]{color:var(--texte);border-left-color:var(--trait);background:var(--fond-3)}
+.dossiers b{font:500 12px var(--mono);color:var(--texte-sec)}
+.l-defile{flex:1;overflow:auto;padding-bottom:16px;border-top:1px solid var(--fil);margin-top:8px}
+.jour{margin:0;padding:14px 16px 4px;font:500 12px/1.3 var(--mono);color:var(--texte-sec)}
+.reu{display:block;width:100%;text-align:left;padding:8px 14px 8px 13px;min-height:56px;border-left:3px solid transparent}
+.reu:hover{background:var(--fond-3)}
+.reu[aria-current="true"]{background:var(--surface);border-left-color:var(--trait)}
+.reu b{display:block;font-size:14px;font-weight:600;line-height:20px}
+.reu small{display:flex;align-items:center;gap:6px;font:500 12px/18px var(--mono);color:var(--texte-sec)}
+.reu small i{width:8px;height:8px;background:var(--orange);display:inline-block}
+.reu .ex{display:block;font-size:13px;line-height:18px;color:var(--texte-sec);margin-top:2px}
+.vide-l{padding:16px;margin:0;font-size:13px;color:var(--texte-sec)}
+
+/* Page */
+.page{flex:1;min-width:0;display:flex;flex-direction:column;position:relative;background:var(--fond)}
+.p-haut{height:56px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px 0 6px;border-bottom:1px solid var(--fil)}
+.p-haut .esp{flex:1}
+.crumb{font-size:13px;color:var(--texte-sec)}
+.prive{font-size:13px;color:var(--texte-3)}
+.btn-i{width:44px;height:44px;display:grid;place-items:center;color:var(--texte-sec)}
+.btn-i:hover{background:var(--fond-2);color:var(--texte)}
+.btn-i[aria-expanded="true"]{color:var(--texte)}
+.btn1,.btn2,.btn3{min-height:44px;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;transition:background-color var(--d-2) var(--ease),border-color var(--d-2) var(--ease),color var(--d-2) var(--ease),transform var(--d-1) var(--ease)}
+.btn1{padding:0 18px;background:var(--inverse-fond);color:var(--inverse-texte);font-weight:800;font-size:15px}
+.btn2{padding:0 14px;border:1px solid var(--fil-fort);background:var(--surface);font-weight:700;font-size:14px}
+.btn2:hover{background:var(--fond-2);border-color:var(--texte)}
+.btn2[aria-pressed="true"]{border-color:var(--texte);background:var(--fond-3)}
+.btn3{padding:0 8px;color:var(--texte-sec);font-weight:600;font-size:14px;text-decoration:underline;text-decoration-color:transparent;text-underline-offset:4px}
+.btn3:hover{color:var(--texte);text-decoration-color:currentColor}
+.btn1:active,.btn2:active{transform:scale(.98)}
+.btn-gab{padding:0 12px;border:1px solid var(--fil-fort);min-height:44px;display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600}
+.btn-gab:hover{border-color:var(--texte)}
+.btn-gab span{color:var(--texte-sec);font-weight:500}
+.seg{display:inline-flex;border:1px solid var(--fil-fort)}
+.seg button{min-height:42px;padding:0 12px;font-weight:600;font-size:13px;color:var(--texte-sec)}
+.seg button[aria-pressed="true"]{background:var(--inverse-fond);color:var(--inverse-texte)}
+
+/* La feuille : marge | trait | colonne */
+.defile{flex:1;overflow:auto;position:relative}
+.feuille{--pl:calc(24px + var(--marge) + var(--gout));position:relative;width:100%;max-width:calc(var(--pl) + var(--col) + 48px);margin:0 auto;padding:44px 48px 160px var(--pl);min-height:100%}
+.regle{position:absolute;top:44px;bottom:96px;left:calc(var(--pl) - var(--gout) / 2 - 1px);width:2px;background:var(--fil);transition:background-color var(--d-3) var(--ease)}
+.regle i{position:absolute;inset:0;background:var(--bleu);transform:scaleY(var(--p,0));transform-origin:top;opacity:0;transition:transform 240ms linear,opacity var(--d-3) var(--ease),background-color var(--d-3) var(--ease)}
+.win[data-etat="enregistre"] .regle{background:var(--orange)}
+.win[data-etat="pause"] .regle{background:transparent;border-left:2px dashed var(--orange);width:0}
+.win[data-etat="ecrit"] .regle i{opacity:1}
+.win[data-etat="pret"] .regle i{opacity:1;transform:scaleY(1);background:var(--vert-pt)}
+.mg{position:absolute;left:calc(-1 * (var(--marge) + var(--gout)));width:var(--marge);text-align:right;font:500 12px/var(--l) var(--mono);font-variant-numeric:tabular-nums;color:var(--texte-3)}
+
+.tete{position:relative}
+.tete .mg{top:8px;line-height:28px}
+.titre{margin:0;font-size:var(--t-titre);line-height:44px;font-weight:800;font-stretch:82%;letter-spacing:-.03em;outline:none}
+.titre:focus-visible{outline:3px solid var(--focus);outline-offset:4px}
+.meta{margin:10px 0 0;font-size:14px;line-height:22px;color:var(--texte-sec)}
+.voix{margin:4px 0 0;font-size:14px;line-height:22px;color:var(--texte-sec)}
+.voix .spk{color:var(--texte);font-weight:600}
+.voix em{font-style:normal;color:var(--texte-3);font-size:13px}
+
+/* Bandeau « Combien êtes-vous ? » : léger, non bloquant */
+.bandeau{margin-top:24px;border:2px solid var(--trait);padding:12px 14px;display:grid;gap:10px;animation:entre var(--d-3) var(--ease-sortie)}
+.b-ligne{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.b-ligne p{margin:0;font-size:15px}
+.b-ligne small{font-size:13px;color:var(--texte-sec);flex:1;min-width:240px;line-height:20px}
+.pas{display:inline-flex;border:2px solid var(--trait)}
+.pas button{width:44px;height:40px;display:grid;place-items:center}
+.pas button:hover{background:var(--fond-2)}
+.pas output{min-width:44px;display:grid;place-items:center;font:700 16px var(--mono);border-left:1px solid var(--fil);border-right:1px solid var(--fil)}
+
+.legende{margin:20px 0 0;display:flex;flex-wrap:wrap;gap:6px 20px;font-size:13px;line-height:20px;color:var(--texte-sec)}
+.legende span{display:inline-flex;align-items:center;gap:8px}
+.k-me::before{content:"";width:4px;height:16px;background:var(--texte)}
+.k-me b{color:var(--texte);font-weight:500}
+
+/* Éditeur (avant / pendant) */
+.ed-wrap{position:relative;margin-top:36px}
+.ed{font-size:var(--t-carnet);line-height:var(--l);outline:none;min-height:300px;caret-color:var(--texte)}
+.ed > div{position:relative;min-height:var(--l)}
+.ed > div::before{content:attr(data-t);position:absolute;top:0;left:calc(-1 * (var(--marge) + var(--gout)));width:var(--marge);text-align:right;font:500 12px/var(--l) var(--mono);color:var(--texte-3);opacity:0;transition:opacity var(--d-2) var(--ease);pointer-events:none}
+.ed > div.cur::before,.ed > div:hover::before{opacity:1}
+.ed > div.plein::after{content:"";position:absolute;left:calc(-1 * var(--gout) / 2 - 2px);top:6px;width:4px;height:16px;background:var(--texte)}
+.ed > div.h{font-size:var(--t-sujet);font-weight:700;letter-spacing:-.01em;margin-top:var(--l)}
+.ed > div.h:first-child{margin-top:0}
+.ed > div.li{padding-left:20px;background:var(--puce) no-repeat 4px 12px}
+.ed > div.todo{padding-left:28px;background:var(--case) no-repeat 0 5px}
+.ph{position:absolute;top:0;left:0;right:0;pointer-events:none;color:var(--texte-3);font-size:var(--t-carnet);line-height:var(--l)}
+.ph p{margin:0}
+.ph p + p{margin-top:8px;font-size:13px;line-height:20px}
+.ph kbd{font:500 12px var(--mono);border:1px solid var(--fil-fort);padding:1px 5px}
+.ed-wrap:not(.vide) .ph{display:none}
+
+/* Note complétée (arrêt / après) */
+.note{margin-top:28px;font-size:var(--t-carnet);line-height:var(--l)}
+.bloc{position:relative;border-top:2px solid var(--trait);padding:8px 0 12px;margin-bottom:4px}
+.bloc + .sujet{margin-top:8px}
+.mgh{position:absolute;top:22px;left:calc(-1 * (var(--marge) + var(--gout)));width:var(--marge);margin:0;text-align:right;font:700 12px/16px var(--mono);color:var(--texte);hyphens:auto}
+.bloc.act-bloc .mgh{top:12px}
+.u{--pt:8px;position:relative;padding:var(--pt) 0 8px;margin:0}
+.u .mg{top:0;padding-top:var(--pt)}
+.u.me::after{content:"";position:absolute;left:calc(-1 * var(--gout) / 2 - 2px);top:calc(var(--pt) + 6px);width:4px;height:16px;background:var(--texte)}
+.u.h{--pt:32px;font-size:var(--t-sujet);font-weight:700;letter-spacing:-.01em}
+.bloc + .sujet .u.h{--pt:24px}
+.u.ia .tx,.ia-in{color:var(--ia)}
+.u.li{padding-left:20px}
+.u.li::before{content:"";position:absolute;left:4px;top:calc(var(--pt) + 12px);width:5px;height:5px;background:var(--texte)}
+.u.ia.li::before{background:var(--ia)}
+.grp .u.sub{margin-top:-8px;padding-left:40px}
+.grp .u.sub::before{left:24px;width:4px;height:4px}
+.u.todo{padding-left:32px}
+.coche{position:absolute;left:-4px;top:calc(var(--pt) - 8px);width:30px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.coche input{appearance:none;-webkit-appearance:none;width:18px;height:18px;margin:0;border:2px solid var(--texte);border-radius:0;background:var(--surface);cursor:pointer}
+.coche input:checked{background:var(--texte) var(--coche) no-repeat center}
+.u.todo:has(input:checked) .tx,.u.todo:has(input:checked) .ia-in{text-decoration:line-through;text-decoration-thickness:1px}
+.mg.t{opacity:0;transition:opacity var(--d-2) var(--ease)}
+.u:hover > .mg.t,.u:focus-within > .mg.t{opacity:1}
+.loupe{display:flex;justify-content:flex-end;align-items:flex-start;gap:6px;height:100%;min-height:44px;cursor:pointer;color:var(--texte-3);transition:color var(--d-2) var(--ease)}
+.loupe svg{width:14px;height:14px;margin-top:7px;opacity:0;transition:opacity var(--d-2) var(--ease)}
+.u:hover > .loupe,.loupe:focus-visible,.u.actif > .loupe{color:var(--texte)}
+.u:hover > .loupe svg,.loupe:focus-visible svg,.u.actif > .loupe svg{opacity:1}
+.loupe:not(.att) ~ .mg.t{display:none}
+.u.actif .tx,.u.actif .ia-in{background:var(--hl);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.tx[contenteditable="true"],.ia-in[contenteditable="true"]{outline:none}
+.tx[contenteditable="true"]:focus,.ia-in[contenteditable="true"]:focus{box-shadow:0 2px 0 var(--focus)}
+.spk{color:inherit;text-decoration:underline dotted 1px;text-underline-offset:4px;cursor:pointer}
+.spk:hover{text-decoration-style:solid}
+.w{opacity:0;transition:opacity 160ms var(--ease)}
+.w.on{opacity:1}
+.panne{margin:24px 0 8px;border-left:4px solid var(--erreur);padding:10px 14px;font-size:14px;line-height:22px}
+.panne b{color:var(--erreur)}
+.pied{margin:40px 0 0;padding-top:12px;border-top:1px solid var(--fil);font-size:13px;line-height:20px;color:var(--texte-sec)}
+.brut .u{padding:2px 0}
+
+/* Tête du compte rendu : Décisions puis Actions (qui, quoi, quand), cochables, envoi au Hub */
+.act-tete{display:grid;grid-template-columns:minmax(0,1fr) 124px 104px;column-gap:12px;padding:6px 0 0 32px;font:500 12px/16px var(--mono);color:var(--texte-sec)}
+.u.act{display:grid;grid-template-columns:minmax(0,1fr) 124px 104px;column-gap:12px;align-items:start}
+.u.act .qui{color:var(--ia);font-size:15px}
+.u.act .quand{color:var(--ia);font:500 13px/var(--l) var(--mono)}
+.u.act:has(input:checked) .qui,.u.act:has(input:checked) .quand{opacity:.6}
+.hub{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:8px 0 4px 32px;font-size:13px;line-height:19px;color:var(--texte-sec)}
+
+/* Barre du bas : état, actions, question */
+.barre{flex:none;min-height:68px;border-top:2px solid var(--trait);display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;background:var(--fond)}
+.barre .esp{flex:1}
+.enreg{display:flex;align-items:center;gap:12px;min-width:0}
+.ondes{display:flex;gap:3px;align-items:center;height:22px}
+.ondes i{width:3px;height:22px;background:var(--orange);transform:scaleY(.2);transition:transform 90ms linear}
+.win[data-etat="pause"] .ondes i{background:var(--texte-3);transform:scaleY(.2)}
+.chrono{font:700 15px var(--mono);font-variant-numeric:tabular-nums}
+.etat-l{font-size:13px;color:var(--texte-sec)}
+.st-ia{display:flex;align-items:center;gap:10px;color:var(--bleu);font-weight:600;font-size:14px}
+.st-ia span.mono{font:500 12px var(--mono);color:var(--texte-sec)}
+.st-ok{display:flex;align-items:center;gap:10px;color:var(--vert-pt);font-weight:700;font-size:14px}
+.st-ok::before{content:"";width:10px;height:10px;background:var(--vert-pt)}
+.st-err{color:var(--erreur);font-weight:700;font-size:14px}
+.charge{display:inline-flex;gap:3px;align-items:flex-end;height:14px}
+.charge i{width:3px;height:14px;background:currentColor;transform-origin:bottom;animation:saute 900ms var(--ease) infinite}
+.charge i:nth-child(2){animation-delay:120ms}.charge i:nth-child(3){animation-delay:240ms}
+@keyframes saute{0%,100%{transform:scaleY(.35)}40%{transform:scaleY(1)}}
+.demande{flex:1;min-width:240px;position:relative}
+.demande input{width:100%;height:46px;border:2px solid var(--trait);border-radius:0;background:var(--surface);padding:0 70px 0 14px;font-size:15px}
+.demande input::placeholder{color:var(--texte-3)}
+.demande kbd{position:absolute;right:12px;top:13px;font:500 12px var(--mono);border:1px solid var(--fil-fort);padding:1px 6px;color:var(--texte-sec)}
+.recettes{position:absolute;left:0;bottom:54px;width:min(420px,100%);list-style:none;margin:0;padding:6px 0;background:var(--surface);border:2px solid var(--trait);box-shadow:var(--ombre-dure-s);z-index:30}
+.recettes li{padding:8px 14px;min-height:44px;cursor:pointer}
+.recettes li b{display:block;font-size:14px}
+.recettes li span{font-size:13px;color:var(--texte-sec)}
+.recettes li[aria-selected="true"]{background:var(--fond-3);box-shadow:inset 3px 0 0 var(--trait)}
+.recettes .r-t{padding:4px 14px 6px;min-height:0;cursor:default;font:500 12px var(--mono);color:var(--texte-sec)}
+
+/* Panneau latéral : transcription et questions */
+.panneau{width:360px;flex:none;border-left:2px solid var(--trait);background:var(--fond);display:flex;flex-direction:column;min-height:0}
+.win:not([data-panneau="ouvert"]) .panneau{display:none}
+.panneau.entre{animation:glisse var(--d-3) var(--ease-sortie)}
+@keyframes glisse{from{transform:translateX(24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes entre{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
+.onglets{display:flex;align-items:stretch;border-bottom:1px solid var(--fil);padding-left:6px}
+.onglets [role="tab"]{min-height:52px;padding:0 12px;font-weight:700;font-size:14px;color:var(--texte-sec);box-shadow:inset 0 -3px 0 transparent}
+.onglets [role="tab"][aria-selected="true"]{color:var(--texte);box-shadow:inset 0 -3px 0 var(--trait)}
+.onglets .esp{flex:1}
+.onglets .btn-i{align-self:center}
+.direct{display:flex;align-items:center;gap:8px;margin:0;padding:10px 16px 0;font-size:13px;color:var(--texte-sec)}
+.direct i{width:8px;height:8px;background:var(--orange)}
+.p-info{margin:0;padding:10px 16px 6px;font-size:13px;line-height:19px;color:var(--texte-sec)}
+/* Mini-frise des prises de parole : une ligne par voix, clic = réécoute */
+.frise{padding:4px 16px 10px;border-bottom:1px solid var(--fil);display:grid;gap:4px}
+.f-l{display:grid;grid-template-columns:96px 1fr;align-items:center;column-gap:8px;height:16px}
+.f-l > span{display:flex;align-items:center;gap:6px;font-size:12px;line-height:16px;color:var(--texte-sec);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.f-l > span::before{content:"";width:8px;height:8px;background:var(--c);flex:none}
+.f-p{position:relative;height:12px;background:var(--fond-2)}
+.f-p button{position:absolute;top:0;bottom:0;min-width:3px;background:var(--c)}
+.f-p button:hover{outline:2px solid var(--texte);outline-offset:1px;z-index:1}
+.f-ax{display:flex;justify-content:space-between;margin-left:104px;font:500 12px/16px var(--mono);color:var(--texte-3)}
+.p-cherche{padding:10px 16px;border-bottom:1px solid var(--fil)}
+.p-cherche input{width:100%;height:44px;border:2px solid var(--trait);border-radius:0;padding:0 12px;font-size:14px;background:var(--surface)}
+.ecoute{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 16px;border-bottom:1px solid var(--fil);background:var(--fond-2)}
+.ecoute .jouer{width:44px;height:44px;border:2px solid var(--trait);display:grid;place-items:center;background:var(--surface)}
+.ecoute .jouer:hover{background:var(--fond-3)}
+.ecoute .e-t{flex:1;min-width:0}
+.ecoute .e-t b{display:block;font-size:14px}
+.ecoute .e-t span{font:500 12px var(--mono);color:var(--texte-sec)}
+.piste{flex-basis:100%;height:4px;background:var(--fil);position:relative}
+.piste i{position:absolute;inset:0;background:var(--texte);transform-origin:left;transform:scaleX(var(--a,0))}
+.p-defile{flex:1;overflow:auto;padding:6px 0 24px}
+.tr{display:grid;grid-template-columns:48px 1fr;column-gap:10px;padding:8px 16px 8px 13px;border-left:3px solid transparent;transition:background-color var(--d-2) var(--ease)}
+.tr .tt{font:500 12px/20px var(--mono);color:var(--texte-3);text-align:left;align-self:start;min-height:24px}
+.tr .tt:hover{color:var(--texte);text-decoration:underline}
+.tr .qui{font-weight:700;font-size:13px;line-height:20px}
+.tr .qui::before{content:"";display:inline-block;width:8px;height:8px;margin-right:6px;background:var(--c,var(--texte))}
+.tr p{margin:2px 0 0;font-size:14px;line-height:21px}
+.tr.hl{background:var(--hl);border-left-color:var(--trait)}
+.tr.hl .tt{color:var(--texte-sec)}
+.qa{padding:16px;border-bottom:1px solid var(--fil);animation:entre var(--d-3) var(--ease-sortie)}
+.qa h3{margin:0 0 8px;font-size:15px;font-weight:700;line-height:22px}
+.qa .rep{font-size:15px;line-height:24px}
+.qa .rep p{margin:0 0 10px}
+.qa .rep ul{margin:0 0 10px;padding-left:18px}
+.qa .attente{display:flex;align-items:center;gap:10px;color:var(--bleu);font-weight:600;font-size:14px;margin:0}
+.cite{font:500 12px/18px var(--mono);padding:1px 5px;border:1px solid var(--fil-fort);color:var(--texte-sec);vertical-align:1px}
+.cite:hover{border-color:var(--texte);color:var(--texte)}
+.q-vide{padding:16px;margin:0;font-size:14px;line-height:22px;color:var(--texte-sec)}
+
+/* Notification maison (fenêtre séparée, coin haut droit de l’écran) */
+.notif{position:absolute;top:16px;right:20px;z-index:40;width:368px;background:var(--surface);border:2px solid var(--trait);box-shadow:var(--ombre-dure-s);padding:14px 14px 14px 26px;animation:notif var(--d-3) var(--ease-sortie)}
+.notif::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--orange)}
+.notif.appel::before{background:none;width:0;border-left:6px dashed var(--orange)}
+@keyframes notif{from{transform:translateX(16px);opacity:0}to{transform:none;opacity:1}}
+.n-haut{display:flex;align-items:center;justify-content:space-between;font:500 12px var(--mono);color:var(--texte-sec);margin-right:-6px}
+.notif h2{margin:2px 0 4px;font-size:17px;line-height:22px;font-weight:800}
+.notif p{margin:0;font-size:14px;line-height:20px;color:var(--texte-sec)}
+.n-act{display:flex;gap:8px;margin-top:12px}
+
+/* Popovers, toast */
+.pop{position:fixed;z-index:90;width:368px;max-width:calc(100vw - 24px);background:var(--surface);border:2px solid var(--trait);box-shadow:var(--ombre-dure-s);padding:14px;animation:entre 160ms var(--ease-sortie)}
+.pop h2{margin:0 0 4px;font-size:16px;font-weight:800}
+.pop > p{margin:0 0 12px;font-size:13px;line-height:19px;color:var(--texte-sec)}
+.choix{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.choix button{min-height:44px;padding:0 12px;border:2px solid var(--trait);font-weight:700;font-size:14px}
+.choix button:hover{background:var(--inverse-fond);color:var(--inverse-texte)}
+.champ label{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.champ input{width:100%;height:44px;border:2px solid var(--trait);border-radius:0;padding:0 12px;font-size:15px;background:var(--surface)}
+.champ input::placeholder{color:var(--texte-3)}
+.p-act{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.gabs{list-style:none;margin:0 0 12px;padding:0;border-top:1px solid var(--fil)}
+.gabs li{border-bottom:1px solid var(--fil)}
+.gabs button{width:100%;text-align:left;padding:8px 10px 8px 13px;min-height:52px;border-left:3px solid transparent}
+.gabs button:hover{background:var(--fond-2)}
+.gabs button[aria-checked="true"]{border-left-color:var(--trait);background:var(--fond-3)}
+.gabs b{display:block;font-size:14px}
+.gabs span{display:block;font-size:13px;line-height:18px;color:var(--texte-sec)}
+.toast{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);z-index:70;max-width:min(600px,calc(100% - 32px));background:var(--inverse-fond);color:var(--inverse-texte);padding:8px 8px 8px 16px;display:flex;gap:12px;align-items:center;font-size:14px;line-height:20px;animation:entre var(--d-3) var(--ease-sortie)}
+.toast button{min-height:44px;padding:0 10px;font-weight:700;text-decoration:underline;text-underline-offset:4px}
+
+/* ---------- Fenêtre étroite (le « mobile d’abord » d’une app Mac : 680 → 1200 px) ---------- */
+@container win (max-width: 1080px){
+  .liste{position:absolute;left:56px;top:0;bottom:0;z-index:20;border-right:2px solid var(--trait)}
+}
+@container win (max-width: 900px){
+  .panneau{position:absolute;right:0;top:0;bottom:0;z-index:25;width:min(360px,100%)}
+}
+@container win (max-width: 680px){
+  .rail{display:none}
+  .liste{left:0;width:100%}
+  .feuille{--marge:0px;--gout:24px;padding:28px 18px 140px var(--pl)}
+  .titre{font-size:30px;line-height:34px}
+  .mg.t,.tete .mg,.ed > div::before{display:none}
+  .mgh{position:static;width:auto;text-align:left;padding-top:6px}
+  .u.ia,.u.mix{padding-right:60px}
+  .loupe{left:auto;right:0;width:56px}
+  .loupe svg{opacity:1}
+  .u.act,.act-tete{grid-template-columns:1fr}
+  .act-tete{display:none}
+  .u.act .qui,.u.act .quand{font-size:13px;line-height:20px}
+  .barre .etat-l{display:none}
+}
+
+/* Mouvement réduit : système ou bouton de la maquette */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important;scroll-behavior:auto!important}
+}
+html.rm *,html.rm *::before,html.rm *::after{animation-duration:1ms!important;animation-iteration-count:1!important;transition-duration:1ms!important;scroll-behavior:auto!important}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11L12 4l8 7v9H4z"/></symbol>
+  <symbol id="i-notes" viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 9h8M8 13h8M8 17h5"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+  <symbol id="i-dico" viewBox="0 0 24 24"><path d="M5 4h14v16H5zM9 4v16"/></symbol>
+  <symbol id="i-style" viewBox="0 0 24 24"><path d="M5 20L10.5 4h3L19 20M7.5 14h9"/></symbol>
+  <symbol id="i-regl" viewBox="0 0 24 24"><path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><path d="M13 5h5v4h-5zM6 15h5v4H6z"/></symbol>
+  <symbol id="i-loupe" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L20 20"/></symbol>
+  <symbol id="i-liste" viewBox="0 0 24 24"><path d="M3 4h18v16H3zM9 4v16"/></symbol>
+  <symbol id="i-trans" viewBox="0 0 24 24"><path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-moins" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke-width="3"/></symbol>
+  <symbol id="i-copie" viewBox="0 0 24 24"><path d="M8 8h12v12H8zM4 16V4h12"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+</svg>
+
+<header class="maq">
+  <h1>Maquette A : le carnet d’abord<small>CBW AI, écran Réunion. Données fictives.</small></h1>
+  <ol class="etapes" aria-label="Étapes du parcours">
+    <li><button type="button" data-e="avant" aria-pressed="true"><span>1</span>Avant</button></li>
+    <li><button type="button" data-e="pendant" aria-pressed="false"><span>2</span>Pendant</button></li>
+    <li><button type="button" data-e="arret" aria-pressed="false"><span>3</span>Arrêt</button></li>
+    <li><button type="button" data-e="apres" aria-pressed="false"><span>4</span>Après</button></li>
+  </ol>
+  <div class="opts" role="group" aria-label="Options de la maquette">
+    <button type="button" class="opt" id="oVariante" aria-pressed="false">Notification : appel détecté</button>
+    <button type="button" class="opt" id="oRemplir">Remplir l’exemple</button>
+    <button type="button" class="opt" id="oFin">Simuler la fin de l’appel</button>
+    <button type="button" class="opt" id="oPanne" aria-pressed="false">Panne IA</button>
+    <button type="button" class="opt" id="oRM" aria-pressed="false">Mouvement réduit</button>
+    <button type="button" class="opt" id="oTheme" aria-pressed="false">Sombre</button>
+  </div>
+</header>
+
+<main class="scene">
+  <!-- Notification maison : 1 min avant (agenda, barre pleine) ou quand une app de visio prend le micro (barre pointillée) -->
+  <section class="notif" id="notif" aria-labelledby="nTitre" role="dialog" aria-modal="false">
+    <div class="n-haut"><span id="nSource">CBW AI, agenda</span><button type="button" class="btn-i" id="nFerme" aria-label="Fermer la notification"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <h2 id="nTitre">Point équipe du jeudi dans 1&nbsp;min</h2>
+    <p id="nCorps">Avec Léa Fontaine, Marc Diallo et Inès Garnier. Google Meet.</p>
+    <div class="n-act"><button type="button" class="btn1" id="nGo">Prendre des notes</button><button type="button" class="btn3" id="nNon">Pas cette fois</button></div>
+  </section>
+
+  <div class="win" id="win" data-etape="avant" data-etat="repos" data-liste="ouverte">
+    <div class="tb" aria-hidden="true"><i></i><i></i><i></i><span>CBW AI</span></div>
+    <div class="corps">
+      <nav class="rail" aria-label="Navigation de l’app">
+        <button type="button" aria-label="Accueil" title="Accueil"><svg class="i" aria-hidden="true"><use href="#i-home"/></svg></button>
+        <button type="button" aria-label="Notes" title="Notes" aria-current="page"><svg class="i" aria-hidden="true"><use href="#i-notes"/></svg></button>
+        <button type="button" aria-label="Historique" title="Historique"><svg class="i" aria-hidden="true"><use href="#i-hist"/></svg></button>
+        <button type="button" aria-label="Dictionnaire" title="Dictionnaire"><svg class="i" aria-hidden="true"><use href="#i-dico"/></svg></button>
+        <button type="button" aria-label="Style" title="Style"><svg class="i" aria-hidden="true"><use href="#i-style"/></svg></button>
+        <button type="button" class="bas" aria-label="Réglages" title="Réglages"><svg class="i" aria-hidden="true"><use href="#i-regl"/></svg></button>
+      </nav>
+
+      <aside class="liste" id="liste" aria-labelledby="lTitre">
+        <div class="l-tete">
+          <h2 id="lTitre">Réunions</h2>
+          <div class="cherche"><svg class="i" aria-hidden="true"><use href="#i-loupe"/></svg><input id="lCherche" type="search" placeholder="Chercher un nom, un mot…" aria-label="Chercher dans les réunions et leurs transcriptions"></div>
+          <ul class="dossiers" id="dossiers" aria-label="Dossiers"></ul>
+        </div>
+        <div class="l-defile" id="lDefile"></div>
+      </aside>
+
+      <section class="page" aria-label="Note de réunion">
+        <div class="p-haut">
+          <button type="button" class="btn-i" id="bListe" aria-expanded="true" aria-controls="liste" aria-label="Afficher la liste des réunions" title="Liste des réunions"><svg class="i" aria-hidden="true"><use href="#i-liste"/></svg></button>
+          <span class="crumb">Équipe</span>
+          <span class="esp"></span>
+          <span class="prive" id="prive" hidden>Tout reste sur ce Mac</span>
+          <button type="button" class="btn-gab" id="bGab" aria-haspopup="dialog" hidden><span>Gabarit</span><b id="gabNom">Auto, point d’équipe</b><svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></button>
+          <div class="seg" id="vue" role="group" aria-label="Affichage" hidden>
+            <button type="button" data-v="note" aria-pressed="true">Note complète</button>
+            <button type="button" data-v="brut" aria-pressed="false">Mes notes</button>
+          </div>
+          <button type="button" class="btn-i" id="bCopie" aria-label="Copier la note en Markdown" title="Copier la note en Markdown" hidden><svg class="i" aria-hidden="true"><use href="#i-copie"/></svg></button>
+        </div>
+
+        <div class="defile" id="defile">
+          <article class="feuille" id="feuille">
+            <div class="regle" id="regle" aria-hidden="true"><i></i></div>
+            <header class="tete">
+              <span class="mg" aria-hidden="true">10:00</span>
+              <h1 class="titre" id="titre" contenteditable="plaintext-only" spellcheck="false" aria-label="Titre de la note">Point équipe du jeudi</h1>
+              <p class="meta" id="meta"></p>
+              <p class="voix" id="voix" hidden></p>
+            </header>
+
+            <div class="bandeau" id="bandeau" hidden>
+              <div class="b-ligne">
+                <p id="bQuestion">Vous êtes 4, d’après l’invitation&nbsp;?</p>
+                <div class="pas" role="group" aria-label="Nombre de personnes">
+                  <button type="button" id="bMoins" aria-label="Une personne de moins"><svg class="i" aria-hidden="true"><use href="#i-moins"/></svg></button>
+                  <output id="bNb" aria-live="polite">4</output>
+                  <button type="button" id="bPlus" aria-label="Une personne de plus"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button>
+                </div>
+                <button type="button" class="btn2" id="bOk">C’est bon</button>
+              </div>
+              <div class="b-ligne">
+                <small>Préviens les participants&nbsp;: « Je prends des notes avec CBW AI, rien ne quitte mon Mac. »</small>
+                <button type="button" class="btn3" id="bCopierPhrase">Copier la phrase</button>
+              </div>
+            </div>
+
+            <p class="legende" id="legende" hidden><span class="k-me"><b>Tes notes</b></span><span>Texte gris&nbsp;: ajouté par CBW AI. L’heure dans la marge ouvre la source.</span></p>
+
+            <div class="ed-wrap vide" id="edWrap">
+              <div class="ph" aria-hidden="true">
+                <p id="phTexte">Écris ce que tu veux retenir. Le reste, CBW AI l’écoute.</p>
+                <p><kbd>#</kbd> titre &nbsp; <kbd>-</kbd> puce &nbsp; <kbd>[]</kbd> à faire</p>
+              </div>
+              <div class="ed" id="ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Tes notes" spellcheck="true"><div><br></div></div>
+            </div>
+
+            <div class="note" id="note" hidden></div>
+            <div class="note brut" id="brut" hidden></div>
+            <p class="pied" id="pied" hidden>CBW AI peut se tromper sur un chiffre ou un nom. Clique sur une heure dans la marge pour vérifier ou réécouter.</p>
+          </article>
+        </div>
+
+        <div class="barre" id="barre"></div>
+        <div class="toast" id="toast" role="status" hidden></div>
+      </section>
+
+      <aside class="panneau" id="panneau" aria-label="Transcription et questions">
+        <div class="onglets" role="tablist" aria-label="Panneau latéral">
+          <button type="button" role="tab" id="tabTr" aria-selected="true" aria-controls="pTr">Transcription</button>
+          <button type="button" role="tab" id="tabQ" aria-selected="false" aria-controls="pQ">Questions</button>
+          <span class="esp"></span>
+          <button type="button" class="btn-i" id="pFerme" aria-label="Fermer le panneau"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
+        </div>
+        <div id="pTr" role="tabpanel" aria-labelledby="tabTr" style="display:flex;flex-direction:column;min-height:0;flex:1">
+          <p class="direct" id="direct"><i></i>En direct. L’IA ne lit rien avant la fin.</p>
+          <p class="p-info">23 passages, 4 voix. « Moi », c’est ton micro.</p>
+          <div class="frise" id="frise" aria-hidden="true"></div>
+          <div class="ecoute" id="ecoute" hidden>
+            <button type="button" class="jouer" id="jouer" aria-label="Réécouter l’extrait"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg></button>
+            <div class="e-t"><b>Réécouter l’extrait</b><span id="eDuree">12:40 à 13:05</span></div>
+            <div class="piste" aria-hidden="true"><i id="ePiste"></i></div>
+          </div>
+          <div class="p-cherche"><input type="search" id="trCherche" placeholder="Chercher dans la transcription" aria-label="Chercher dans la transcription"></div>
+          <div class="p-defile" id="trListe"></div>
+        </div>
+        <div id="pQ" role="tabpanel" aria-labelledby="tabQ" hidden style="flex-direction:column;min-height:0;flex:1">
+          <div class="p-defile" id="qListe"><p class="q-vide" id="qVide">Pose une question à cette réunion en bas de la note. Tape <b>/</b> pour les recettes&nbsp;: e-mail de suivi, mes actions, ce qui reste ouvert.</p></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Popover : renommer une voix -->
+  <section class="pop" id="popNom" role="dialog" aria-modal="false" aria-labelledby="popNomT" hidden>
+    <h2 id="popNomT">Qui est Personne 2&nbsp;?</h2>
+    <p>Le nom remplace l’ancien partout&nbsp;: note, actions, transcription et réponses.</p>
+    <div class="choix" id="popChoix"></div>
+    <form class="champ" id="popForm"><label for="popAutre">Autre nom</label><input id="popAutre" autocomplete="off" placeholder="Prénom Nom"></form>
+    <div class="p-act"><button type="button" class="btn3" data-ferme>Annuler</button><button type="submit" form="popForm" class="btn2">Renommer partout</button></div>
+  </section>
+
+  <!-- Popover : gabarit -->
+  <section class="pop" id="popGab" role="dialog" aria-modal="false" aria-labelledby="popGabT" hidden>
+    <h2 id="popGabT">Gabarit de la note</h2>
+    <p>Tes titres et tes lignes restent. Le gabarit change ce que CBW AI ajoute autour.</p>
+    <ul class="gabs" id="gabs" role="radiogroup" aria-labelledby="popGabT"></ul>
+    <div class="champ"><label for="consigne">Consigne (facultatif)</label><input id="consigne" autocomplete="off" placeholder="Plus court, ajoute les échéances…"></div>
+    <div class="p-act"><button type="button" class="btn3" data-ferme>Annuler</button><button type="button" class="btn1" id="gabGo">Refaire la note</button></div>
+  </section>
+
+  <div class="sr" id="live" aria-live="polite"></div>
+</main>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const html = document.documentElement;
+const win = $('#win'), ed = $('#ed'), edWrap = $('#edWrap'), note = $('#note'), brut = $('#brut'), barre = $('#barre'), regle = $('#regle');
+const mq = matchMedia('(prefers-reduced-motion: reduce)');
+const rm = () => mq.matches || html.classList.contains('rm');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const NB = ' ';
+const fr = (s) => String(s).replace(/ ([?!;:»])/g, NB + '$1').replace(/« /g, '«' + NB);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const norm = (s) => String(s).toLowerCase().replace(/\s+/g, ' ').trim();
+const sec2 = (t) => { const [m, s] = t.split(':').map(Number); return m * 60 + s; };
+const fmt = (s) => { s = Math.max(0, Math.floor(s)); const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; const mm = String(m).padStart(2, '0') + ':' + String(x).padStart(2, '0'); return h ? h + ':' + mm : mm; };
+
+/* ---------- Données fictives ---------- */
+const NOMS = { moi: 'Moi', p2: 'Personne 2', p3: 'Personne 3', p4: 'Personne 4' };
+const INVITES = ['Léa Fontaine', 'Marc Diallo', 'Inès Garnier'];
+const tok = (s) => esc(fr(s)).replace(/\{(moi|p\d)\}/g, (_, k) => k === 'moi' ? 'Moi' : `<button type="button" class="spk" data-spk="${k}" contenteditable="false">${esc(NOMS[k])}</button>`);
+const plain = (s) => fr(s).replace(/\{(moi|p\d)\}/g, (_, k) => NOMS[k]);
+
+const TR = [
+  ['00:12', 'moi', 'Bon, on est tous là ? Inès, tu nous entends ?'],
+  ['00:18', 'p4', 'Oui, c’est bon, je vous entends bien.'],
+  ['00:24', 'moi', 'Parfait. Trois sujets aujourd’hui : le site Morel, les photos et l’alternance.'],
+  ['03:40', 'p3', 'Côté dev, le site tourne en préproduction depuis mardi. Il reste le formulaire de contact.'],
+  ['04:05', 'moi', 'Le formulaire, tu le vois pour quand ?'],
+  ['04:11', 'p3', 'Fin de semaine prochaine, sans problème.'],
+  ['12:40', 'p2', 'Pour la maquette de l’accueil, je pense qu’on peut la valider. Mon seul doute, c’est la photo d’en-tête : elle est trop petite sur grand écran.'],
+  ['12:58', 'p3', 'D’accord pour valider. On agrandit la photo et c’est bon pour moi.'],
+  ['13:05', 'p2', 'Je vous envoie la version finale lundi, le 19.'],
+  ['15:50', 'p4', 'Pour les photos, j’ai eu le devis du photographe : mille huit cents euros hors taxe la journée.'],
+  ['16:05', 'p3', 'C’est beaucoup. On a déjà six photos de l’atelier qui sont très bien. On les réutilise et on ne photographie que l’équipe.'],
+  ['16:31', 'p4', 'Dans ce cas, il descend à mille deux cents.'],
+  ['16:48', 'moi', 'Alors on plafonne à mille deux cents hors taxe. Inès, tu lui confirmes ?'],
+  ['16:55', 'p4', 'Je lui écris cet après-midi.'],
+  ['19:22', 'moi', 'Pour la mise en ligne, on vise toujours le 6 novembre ?'],
+  ['19:30', 'p3', 'Si la recette du 30 octobre se passe bien, oui. Je préfère garder une marge.'],
+  ['22:10', 'p3', 'Pour l’alternance, j’appelle l’école vendredi. On a reçu deux profils sérieux.'],
+  ['22:31', 'moi', 'On fait les entretiens la semaine du 26 ?'],
+  ['22:36', 'p3', 'Oui, je cale ça avec eux.'],
+  ['24:12', 'moi', 'Et moi je renvoie le devis révisé à Morel avant vendredi, avec le nouveau budget photos.'],
+  ['24:20', 'p2', 'Pense à ajouter la ligne pour la maintenance.'],
+  ['24:26', 'moi', 'Bien vu, je l’ajoute.'],
+  ['31:40', 'moi', 'Merci à tous, à jeudi prochain.']
+];
+const DUREE = 32 * 60;
+
+/* Lignes tapées par l’utilisateur pendant l’appel (exemple) */
+const EX = [
+  { k: 'h1', c: 'h', x: 'Refonte site Morel', t: '03:31' },
+  { k: 'u1', c: 'li', x: 'maquette accueil validée ?', t: '12:44' },
+  { k: 'u2', c: 'li', x: 'budget photos', t: '15:58' },
+  { k: 'h2', c: 'h', x: 'Recrutement', t: '21:50' },
+  { k: 'u3', c: 'li', x: 'alternant dev : Marc voit avec l’école', t: '22:40' },
+  { k: 'u4', c: 'todo', x: 'envoyer devis à Morel', t: '24:30' }
+];
+const EXK = Object.fromEntries(EX.map((l) => [l.k, l]));
+const EXN = new Set(EX.map((l) => norm(fr(l.x))));
+const exemple = () => EX.map((l) => ({ ...l, x: fr(l.x) }));
+
+/* Ce que l’IA ajoute (gris), chaque fois avec sa source dans la transcription */
+const D = {
+  faire: [
+    { u: 'u4', quoi: ' : version révisée, avec le budget photos et la ligne maintenance', alt: 'Envoyer le devis révisé à Morel, avec le budget photos et la ligne maintenance', qui: 'moi', quand: 'ven. 16 oct.', src: ['24:12', '24:20', '24:26'] },
+    { quoi: 'Envoyer la maquette finale de l’accueil', qui: 'p2', quand: 'lun. 19 oct.', src: ['13:05'] },
+    { quoi: 'Confirmer 1 200 € HT au photographe', qui: 'p4', quand: 'aujourd’hui', src: ['16:48', '16:55'] },
+    { quoi: 'Appeler l’école pour l’alternance', qui: 'p3', quand: 'ven. 16 oct.', src: ['22:10'] },
+    { quoi: 'Terminer le formulaire de contact', qui: 'p3', quand: 'ven. 23 oct.', src: ['04:05', '04:11'] }
+  ],
+  decide: [
+    { ia: 'Maquette d’accueil validée, avec une photo d’en-tête plus grande.', src: ['12:40', '12:58'] },
+    { ia: 'Budget photos plafonné à 1 200 € HT : 6 photos de l’atelier réutilisées, seule l’équipe est photographiée.', src: ['16:05', '16:31', '16:48'] }
+  ],
+  ouvert: [
+    { ia: 'Mise en ligne le 6 novembre, à confirmer après la recette du 30 octobre.', src: ['19:22', '19:30'] },
+    { ia: 'Ligne de maintenance à chiffrer dans le devis.', src: ['24:20'] }
+  ],
+  pers: [
+    { ia: '{moi} : renvoie le devis révisé avant vendredi, avec la ligne maintenance.', src: ['24:12', '24:26'] },
+    { ia: '{p2} : valide la maquette, envoie la version finale lundi 19.', src: ['12:40', '13:05'] },
+    { ia: '{p3} : préproduction en ligne, formulaire fin de semaine prochaine, appelle l’école vendredi.', src: ['03:40', '04:11', '22:10'] },
+    { ia: '{p4} : a obtenu le devis photo, confirme 1 200 € HT au photographe.', src: ['15:50', '16:55'] }
+  ],
+  sections: [
+    { h: 'h1', titre: 'Refonte site Morel', items: [
+      { u: 'u1', subs: [{ ia: 'Oui, à condition d’agrandir la photo d’en-tête sur grand écran. {p2} envoie la version finale lundi 19.', src: ['12:40', '12:58', '13:05'] }] },
+      { u: 'u2', subs: [{ ia: 'Devis du photographe : 1 800 € HT la journée. Plafonné à 1 200 € HT en réutilisant 6 photos de l’atelier.', src: ['15:50', '16:05', '16:31'] }] },
+      { subs: [{ ia: 'Préproduction en ligne depuis mardi ; reste le formulaire de contact, prévu fin de semaine prochaine.', src: ['03:40', '04:11'] }] },
+      { subs: [{ ia: 'Mise en ligne visée le 6 novembre si la recette du 30 octobre passe.', src: ['19:22', '19:30'] }] }
+    ] },
+    { h: 'h2', titre: 'Recrutement', items: [
+      { u: 'u3', subs: [{ ia: 'Deux profils sérieux reçus. {p3} appelle l’école vendredi ; entretiens la semaine du 26 octobre.', src: ['22:10', '22:31', '22:36'] }] }
+    ] }
+  ]
+};
+const LIB = { decide: 'Décisions', faire: 'Actions', ouvert: 'Encore ouvert', pers: 'Par personne' };
+const GAB = {
+  auto: { nom: 'Auto', desc: 'Choisi d’après le titre et les invités. Ici : point d’équipe.', blocs: ['decide', 'faire'] },
+  equipe: { nom: 'Point d’équipe', desc: 'Décisions et actions en tête, puis tes sujets.', blocs: ['decide', 'faire'] },
+  un: { nom: '1:1', desc: 'Engagements et points à suivre. Pensé pour deux personnes.', blocs: [['faire', 'Engage­ments'], ['ouvert', 'À suivre']] },
+  client: { nom: 'Rendez-vous client', desc: 'Accords, prochaines étapes, questions ouvertes.', blocs: [['decide', 'Accords'], ['faire', 'Prochaines étapes'], ['ouvert', 'Questions ouvertes']] },
+  recrut: { nom: 'Recrutement', desc: 'Points clés, réserves, suite à donner.', blocs: [['decide', 'Points clés'], ['ouvert', 'Réserves'], ['faire', 'Suite']] },
+  atelier: { nom: 'Atelier', desc: 'Choix retenus, questions ouvertes, suite.', blocs: [['decide', 'Choix retenus'], ['ouvert', 'Questions ouvertes'], ['faire', 'Suite']] },
+  exhaustif: { nom: 'Exhaustif', desc: 'Tout, y compris ce que chaque personne a dit.', blocs: ['decide', 'faire', 'ouvert', 'pers'] }
+};
+const RECETTES = [
+  { id: 'mail', nom: 'E-mail de suivi', desc: 'Un brouillon pour les participants' },
+  { id: 'moi', nom: 'Mes actions', desc: 'Ce que tu dois faire, avec les dates' },
+  { id: 'ouvert', nom: 'Ce qui reste ouvert', desc: 'Les points sans décision' },
+  { id: 'slack', nom: 'Résumé pour Slack', desc: 'Cinq lignes, prêtes à coller' }
+];
+const REU = [
+  { id: 'now', titre: 'Point équipe du jeudi', dos: 'equipe', mots: 'maquette photos photographe alternance devis morel recette maintenance' },
+  { id: 'r1', titre: 'Atelier Morel : arborescence', jour: 'Hier', meta: '14:30, 58 min', dos: 'clients', mots: 'arborescence pages catalogue menu morel' },
+  { id: 'r2', titre: '1:1 avec Marc', jour: 'Lundi 12 octobre', meta: '09:30, 25 min', dos: 'equipe', mots: 'objectifs formation alternance' },
+  { id: 'r3', titre: 'Entretien alternant : Sami Benali', jour: 'Vendredi 9 octobre', meta: '11:00, 40 min', dos: 'recrut', mots: 'react école rythme alternance' },
+  { id: 'r4', titre: 'Point équipe du jeudi', jour: 'Jeudi 8 octobre', meta: '10:00, 29 min', dos: 'equipe', mots: 'maquette devis photos planning morel' },
+  { id: 'r5', titre: 'Boulangerie Ravel : premier rendez-vous', jour: 'Mercredi 7 octobre', meta: '16:00, 47 min', dos: 'clients', mots: 'site commande en ligne horaires devis' },
+  { id: 'r6', titre: 'Atelier Morel : lancement', jour: 'Lundi 5 octobre', meta: '14:00, 1 h 05', dos: 'clients', mots: 'budget délais photos morel' }
+];
+const DOSSIERS = [['tout', 'Toutes'], ['equipe', 'Équipe'], ['clients', 'Clients'], ['recrut', 'Recrutement']];
+
+/* ---------- État ---------- */
+let E = 'avant', sec = 0, chronoT = null, ondesT = null, paused = false, gab = 'auto', consigne = '', panne = false;
+let combienOk = false, nbPers = 4, variante = 'agenda', notifFermee = false, runId = 0, fluxSkip = false, cdT = null;
+let dossier = 'tout';
+let userLines = exemple();
+let connues = new WeakSet();
+
+const annonce = (m) => { const l = $('#live'); l.textContent = ''; setTimeout(() => { l.textContent = m; }, 30); };
+let toastT = null;
+function toast(msg, annuler) {
+  const t = $('#toast'); clearTimeout(toastT);
+  t.innerHTML = '<span>' + esc(msg) + '</span>' + (annuler ? '<button type="button">Annuler</button>' : '');
+  t.hidden = false;
+  if (annuler) t.querySelector('button').onclick = () => { t.hidden = true; annuler(); };
+  toastT = setTimeout(() => { t.hidden = true; }, 6000);
+}
+const large = () => win.clientWidth > 1080;
+function liste(ouverte) { win.dataset.liste = ouverte ? 'ouverte' : 'fermee'; $('#bListe').setAttribute('aria-expanded', String(ouverte)); }
+
+/* ---------- Liste des réunions ---------- */
+function rendDossiers() {
+  $('#dossiers').innerHTML = DOSSIERS.map(([k, l]) => {
+    const n = k === 'tout' ? REU.length : REU.filter((r) => r.dos === k).length;
+    return `<li><button type="button" data-dos="${k}" aria-pressed="${k === dossier}">${l}<b>${n}</b></button></li>`;
+  }).join('');
+}
+function rendListe() {
+  const q = norm($('#lCherche').value);
+  const groupes = [];
+  const nowJour = E === 'avant' ? 'À venir' : (E === 'pendant' ? 'Maintenant' : 'Aujourd’hui');
+  const nowMeta = E === 'avant' ? '10:00, dans 1 min' : (E === 'pendant' ? '<i></i>en cours' : '10:00, 32 min');
+  for (const r of REU) {
+    if (dossier !== 'tout' && r.dos !== dossier) continue;
+    const dansTitre = !q || norm(r.titre).includes(q), dansMots = q && r.mots.includes(q);
+    if (!dansTitre && !dansMots) continue;
+    const jour = r.id === 'now' ? nowJour : r.jour;
+    let g = groupes.find((x) => x.j === jour); if (!g) groupes.push(g = { j: jour, l: [] });
+    g.l.push(`<button type="button" class="reu" data-reu="${r.id}" aria-current="${r.id === 'now'}"><b>${esc(fr(r.titre))}</b><small>${r.id === 'now' ? nowMeta : esc(r.meta)}</small>${!dansTitre && dansMots ? `<span class="ex">Trouvé dans la transcription${NB}: « ${esc(q)} »</span>` : ''}</button>`);
+  }
+  $('#lDefile').innerHTML = groupes.length ? groupes.map((g) => `<h3 class="jour">${g.j}</h3>` + g.l.join('')).join('')
+    : `<p class="vide-l">Aucune réunion ne parle de « ${esc(q)} ». Essaie un nom, un client ou un chiffre.</p>`;
+}
+$('#dossiers').addEventListener('click', (e) => { const b = e.target.closest('[data-dos]'); if (!b) return; dossier = b.dataset.dos; rendDossiers(); rendListe(); });
+$('#lCherche').addEventListener('input', rendListe);
+$('#lDefile').addEventListener('click', (e) => { const b = e.target.closest('[data-reu]'); if (b && b.dataset.reu !== 'now') toast('Maquette : seule la réunion du jour est jouable.'); });
+
+/* ---------- Transcription + mini-frise ---------- */
+function rendTR() {
+  $('#trListe').innerHTML = TR.map(([t, s, x]) => `<div class="tr" id="tr-${t.replace(':', '')}" data-t="${t}" style="--c:var(--c-${s})"><button type="button" class="tt" data-ecoute="${t}" aria-label="Réécouter à partir de ${t}">${t}</button><div>${s === 'moi' ? '<span class="qui">Moi</span>' : `<button type="button" class="spk qui" data-spk="${s}">${esc(NOMS[s])}</button>`}<p>${esc(fr(x))}</p></div></div>`).join('');
+}
+/* Une ligne par voix ; chaque segment = une prise de parole ; clic = surligner + réécouter.
+   Hors tabulation : la même action existe au clavier sur chaque heure de la transcription. */
+function rendFrise() {
+  const fin = E === 'pendant' ? Math.max(sec, 600) : DUREE;
+  const segs = TR.map(([t, s], i) => { const a = sec2(t); const b = TR[i + 1] ? Math.min(sec2(TR[i + 1][0]), a + 30) : a + 12; return { t, s, a, b }; })
+    .filter((x) => E !== 'pendant' || x.a <= sec);
+  $('#frise').innerHTML = ['moi', 'p2', 'p3', 'p4'].map((k) => `<div class="f-l" style="--c:var(--c-${k})"><span>${esc(NOMS[k])}</span><div class="f-p">${segs.filter((x) => x.s === k).map((x) => `<button type="button" tabindex="-1" data-ecoute="${x.t}" title="${esc(NOMS[k])}, ${x.t}" style="left:${(x.a / fin * 100).toFixed(2)}%;width:${(Math.max(x.b - x.a, 4) / fin * 100).toFixed(2)}%"></button>`).join('')}</div></div>`).join('')
+    + `<div class="f-ax"><span>00:00</span><span>${fmt(fin)}</span></div>`;
+}
+function filtreTR() {
+  const q = norm($('#trCherche').value);
+  $$('.tr').forEach((r) => {
+    const okT = E !== 'pendant' || sec2(r.dataset.t) <= sec;
+    r.hidden = !okT || (q && !norm(r.textContent).includes(q));
+  });
+  rendFrise();
+}
+$('#trCherche').addEventListener('input', filtreTR);
+
+function ouvrirPanneau(onglet) {
+  const p = $('#panneau');
+  if (win.dataset.panneau !== 'ouvert') {
+    win.dataset.panneau = 'ouvert'; p.classList.remove('entre'); void p.offsetWidth; p.classList.add('entre');
+    if (win.clientWidth < 1290) liste(false);
+  }
+  onglet = onglet || 'tr';
+  $('#tabTr').setAttribute('aria-selected', String(onglet === 'tr'));
+  $('#tabQ').setAttribute('aria-selected', String(onglet === 'q'));
+  $('#pTr').style.display = onglet === 'tr' ? 'flex' : 'none';
+  $('#pQ').hidden = onglet !== 'q'; $('#pQ').style.display = onglet === 'q' ? 'flex' : 'none';
+  majBoutonsTr();
+}
+function fermerPanneau() { win.dataset.panneau = ''; majBoutonsTr(); arreterEcoute(); }
+function majBoutonsTr() { $$('[data-act="trans"]').forEach((b) => b.setAttribute('aria-pressed', String(win.dataset.panneau === 'ouvert'))); }
+$('#tabTr').onclick = () => ouvrirPanneau('tr');
+$('#tabQ').onclick = () => ouvrirPanneau('q');
+$('#pFerme').onclick = fermerPanneau;
+$('.onglets').addEventListener('keydown', (e) => {
+  if ((e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') || $('#tabQ').hidden) return;
+  const q = $('#tabTr').getAttribute('aria-selected') === 'true';
+  ouvrirPanneau(q ? 'q' : 'tr'); (q ? $('#tabQ') : $('#tabTr')).focus();
+});
+
+/* Loupe : surligner la source + réécoute de l’extrait (audio gardé en local, option) */
+let ecouteT = null, ecouteA = 0, ecouteDur = 20, ecouteOn = false;
+function finDe(t) { const i = TR.findIndex((r) => r[0] === t); return i >= 0 && TR[i + 1] ? TR[i + 1][0] : fmt(sec2(t) + 10); }
+function montrerSource(src, unite) {
+  ouvrirPanneau('tr');
+  $('#trCherche').value = ''; filtreTR();
+  $$('.tr.hl').forEach((r) => r.classList.remove('hl'));
+  $$('.u.actif').forEach((u) => u.classList.remove('actif'));
+  if (unite) unite.classList.add('actif');
+  const rows = src.map((t) => document.getElementById('tr-' + t.replace(':', ''))).filter(Boolean);
+  rows.forEach((r) => { r.hidden = false; r.classList.add('hl'); });
+  if (rows[0]) rows[0].scrollIntoView({ block: 'center', behavior: rm() ? 'auto' : 'smooth' });
+  const debut = src[0], fin = finDe(src[src.length - 1]);
+  arreterEcoute(); ecouteA = 0; $('#ePiste').style.setProperty('--a', 0);
+  ecouteDur = Math.max(4, Math.min(60, sec2(fin) - sec2(debut)));
+  $('#eDuree').textContent = debut + ' à ' + fin + ', ' + ecouteDur + ' s';
+  $('#ecoute').hidden = false;
+  annonce('Passage surligné dans la transcription, de ' + debut + ' à ' + fin + '.');
+  $('#jouer').focus({ preventScroll: true });
+}
+function arreterEcoute() { ecouteOn = false; clearInterval(ecouteT); $('#jouer').innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-play"/></svg>'; $('#jouer').setAttribute('aria-label', 'Réécouter l’extrait'); }
+$('#jouer').onclick = () => {
+  if (ecouteOn) { arreterEcoute(); return; }
+  ecouteOn = true; if (ecouteA >= 1) ecouteA = 0;
+  $('#jouer').innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-pause"/></svg>'; $('#jouer').setAttribute('aria-label', 'Mettre en pause');
+  ecouteT = setInterval(() => { ecouteA = Math.min(1, ecouteA + 0.1 / ecouteDur); $('#ePiste').style.setProperty('--a', ecouteA); if (ecouteA >= 1) arreterEcoute(); }, 100);
+};
+
+/* ---------- Construction de la note ---------- */
+const loupe = (src, cache) => `<button type="button" class="mg loupe${cache ? ' att' : ''}" data-src="${src.join(' ')}" aria-label="Source ${src[0]} : voir le passage dans la transcription"><svg class="i" aria-hidden="true"><use href="#i-loupe"/></svg><span>${src[0]}</span></button>`;
+const ligneMe = (l, cls) => `<div class="u me ${cls}"><span class="tx">${esc(l.x)}</span><span class="mg t" aria-hidden="true">${esc(l.t)}</span></div>`;
+const ligneIa = (it, cls) => `<div class="u ia ${cls} att">${loupe(it.src)}<span class="sr">Ajout de CBW AI${NB}: </span><span class="tx" data-flux>${tok(it.ia)}</span></div>`;
+const coche = (lab) => `<label class="coche"><input type="checkbox" aria-label="${esc(lab)}"></label>`;
+const SR_IA = `<span class="sr">Ajout de CBW AI${NB}: </span>`;
+
+function blocActions(lib, pres) {
+  let rows = '', aUser = false;
+  for (const it of D.faire) {
+    const uu = it.u && pres(it.u);
+    const qui = `<span class="qui att" data-flux><span class="sr">, qui${NB}: </span>${tok('{' + it.qui + '}')}</span>`;
+    const quand = `<span class="quand att" data-flux><span class="sr">, quand${NB}: </span>${esc(it.quand)}</span>`;
+    if (uu) {
+      aUser = true;
+      rows += `<div class="u me todo act mix">${loupe(it.src, true)}${coche('Fait : ' + uu.x)}<span class="quoi"><span class="tx">${esc(uu.x)}</span><span class="ia-in att" data-flux>${SR_IA}${tok(it.quoi)}</span></span>${qui}${quand}<span class="mg t" aria-hidden="true">${esc(uu.t)}</span></div>`;
+    } else {
+      const txt = it.u ? it.alt : it.quoi;
+      rows += `<div class="u ia todo act att">${loupe(it.src)}${coche('Fait : ' + plain(txt))}<span class="quoi">${SR_IA}<span class="tx" data-flux>${tok(txt)}</span></span>${qui}${quand}</div>`;
+    }
+  }
+  return `<section class="bloc act-bloc${aUser ? '' : ' att'}"><h2 class="mgh">${lib}</h2><div class="act-tete" aria-hidden="true"><span></span><span>Qui</span><span>Quand</span></div>${rows}`
+    + `<div class="hub att"><button type="button" class="btn2" data-hub>Envoyer au Hub</button><span>Les actions non cochées partent dans CBW Hub, projet Atelier Morel, avec leur responsable et leur date.</span></div></section>`;
+}
+function bloc(k, lib, pres) {
+  if (k === 'faire') return blocActions(lib, pres);
+  return `<section class="bloc att"><h2 class="mgh">${lib}</h2>${D[k].map((it) => ligneIa(it, 'li')).join('')}</section>`;
+}
+function construire() {
+  const blocs = GAB[gab].blocs.map((b) => Array.isArray(b) ? b : [b, LIB[b]]);
+  const u = new Map(userLines.map((l) => [norm(l.x), l]));
+  const pres = (k) => u.get(norm(fr(EXK[k].x)));
+  let h = '';
+  for (const [k, lib] of blocs) if (k !== 'pers') h += bloc(k, lib, pres);
+  for (const s of D.sections) {
+    const hu = pres(s.h);
+    h += '<section class="sujet">' + (hu
+      ? `<h2 class="u me h"><span class="tx">${esc(hu.x)}</span><span class="mg t" aria-hidden="true">${esc(hu.t)}</span></h2>`
+      : `<h2 class="u ia h att"><span class="sr">Titre ajouté par CBW AI${NB}: </span><span class="tx" data-flux>${esc(s.titre)}</span></h2>`);
+    for (const it of s.items) {
+      const uu = it.u && pres(it.u);
+      if (uu) h += '<div class="grp">' + ligneMe(uu, 'li') + it.subs.map((x) => ligneIa(x, 'li sub')).join('') + '</div>';
+      else it.subs.forEach((x) => { h += ligneIa(x, 'li'); });
+    }
+    h += '</section>';
+  }
+  if (blocs.some((b) => b[0] === 'pers')) h += bloc('pers', 'Par personne', pres);
+  const extra = userLines.filter((l) => !EXN.has(norm(l.x)));
+  if (extra.length) h += `<section class="bloc"><h2 class="mgh">Tes autres notes</h2>${extra.map((l) => ligneMe(l, l.c === 'h' ? 'h' : (l.c === 'p' ? '' : 'li'))).join('')}</section>`;
+  if (!userLines.length) h = `<p class="legende" style="margin:0 0 12px">Tu n’as rien noté${NB}: toute la note vient de la transcription.</p>` + h;
+  note.innerHTML = h;
+}
+function rendBrut() {
+  brut.innerHTML = userLines.length
+    ? userLines.map((l) => ligneMe(l, l.c === 'h' ? 'h' : (l.c === 'p' ? '' : 'li'))).join('')
+    : '<p class="legende" style="margin-top:0">Tu n’as rien tapé pendant cette réunion.</p>';
+  $$('.mg.t', brut).forEach((m) => { m.style.opacity = 1; });
+}
+function editable() { $$('.tx, .ia-in', note).forEach((x) => { if (!x.closest('.att')) x.contentEditable = 'true'; }); }
+/* Retoucher un ajout gris le fait passer en noir : il devient à toi */
+note.addEventListener('input', (e) => {
+  const inn = e.target.closest('.ia-in');
+  if (inn) { inn.classList.remove('ia-in'); inn.querySelector('.sr')?.remove(); return; }
+  const u = e.target.closest('.u.ia');
+  if (u) { u.classList.replace('ia', 'me'); u.querySelector('.quoi > .sr, :scope > .sr')?.remove(); }
+});
+
+/* Écriture en direct (streaming) */
+function decouper(el) {
+  const out = [];
+  const walk = (n) => {
+    for (const c of Array.from(n.childNodes)) {
+      if (c.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        c.textContent.split(/(\s+)/).forEach((p) => {
+          if (!p) return;
+          if (/^\s+$/.test(p)) frag.appendChild(document.createTextNode(p));
+          else { const s = document.createElement('span'); s.className = 'w'; s.textContent = p; frag.appendChild(s); out.push(s); }
+        });
+        c.replaceWith(frag);
+      } else if (c.nodeType === 1) {
+        if (c.classList.contains('sr')) continue;
+        if (c.tagName === 'BUTTON') { c.classList.add('w'); out.push(c); } else walk(c);
+      }
+    }
+  };
+  walk(el); return out;
+}
+/* Rend visible un morceau (et ses parents) ; seule la loupe de la ligne suit, les autres morceaux attendent leur tour */
+function devoiler(it) {
+  let n = it;
+  while (n && n !== note) { if (n.classList) n.classList.remove('att'); n = n.parentElement; }
+  const u = it.closest('.u'); if (u) u.querySelectorAll('.loupe.att').forEach((x) => x.classList.remove('att'));
+}
+async function flux() {
+  const id = ++runId; fluxSkip = false;
+  const items = $$('[data-flux]', note), total = items.length || 1;
+  win.dataset.etat = 'ecrit'; regle.style.setProperty('--p', 0);
+  note.setAttribute('aria-busy', 'true');
+  annonce('CBW AI complète tes notes avec la transcription.');
+  const t0 = Date.now();
+  const tic = setInterval(() => { const m = $('#stSec'); if (m) m.textContent = Math.round((Date.now() - t0) / 1000) + ' s'; }, 500);
+  let done = 0;
+  for (const it of items) {
+    if (id !== runId) { clearInterval(tic); return; }
+    devoiler(it);
+    if (!(rm() || fluxSkip)) {
+      const ws = decouper(it);
+      for (let i = 0; i < ws.length; i++) {
+        if (id !== runId) { clearInterval(tic); return; }
+        if (fluxSkip || rm()) { ws.slice(i).forEach((w) => w.classList.add('on')); break; }
+        ws[i].classList.add('on'); await sleep(17);
+      }
+      await sleep(it.classList.contains('qui') || it.classList.contains('quand') ? 30 : 110);
+    }
+    done++; regle.style.setProperty('--p', done / total);
+  }
+  clearInterval(tic);
+  if (id !== runId) return;
+  $$('.w', note).forEach((w) => w.classList.remove('w', 'on'));
+  $$('.hub.att', note).forEach((x) => x.classList.remove('att'));
+  note.setAttribute('aria-busy', 'false');
+  editable();
+  win.dataset.etat = 'pret';
+  barre.innerHTML = '<span class="st-ok">Note prête</span>';
+  annonce('Note prête.');
+  await sleep(1400);
+  if (id !== runId) return;
+  win.dataset.etat = 'repos';
+  E = 'apres'; win.dataset.etape = 'apres'; majEtapes(); rendBarre(); rendListe();
+}
+
+/* ---------- Éditeur (carnet) ---------- */
+function placerFin(d) { if (!d) return; const r = document.createRange(); r.selectNodeContents(d); r.collapse(false); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+function ligneCourante() { const s = getSelection(); if (!s.rangeCount) return null; let n = s.anchorNode; while (n && n.parentNode !== ed) n = n.parentNode; return n && n.nodeType === 1 && n.parentNode === ed ? n : null; }
+function caretDebut(d) { const s = getSelection(); if (!s.rangeCount) return false; const r = s.getRangeAt(0); if (!r.collapsed) return false; const p = r.cloneRange(); p.selectNodeContents(d); p.setEnd(r.startContainer, r.startOffset); return p.toString().length === 0; }
+function horo() { return E === 'avant' ? 'avant' : fmt(sec); }
+function remplirEd(lines) {
+  ed.innerHTML = lines.map((l) => `<div class="${l.c === 'p' ? '' : l.c} plein" data-t="${esc(l.t)}">${esc(fr(l.x))}</div>`).join('') + `<div data-t="${horo()}"><br></div>`;
+  connues = new WeakSet(); $$(':scope > div', ed).forEach((d) => connues.add(d));
+  majVide();
+}
+function viderEd() { ed.innerHTML = `<div data-t="${horo()}"><br></div>`; connues = new WeakSet(); connues.add(ed.firstChild); majVide(); }
+function majVide() { edWrap.classList.toggle('vide', ed.textContent.trim() === ''); }
+function majCur() { const c = ligneCourante(); $$(':scope > div.cur', ed).forEach((d) => { if (d !== c) d.classList.remove('cur'); }); if (c) c.classList.add('cur'); }
+function markdown(d) {
+  const t = d.textContent; let c = null, re = null;
+  if (/^#{1,3}\s/.test(t)) { c = 'h'; re = /^#{1,3}\s/; }
+  else if (/^[-*]\s/.test(t)) { c = 'li'; re = /^[-*]\s/; }
+  else if (/^\[\s?\]\s/.test(t)) { c = 'todo'; re = /^\[\s?\]\s/; }
+  if (!c) return;
+  d.classList.remove('h', 'li', 'todo'); d.classList.add(c);
+  const r = t.replace(re, ''); d.textContent = r; if (!r) d.innerHTML = '<br>';
+  placerFin(d);
+}
+ed.addEventListener('input', () => {
+  for (const n of Array.from(ed.childNodes)) {
+    if (n.nodeType === 3) { if (n.textContent.trim()) { const d = document.createElement('div'); n.replaceWith(d); d.appendChild(n); placerFin(d); } else n.remove(); }
+  }
+  $$(':scope > div', ed).forEach((d) => { if (!connues.has(d)) { connues.add(d); d.dataset.t = horo(); d.classList.remove('h', 'cur'); } });
+  const c = ligneCourante(); if (c) markdown(c);
+  $$(':scope > div', ed).forEach((d) => d.classList.toggle('plein', d.textContent.trim() !== ''));
+  if (!ed.firstChild) viderEd();
+  majVide(); majCur();
+});
+ed.addEventListener('keydown', (e) => {
+  const d = ligneCourante(); if (!d) return;
+  const enListe = d.classList.contains('li') || d.classList.contains('todo');
+  if (e.key === 'Enter' && !e.shiftKey && enListe && d.textContent.trim() === '') { e.preventDefault(); d.classList.remove('li', 'todo'); }
+  else if (e.key === 'Backspace' && caretDebut(d) && (enListe || d.classList.contains('h'))) { e.preventDefault(); d.classList.remove('li', 'todo', 'h'); }
+});
+document.addEventListener('selectionchange', () => { if (document.activeElement === ed) majCur(); });
+function lireEd() {
+  return $$(':scope > div', ed).filter((d) => d.textContent.trim()).map((d) => ({
+    c: d.classList.contains('h') ? 'h' : d.classList.contains('li') ? 'li' : d.classList.contains('todo') ? 'todo' : 'p',
+    x: d.textContent.trim(), t: d.dataset.t || '00:00'
+  }));
+}
+
+/* ---------- Chrono, ondes, fin d’appel ---------- */
+function demarrerChrono() {
+  arreterChrono(); paused = false;
+  chronoT = setInterval(() => { if (paused) return; sec++; const c = $('#chrono'); if (c) c.textContent = fmt(sec); filtreTR(); }, 1000);
+  let lv = .5;
+  ondesT = setInterval(() => {
+    if (paused || rm()) { $$('.ondes i').forEach((i) => { i.style.transform = 'scaleY(.35)'; }); return; }
+    lv += (Math.random() - .5) * .35; lv = Math.min(1, Math.max(.12, lv));
+    $$('.ondes i').forEach((i, k) => { const env = [.55, .8, 1, .8, .55][k]; i.style.transform = 'scaleY(' + Math.max(.15, Math.min(1, lv * env + (Math.random() - .5) * .25)).toFixed(2) + ')'; });
+  }, 90);
+}
+function arreterChrono() { clearInterval(chronoT); clearInterval(ondesT); clearInterval(cdT); }
+function finAppel() {
+  if (E !== 'pendant') return;
+  let n = 10; clearInterval(cdT);
+  const z = $('#enreg');
+  if (z) z.innerHTML = `<span style="font-size:14px">L’appel Google Meet est terminé. Arrêt dans <b id="cd">${n}</b>${NB}s.</span>`;
+  annonce('L’appel est terminé. La prise de notes s’arrête dans 10 secondes.');
+  const garder = $('[data-act="garder"]'); if (garder) garder.hidden = false;
+  cdT = setInterval(() => { n--; if (n <= 0) { clearInterval(cdT); etape('arret'); return; } const c = $('#cd'); if (c) c.textContent = n; }, 1000);
+}
+
+/* ---------- Barre du bas ---------- */
+const BT_TR = (l) => `<button type="button" class="btn2" data-act="trans" aria-pressed="false"><svg class="i" aria-hidden="true"><use href="#i-trans"/></svg>${l}</button>`;
+function rendBarre() {
+  if (E === 'avant') {
+    barre.innerHTML = `<span class="etat-l" style="display:inline">Commence dans 1${NB}min sur Google Meet. Rien n’est enregistré pour l’instant.</span><span class="esp"></span><button type="button" class="btn1" data-act="go">Prendre des notes</button>`;
+  } else if (E === 'pendant') {
+    barre.innerHTML = `<div class="enreg" id="enreg"><span class="ondes" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="chrono" id="chrono" role="timer" aria-label="Durée">${fmt(sec)}</span><span class="etat-l" id="etatL">${paused ? 'En pause' : 'Enregistrement'}</span></div><span class="esp"></span><button type="button" class="btn2" data-act="garder" hidden>Continuer l’enregistrement</button>${BT_TR('Transcription')}<button type="button" class="btn2" data-act="pause">${paused ? 'Reprendre' : 'Pause'}</button><button type="button" class="btn1" data-act="stop">Terminer</button>`;
+  } else if (E === 'arret') {
+    barre.innerHTML = panne
+      ? `<span class="st-err">Aucun moteur IA n’a répondu.</span><span class="esp"></span>${BT_TR('Transcription')}<button type="button" class="btn1" data-act="retry">Réessayer</button>`
+      : `<span class="st-ia"><span class="charge" aria-hidden="true"><i></i><i></i><i></i></span>CBW AI complète tes notes<span class="mono" id="stSec">0 s</span></span><button type="button" class="btn3" data-act="skip">Tout afficher</button><span class="esp"></span>${BT_TR('Transcription prête')}`;
+  } else {
+    barre.innerHTML = `<div class="demande"><input id="ask" autocomplete="off" placeholder="Demander à cette réunion, ou / pour une recette" aria-label="Poser une question à cette réunion" aria-autocomplete="list" aria-controls="recettes" aria-expanded="false"><kbd>⌘J</kbd><ul class="recettes" id="recettes" role="listbox" aria-label="Recettes" hidden></ul></div>${BT_TR('Transcription')}`;
+    brancherAsk();
+  }
+  majBoutonsTr();
+}
+barre.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act;
+  if (a === 'go') etape('pendant', { depuisAvant: true });
+  else if (a === 'stop') etape('arret');
+  else if (a === 'trans') { if (win.dataset.panneau === 'ouvert') fermerPanneau(); else ouvrirPanneau('tr'); }
+  else if (a === 'pause') {
+    paused = !paused; win.dataset.etat = paused ? 'pause' : 'enregistre';
+    b.textContent = paused ? 'Reprendre' : 'Pause'; const l = $('#etatL'); if (l) l.textContent = paused ? 'En pause' : 'Enregistrement';
+    annonce(paused ? 'Enregistrement en pause.' : 'Enregistrement repris.');
+  }
+  else if (a === 'garder') { clearInterval(cdT); rendBarre(); annonce('La prise de notes continue.'); }
+  else if (a === 'skip') { fluxSkip = true; }
+  else if (a === 'retry') { panne = false; $('#oPanne').setAttribute('aria-pressed', 'false'); $('#panneMsg')?.remove(); rendBarre(); flux(); }
+});
+
+/* ---------- Questions à la réunion ---------- */
+const cite = (t) => `<button type="button" class="cite" data-src="${t}" aria-label="Voir le passage ${t}">${t}</button>`;
+const N = (k) => esc(NOMS[k]);
+function reponse(q, rec) {
+  const s = norm(q);
+  if (rec === 'mail') return `<p>Objet${NB}: point équipe du 15 octobre</p><p>Bonjour à tous,</p><p>Ce qu’on a décidé${NB}: la maquette d’accueil est validée avec une photo d’en-tête plus grande ${cite('12:58')}, et le budget photos est plafonné à 1 200 € HT ${cite('16:48')}.</p><p>La suite${NB}: ${N('p2')} envoie la version finale lundi 19 ${cite('13:05')}, ${N('p4')} confirme le budget au photographe ${cite('16:55')}, ${N('p3')} appelle l’école vendredi ${cite('22:10')}. Je renvoie le devis révisé à Morel avant vendredi ${cite('24:12')}.</p><p>Bonne journée,<br>Camille</p><button type="button" class="btn2" data-copie>Copier l’e-mail</button>`;
+  if (rec === 'moi') return `<p>Une action pour toi${NB}: renvoyer le devis révisé à Morel avant vendredi 16, avec le budget photos ${cite('24:12')} et la ligne maintenance ${cite('24:20')}.</p>`;
+  if (rec === 'ouvert') return `<p>Deux points restent ouverts.</p><ul><li>La mise en ligne du 6 novembre dépend de la recette du 30 octobre ${cite('19:30')}.</li><li>La ligne maintenance n’est pas encore chiffrée ${cite('24:20')}.</li></ul>`;
+  if (rec === 'slack') return `<p>Point équipe du 15/10<br>Maquette d’accueil validée, photo d’en-tête agrandie. Version finale lundi 19 (${N('p2')}).<br>Budget photos${NB}: 1 200 € HT maximum.<br>Mise en ligne visée le 6/11 si la recette du 30/10 passe.<br>Alternance${NB}: appel à l’école vendredi (${N('p3')}).</p><button type="button" class="btn2" data-copie>Copier pour Slack</button>`;
+  if (/photo|budget|photographe|prix|€/.test(s)) return `<p>Le budget photos est plafonné à 1 200 € HT ${cite('16:48')}. Le photographe demandait 1 800 € HT la journée ${cite('15:50')}${NB}; ${N('p3')} a proposé de réutiliser 6 photos de l’atelier et de ne photographier que l’équipe ${cite('16:05')}.</p>`;
+  if (/maquette|accueil|en-tête|hero/.test(s)) return `<p>Validée, à condition d’agrandir la photo d’en-tête sur grand écran ${cite('12:40')} ${cite('12:58')}. ${N('p2')} envoie la version finale lundi 19 ${cite('13:05')}.</p>`;
+  if (/altern|école|recrut|entretien/.test(s)) return `<p>Deux profils sérieux sont arrivés. ${N('p3')} appelle l’école vendredi ${cite('22:10')} et les entretiens se feront la semaine du 26 octobre ${cite('22:36')}.</p>`;
+  if (/mise en ligne|date|novembre|recette/.test(s)) return `<p>La mise en ligne est visée le 6 novembre, si la recette du 30 octobre se passe bien ${cite('19:22')} ${cite('19:30')}.</p>`;
+  return `<p>Je n’ai rien trouvé de précis sur « ${esc(q)} » dans cette réunion. Essaie avec un sujet abordé${NB}: photos, maquette, alternance, mise en ligne.</p>`;
+}
+function demander(q, rec) {
+  ouvrirPanneau('q');
+  $('#qVide')?.remove();
+  const art = document.createElement('article'); art.className = 'qa';
+  art.innerHTML = `<h3>${esc(fr(q))}</h3><p class="attente"><span class="charge" aria-hidden="true"><i></i><i></i><i></i></span>Lecture de la transcription</p>`;
+  $('#qListe').appendChild(art); art.scrollIntoView({ block: 'end', behavior: rm() ? 'auto' : 'smooth' });
+  setTimeout(() => { art.querySelector('.attente').remove(); const r = document.createElement('div'); r.className = 'rep'; r.innerHTML = reponse(q, rec); art.appendChild(r); annonce('Réponse prête : ' + r.textContent.slice(0, 140)); }, rm() ? 50 : 750);
+}
+$('#qListe').addEventListener('click', (e) => {
+  const c = e.target.closest('.cite'); if (c) { montrerSource([c.dataset.src]); return; }
+  if (e.target.closest('[data-copie]')) toast('Copié dans le presse-papiers.');
+});
+function brancherAsk() {
+  const inp = $('#ask'), ul = $('#recettes'); let sel = 0, ouvert = false;
+  const fermer = () => { ul.hidden = true; ouvert = false; inp.setAttribute('aria-expanded', 'false'); inp.removeAttribute('aria-activedescendant'); };
+  const rend = () => {
+    const f = inp.value.slice(1).toLowerCase();
+    const l = RECETTES.filter((r) => !f || r.nom.toLowerCase().includes(f));
+    if (!l.length) { fermer(); return; }
+    sel = Math.min(sel, l.length - 1);
+    ul.innerHTML = '<li class="r-t" role="presentation">Recettes</li>' + l.map((r, i) => `<li role="option" id="rc-${r.id}" data-rec="${r.id}" aria-selected="${i === sel}"><b>${r.nom}</b><span>${r.desc}</span></li>`).join('');
+    ul.hidden = false; ouvert = true; inp.setAttribute('aria-expanded', 'true'); inp.setAttribute('aria-activedescendant', 'rc-' + l[sel].id);
+  };
+  const lancer = (id) => { const r = RECETTES.find((x) => x.id === id); fermer(); inp.value = ''; demander(r.nom, r.id); };
+  inp.addEventListener('input', () => { if (inp.value.startsWith('/')) rend(); else fermer(); });
+  inp.addEventListener('keydown', (e) => {
+    const opts = $$('[role="option"]', ul);
+    if (ouvert && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length; rend(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (ouvert && opts[sel]) lancer(opts[sel].dataset.rec); else if (inp.value.trim()) { demander(inp.value.trim()); inp.value = ''; } }
+    else if (e.key === 'Escape' && ouvert) { e.stopPropagation(); fermer(); }
+  });
+  ul.addEventListener('mousedown', (e) => { const li = e.target.closest('[data-rec]'); if (li) { e.preventDefault(); lancer(li.dataset.rec); } });
+  inp.addEventListener('blur', () => setTimeout(fermer, 120));
+}
+
+/* ---------- Renommer une voix (une fois, partout) ---------- */
+let ancre = null;
+function placer(pop, el) {
+  pop.hidden = false;
+  const r = el.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  let top = r.bottom + 8; const left = Math.min(r.left, innerWidth - w - 12);
+  if (top + h > innerHeight - 12) top = Math.max(12, r.top - h - 8);
+  pop.style.top = top + 'px'; pop.style.left = Math.max(12, left) + 'px';
+}
+function fermerPops(rendre) { $$('.pop').forEach((p) => { p.hidden = true; }); if (rendre && ancre && document.contains(ancre)) ancre.focus(); }
+function ouvrirNom(k, el) {
+  ancre = el; const pop = $('#popNom'); pop.dataset.k = k;
+  $('#popNomT').textContent = `Qui est ${NOMS[k]}${NB}?`;
+  const pris = Object.values(NOMS);
+  $('#popChoix').innerHTML = INVITES.filter((n) => !pris.includes(n)).map((n) => `<button type="button" data-nom="${esc(n)}">${esc(n)}</button>`).join('') || '<span class="legende" style="margin:0">Tous les invités sont déjà nommés.</span>';
+  $('#popAutre').value = '';
+  placer(pop, el);
+  ($('#popChoix button') || $('#popAutre')).focus();
+}
+function renommer(k, nom, silencieux) {
+  const ancien = NOMS[k]; if (!nom || nom === ancien) return;
+  NOMS[k] = nom;
+  const els = $$(`[data-spk="${k}"]`);
+  els.forEach((e) => { e.textContent = nom; });
+  majVoix(); rendFrise();
+  $$('.coche input', note).forEach((i) => { const q = i.closest('.u').querySelector('.quoi'); if (q) i.setAttribute('aria-label', 'Fait : ' + q.textContent.replace('Ajout de CBW AI' + NB + ': ', '')); });
+  if (!silencieux) { toast(`« ${ancien} » s’appelle maintenant ${nom}. ${els.length} mentions mises à jour.`, () => renommer(k, ancien, true)); annonce(ancien + ' renommé ' + nom + ' partout.'); }
+}
+$('#popChoix').addEventListener('click', (e) => { const b = e.target.closest('[data-nom]'); if (!b) return; const k = $('#popNom').dataset.k; fermerPops(true); renommer(k, b.dataset.nom); });
+$('#popForm').addEventListener('submit', (e) => { e.preventDefault(); const v = $('#popAutre').value.trim(); if (!v) { $('#popAutre').focus(); return; } const k = $('#popNom').dataset.k; fermerPops(true); renommer(k, v); });
+function majVoix() {
+  $('#voix').innerHTML = `Voix${NB}: Moi, ${['p2', 'p3', 'p4'].map((k) => `<button type="button" class="spk" data-spk="${k}">${esc(NOMS[k])}</button>`).join(', ')}. <em>Corrige un nom une fois, il change partout.</em>`;
+}
+
+/* Clics globaux : voix, loupe, réécoute, Hub, fermeture des popovers */
+document.addEventListener('click', (e) => {
+  const sp = e.target.closest('.spk');
+  if (sp) { e.preventDefault(); ouvrirNom(sp.dataset.spk, sp); return; }
+  const lp = e.target.closest('.loupe');
+  if (lp) { montrerSource(lp.dataset.src.split(' '), lp.closest('.u')); return; }
+  const tt = e.target.closest('[data-ecoute]');
+  if (tt) { montrerSource([tt.dataset.ecoute]); return; }
+  const hb = e.target.closest('[data-hub]');
+  if (hb) {
+    const n = $$('.u.act input:not(:checked)', note).length, avant = hb.textContent;
+    if (!n) { toast('Toutes les actions sont cochées : rien à envoyer.'); return; }
+    hb.textContent = 'Envoyé au Hub';
+    toast(`${n} action${n > 1 ? 's' : ''} envoyée${n > 1 ? 's' : ''} dans CBW Hub, projet Atelier Morel.`, () => { hb.textContent = avant; });
+    return;
+  }
+  if (e.target.closest('[data-ferme]')) { fermerPops(true); return; }
+  if (!e.target.closest('.pop') && !e.target.closest('#bGab')) fermerPops(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    if ($$('.pop').some((p) => !p.hidden)) { fermerPops(true); return; }
+    if (win.dataset.panneau === 'ouvert' && E !== 'pendant') fermerPanneau();
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'j' && $('#ask')) { e.preventDefault(); $('#ask').focus(); }
+});
+
+/* ---------- Gabarit ---------- */
+function rendGabs() {
+  $('#gabs').innerHTML = Object.entries(GAB).map(([k, g]) => `<li><button type="button" role="radio" data-gab="${k}" aria-checked="${k === gab}" tabindex="${k === gab ? 0 : -1}"><b>${g.nom}</b><span>${esc(fr(g.desc))}</span></button></li>`).join('');
+}
+function nomGab() { return gab === 'auto' ? 'Auto, point d’équipe' : GAB[gab].nom; }
+$('#bGab').onclick = (e) => { e.stopPropagation(); ancre = $('#bGab'); rendGabs(); $('#consigne').value = consigne; placer($('#popGab'), $('#bGab')); $('#popGab [aria-checked="true"]').focus(); };
+$('#gabs').addEventListener('click', (e) => { const b = e.target.closest('[data-gab]'); if (!b) return; $$('#gabs [role="radio"]').forEach((x) => { x.setAttribute('aria-checked', String(x === b)); x.tabIndex = x === b ? 0 : -1; }); });
+$('#gabs').addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return; e.preventDefault();
+  const l = $$('#gabs [role="radio"]'); const i = l.indexOf(document.activeElement); const n = l[(i + (e.key === 'ArrowDown' ? 1 : -1) + l.length) % l.length]; n.click(); n.focus();
+});
+$('#gabGo').onclick = () => {
+  const c = $('#gabs [aria-checked="true"]'); gab = c ? c.dataset.gab : gab; consigne = $('#consigne').value.trim();
+  fermerPops(false); $('#gabNom').textContent = nomGab();
+  etape('arret', { refaire: true });
+  if (consigne) toast(`Consigne prise en compte${NB}: « ${consigne} ».`);
+};
+
+/* ---------- Étapes du parcours ---------- */
+function majEtapes() { $$('.etapes button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.e === E))); }
+function montrer(id, on) { $(id).hidden = !on; }
+function majNotif() {
+  const n = $('#notif');
+  n.classList.toggle('appel', variante === 'appel');
+  $('#nSource').textContent = variante === 'appel' ? 'CBW AI, appel détecté' : 'CBW AI, agenda';
+  $('#nTitre').textContent = variante === 'appel' ? 'Un appel utilise le micro' : 'Point équipe du jeudi dans 1 min';
+  $('#nCorps').textContent = variante === 'appel' ? 'Google Meet, dans Chrome. Aucune réunion prévue à cette heure.' : 'Avec Léa Fontaine, Marc Diallo et Inès Garnier. Google Meet.';
+  n.hidden = !(E === 'avant' && !notifFermee);
+}
+function majBandeau() {
+  $('#bNb').textContent = nbPers;
+  $('#bQuestion').textContent = variante === 'appel' ? 'Combien êtes-vous ?' : `Vous êtes ${nbPers}, d’après l’invitation ?`;
+}
+function etape(e, o = {}) {
+  const prev = E;
+  runId++; fluxSkip = false; clearInterval(cdT); fermerPops(false);
+  if (prev === 'pendant' && e !== 'pendant') userLines = lireEd();
+  E = e; win.dataset.etape = e; majEtapes();
+  const meta = $('#meta');
+  ['#prive', '#bGab', '#vue', '#bCopie'].forEach((s) => montrer(s, false));
+  $('#tabQ').hidden = e === 'pendant';
+  $('#direct').hidden = e !== 'pendant';
+  $('#ecoute').hidden = true; $$('.tr.hl').forEach((r) => r.classList.remove('hl'));
+  regle.style.setProperty('--p', 0);
+  $$('#vue button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === 'note')));
+
+  if (e === 'avant') {
+    arreterChrono(); sec = 0; win.dataset.etat = 'repos'; liste(large()); fermerPanneau();
+    notifFermee = false;
+    meta.textContent = 'Aujourd’hui, 10:00 à 10:30. Google Meet. Avec Léa Fontaine, Marc Diallo, Inès Garnier.';
+    ['#voix', '#bandeau', '#legende', '#note', '#brut', '#pied'].forEach((s) => montrer(s, false));
+    edWrap.hidden = false; ed.contentEditable = 'true'; $('#phTexte').textContent = 'Tu peux écrire l’ordre du jour. Tes titres serviront de plan à la note.';
+    viderEd(); combienOk = false; nbPers = variante === 'appel' ? 2 : 4; userLines = [];
+  }
+  else if (e === 'pendant') {
+    notifFermee = true; liste(false); win.dataset.etat = 'enregistre';
+    $('#prive').hidden = false;
+    meta.textContent = 'Aujourd’hui, 10:00. Google Meet. Prise de notes en cours.';
+    ['#voix', '#legende', '#note', '#brut', '#pied'].forEach((s) => montrer(s, false));
+    edWrap.hidden = false; ed.contentEditable = 'true'; $('#phTexte').textContent = 'Écris ce que tu veux retenir. Le reste, CBW AI l’écoute.';
+    if (o.depuisAvant) { sec = 0; $$(':scope > div', ed).forEach((d) => { if (!d.textContent.trim()) d.dataset.t = '00:00'; }); }
+    else { sec = 24 * 60 + 31; remplirEd(EX); }
+    majBandeau(); $('#bandeau').hidden = combienOk;
+    rendBarre(); demarrerChrono(); filtreTR();
+    if (o.depuisAvant || o.focus) { ed.focus(); placerFin(ed.lastElementChild); }
+    annonce('Prise de notes démarrée. Écris librement, la transcription tourne en arrière-plan.');
+  }
+  else {
+    arreterChrono();
+    liste(e === 'apres' && large());
+    meta.textContent = 'Jeudi 15 octobre, 10:00 à 10:32. Google Meet. 4 personnes.';
+    montrer('#voix', true); majVoix(); montrer('#bandeau', false); montrer('#legende', true); montrer('#pied', true);
+    ['#bGab', '#vue', '#bCopie'].forEach((s) => montrer(s, true)); $('#gabNom').textContent = nomGab();
+    edWrap.hidden = true; ed.contentEditable = 'false';
+    montrer('#note', true); montrer('#brut', false);
+    $$('.tr').forEach((r) => { r.hidden = false; }); rendFrise();
+    construire(); rendBrut();
+    $('#defile').scrollTop = 0;
+    if (e === 'arret') {
+      rendBarre();
+      if (panne) {
+        win.dataset.etat = 'repos';
+        const m = document.createElement('div'); m.className = 'panne'; m.id = 'panneMsg'; m.setAttribute('role', 'alert');
+        m.innerHTML = `<b>La note n’a pas pu être complétée.</b> Groq, Gemini et OpenRouter n’ont pas répondu. Tes notes et la transcription complète sont enregistrées${NB}: rien n’est perdu. Réessaie dans un instant.`;
+        note.prepend(m);
+      } else flux();
+    } else {
+      $$('.att', note).forEach((x) => x.classList.remove('att'));
+      editable(); win.dataset.etat = 'repos'; rendBarre();
+    }
+  }
+  rendListe(); majNotif();
+}
+
+/* ---------- Câblage ---------- */
+$$('.etapes button').forEach((b) => { b.onclick = () => {
+  const e = b.dataset.e;
+  if ((e === 'arret' || e === 'apres') && E === 'avant') userLines = exemple();
+  etape(e, e === 'pendant' ? { focus: true } : {});
+}; });
+$('#nGo').onclick = () => etape('pendant', { depuisAvant: true });
+$('#nNon').onclick = () => { notifFermee = true; majNotif(); };
+$('#nFerme').onclick = () => { notifFermee = true; majNotif(); };
+$('#bListe').onclick = () => liste(win.dataset.liste !== 'ouverte');
+$('#bMoins').onclick = () => { nbPers = Math.max(2, nbPers - 1); $('#bNb').textContent = nbPers; };
+$('#bPlus').onclick = () => { nbPers = Math.min(12, nbPers + 1); $('#bNb').textContent = nbPers; };
+$('#bOk').onclick = () => { combienOk = true; $('#bandeau').hidden = true; toast(`${nbPers} personnes${NB}: CBW AI cherchera ${nbPers - 1} voix en plus de la tienne.`); ed.focus(); placerFin(ed.lastElementChild); };
+$('#bCopierPhrase').onclick = () => toast('Phrase copiée. Colle-la dans le chat de la visio.');
+$('#bCopie').onclick = () => toast('Note copiée en Markdown.');
+$$('#vue button').forEach((b) => { b.onclick = () => {
+  const v = b.dataset.v; $$('#vue button').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+  note.hidden = v !== 'note'; brut.hidden = v !== 'brut'; $('#legende').hidden = v !== 'note';
+}; });
+$('#oVariante').onclick = () => { variante = variante === 'agenda' ? 'appel' : 'agenda'; $('#oVariante').setAttribute('aria-pressed', String(variante === 'appel')); etape('avant'); majBandeau(); };
+$('#oRemplir').onclick = () => { if (E !== 'pendant') { etape('pendant', { focus: true }); return; } sec = Math.max(sec, 24 * 60 + 31); remplirEd(EX); const c = $('#chrono'); if (c) c.textContent = fmt(sec); filtreTR(); toast('Exemple rempli : 6 lignes tapées pendant l’appel.'); };
+$('#oFin').onclick = () => { if (E !== 'pendant') etape('pendant', {}); finAppel(); };
+$('#oPanne').onclick = () => { panne = !panne; $('#oPanne').setAttribute('aria-pressed', String(panne)); toast(panne ? 'Panne IA simulée : clique sur Terminer ou sur Arrêt.' : 'Panne IA retirée.'); };
+$('#oRM').onclick = () => { html.classList.toggle('rm'); $('#oRM').setAttribute('aria-pressed', String(html.classList.contains('rm'))); };
+$('#oTheme').onclick = () => { const d = html.dataset.theme !== 'dark'; html.dataset.theme = d ? 'dark' : 'light'; $('#oTheme').setAttribute('aria-pressed', String(d)); };
+$('#titre').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
+
+/* Démarrage */
+rendDossiers(); rendTR(); etape('avant');
+})();
+</script>
+</body>
+</html>

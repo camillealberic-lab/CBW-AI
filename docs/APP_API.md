@@ -184,3 +184,44 @@ Format d'export du dictionnaire : `{ format: 'cbw-ai-dictionary', version: 1, vo
 **Raccourcis (main.ts)** : ⌃⌘V colle la dernière dictée — ou la dernière annulée / en échec si elle est plus récente (< 30 min) ; ⌃⌘C la copie ; ⌃⌘R : 1er appui = sélection captée + écoute de la consigne, 2e appui = fin (globalShortcut ne voit pas le relâchement).
 **Notifications macOS** (silencieuses, une par type / 8 s) : aucun son du micro · il reste 1 minute · micro coupé / déconnecté · saisie sécurisée active (nom de l'app, une fois / 10 min) · « Échap : dictée gardée — ⌃⌘V pour la coller » (clic → Historique) · dictée gardée après une erreur. « Ajouté au dictionnaire : X » reste émise par learn.ts.
 Barre des menus (clic droit) : « Réécrire la sélection ▸ consignes », « Réafficher la pastille » quand elle est masquée.
+
+## Notes v2 — écran Notes (design/app/notes.js, structure Wispr Notetaker validée le 15 oct. + audit final.md)
+
+Écran « Notes », **même organisation que Wispr Notetaker** (chantiers/notes-v2/wispr-structure.md, réponses de Camille dans tickets.md › « Organisation façon Wispr Notetaker ») :
+- **L1 `#notes`** : liste pleine largeur. En-tête « Notes » + réglages (→ `#reglages:settings-notes`) + « Nouvelle note » (⌘N, démarre tout de suite). Bloc **« À venir »** seulement si `notes.calendar` est actif (`calendar.upcoming()` : aujourd'hui, demain, après-demain ; 3 visibles puis « Afficher N de plus » ; « Démarrer » ou « Rejoindre et démarrer » + menu Démarrer sans rejoindre / Rejoindre seulement, lien ouvert par `openExternal`, https seulement). Puis **« Notes précédentes »** groupées par jour (surtitre « Aujourd’hui, 15 oct. »), ligne = voix (initiales) + titre + **heure seule** (+ statut : « Générer le résumé », « Résumé non préparé »), menu … (Copier au format Markdown · Afficher dans le Finder · Supprimer…). Recherche « Rechercher dans les notes » (titres, voix, transcriptions via `notesV2.search`). La note en cours est en tête (onde + chrono, ou « Étape n sur 3 »). **Aperçu à droite (280 px)** qui suit le survol / la sélection : horaire « Aujourd’hui • 10:02 • 42 min », Participants (5 + « +N de plus »), Vue d’ensemble (début du « En bref », en gris IA). Pas d'indicateur dans la barre latérale.
+- **L2 `#notes:<id>`** (`#notes:direct` = note en cours) : Retour (Échap), menu …, Note précédente / suivante (J / K). Gros titre modifiable, puce date + voix. Onglets **Transcription · Résumé** (Transcription pendant l'enregistrement, Résumé pour une note passée et à la fin). Outils dans chaque onglet : chrono / « 3 voix • 42 min » · Chercher (⌘F, /) · Copier tout · **Nommer les voix** (fenêtre : toutes les voix d'un coup, extrait + nom suggéré, « Même personne que », « Enregistrer les noms » → `renameSpeaker` en série) ; « N min de lecture » · Chercher · Copier · … (Type de résumé…, Copier les prochaines étapes, Hub, Revenir à la version précédente, Régénérer). Texte IA gris + heure dans la marge (loupe → transcription + réécoute), renommage au clic (Partout / Ce passage seulement).
+- **Barre du bas flottante** : Démarrer → Arrêter (onde + chrono) → Finalisation… (« Étape n sur 3 ») → Reprendre + **« Demander… »** (seulement après l'arrêt ; réponses dans un tiroir qui s'ouvre vers le haut). **Pas de pause ni d'Annuler** (« Démarré par erreur ? Garder / Jeter » après coup) ; « Reprendre » sur une note terminée enregistre la suite dans une nouvelle note « <titre> (suite) » (pas d'ajout à une note close côté main). La pause n'existe plus que pour l'arrêt auto (« Notes arrêtées » → Reprendre = `resumeNote`).
+- Carte « Réunion détectée » : bouton principal « Démarrer les notes » + menu (Plus tard (2 min) · interrupteur « Démarrer automatiquement » = `setConfig('notes.autoStart')` · Réglages des notifications) + croix (= Non), compte à rebours 10 s gardé.
+**Aucun nombre de personnes demandé** : `startNote` ne passe plus `numSpeakers` (voix détectées seules, correction après coup). Après l'arrêt : progression « Étape 1/3 sauvegarde · 2/3 transcription · 3/3 résumé », notification macOS « Résumé prêt : <titre> » (main.ts). Note sans résumé de moins de 5 min : « Générer le résumé » ; quasi vide (< 12 mots ou < 15 s) : « Démarré par erreur ? Garder / Jeter ». Genre reconnu (`kind`) en petit libellé dans la rangée d'outils du Résumé.
+
+`startNote(opts?)` accepte `{ title, participants[], eventId }` ; `stopNote(opts?)` accepte `{ title, participants, template }` (`userNotes`/`userTimes` encore acceptés pour les anciennes pages). `listNotes()` ajoute `templateId`/`folder`/`kind` ; `getNote(id)` ajoute `annotated` (balises `[[ia mm:ss]]`, lignes `> ` = encadré « À retenir » / citation), `templateId`, `templatePick`, `kind`, `participants`, `previous`, `hasAudio`.
+
+```ts
+window.dictaApp += {
+  notesV2: {
+    current(): Promise<{ state; active; busy; elapsedMs; meeting: { title?; participants; eventId?; startedAt; app? } | null }>;
+    regenerate(id, { template? }): Promise<void>;      // change de type de résumé (garde la version précédente)
+    restorePrevious(id): Promise<boolean>;
+    renameSegment(id, startMs, to): Promise<boolean>;  // « Ce passage seulement » (renameSpeaker = « Partout »)
+    save(id, { annotated?, title? }): Promise<boolean>; // retouches (le .md est réécrit sans balises)
+    templates(): Promise<{ id; label; hint }[]>;
+    ask(qid, question, noteIds[], history?): Promise<AskResult>; // deltas via onAskDelta
+    search(q): Promise<{ id; snippet }[]>;             // recherche dans les transcriptions
+    audio(id, fromMs, toMs): Promise<{ ok; dataUrl? ; message? }>; // extrait WAV ≤ 90 s si l'audio est gardé
+    privacy(): Promise<{ local; provider; label }>;    // « L'audio reste sur ce Mac. Le texte part chez … »
+    call(action: 'start'|'snooze'|'dismiss'|'keep'|'resume'|'stopNow'): Promise<void>; // cartes d'appel
+    callState(): Promise<{ inCall; app; offer; autoStop: 'warn'|'stopped'|null }>;
+    onCallDetected(cb: ({ app?, bundleId?, seconds } | null) => void); // carte « Réunion détectée » (null = la retirer)
+    onAutoStop(cb: ({ phase: 'warn'|'stopped'|'cancel'|'done', seconds? }) => void);
+    onLive / onStage / onVoices / onDevice / onDraft / onDelta({ noteId, annotated }) / onAskDelta({ qid, answer }) / onMeetingSoon(CalendarEvent)
+  };
+  hub: { available(): Promise<boolean>; send(tasks[{ titre, date?, pour?, pourquoi? }]): Promise<{ ok; sent; failed }> }; // node ~/cbw-studio/mcp/hub.mjs tache
+  calendar: { status(); enable(on?): Promise<{ ok; access }>; current(): Promise<CalendarEvent|null>; upcoming(): Promise<{ enabled: boolean; events: CalendarEvent[] }> }; // src/main/calendar.ts ; upcoming = bloc « À venir » (aujourd'hui → après-demain, réunions finies exclues, `enabled: false` si `notes.calendar` coupé)
+  engine: { status(); downloadNow(); cancel() }; onEngineProgress(cb);  // api-engine.md
+  licenses(): Promise<string>;                                             // NOTICE-meeting-engine.txt
+}
+```
+**Détection d'appel** (src/main/callDetect.ts, branché par `wireCallDetection` dans appWindow.ts) : `call-start` → si `notes.autoStart` démarrage direct (+ notification si la fenêtre n'est pas au premier plan), sinon carte « Réunion détectée » 10 s (Démarrer maintenant · Plus tard 2 min · Non) dans la fenêtre, notification macOS si la fenêtre n'est pas au premier plan (clic = démarrer). `call-end` pendant une note qui a vu un appel, si `notes.autoStop` : carte « Toujours là ? » 15 s (Continuer · Arrêter maintenant), puis pause + « Notes arrêtées » avec Reprendre 4 s, puis arrêt réel (même chemin que `stopNote`). Un nouvel appel pendant l'avertissement l'annule. Les cartes (notes.js › Cartes) s'affichent sur toutes les pages.
+Réglages (settings.ts) : `notes.detectCalls` (true), `notes.autoStart` (false), `notes.autoStop` (true), `notes.echoCancel` (true), `notes.engine` ('auto'|'whisper'), `notes.engineDownloadPaused` (false), `notes.calendar` (false, autorisation demandée à l'activation), `notes.template` ('auto'). UI : Réglages › Notes, « Mentions des licences » dans Confidentialité & à propos.
+Compte rendu en flux : `scripts/build.mjs` enveloppe `organizeNotes` ; `appWindow.ts` pose `setNextOrganize({ userNotes, template, title, participants, onDelta, onResult })` juste avant `NoteSession.stop()` / `reorganize()` ; le résultat balisé est rangé dans `~/.dicta-ai/notes/<id>.ui.json`.
+Limites connues (hors zone UI) : le résumé des notes de moins de 5 min est encore rédigé automatiquement (il faudrait `NoteSession.stop({ summarize: false })`, ticket CORE) ; pas de « consigne » libre pour `organizeNotes` (ticket LLM : « raccourcis le résumé » passe par `askNotes` + « Remplacer le résumé ») ; Info.plist à compléter avec `NSCalendarsFullAccessUsageDescription` + `NSCalendarsUsageDescription` (package.json) ; la notification calendrier est une notification macOS (clic = démarre la note) + une carte dans la fenêtre.

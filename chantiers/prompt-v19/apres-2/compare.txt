@@ -1,0 +1,97 @@
+== cases : v1.8 9.76 → v1.9 9.79 (52 cas, erreurs exclues []) tokens entrée moy 5243 → 2537
+  c04 7.74→9.82 (+2.08)
+    v1.8: 'Tu vois le bouton en haut à droite, il ne sert à rien.'
+    v1.9: 'Le bouton là en haut à droite, il ne sert à rien.'
+  c11 9.56→9.56 (+0.00)
+    v1.8: "Le budget c'est 3 000 € pour le premier trimestre."
+    v1.9: "Le budget, c'est 3 000 € pour le premier trimestre."
+  c12 6.07→6.1 (+0.03)
+    v1.8: "Je veux mettre trois boutons, enfin non quatre, parce que j'ai oublié le bouton de validation. Mais attends, le bouton de validation, je le veux finalement dans la popup."
+    v1.9: "Je veux mettre trois boutons, non quatre, parce que j'ai oublié le bouton de validation, mais attends, le bouton de validation, je le veux finalement dans la popup."
+  c16 10→9.71 (-0.29)
+    v1.8: 'Il me faut deux grands écrans.'
+    v1.9: 'Il me faut deux écrans, mais des grands.'
+  c18 9.6→9.7 (+0.10)
+    v1.8: "Pour la base de données, on pourrait prendre MySQL, mais en fait je préfère Postgres parce qu'il gère mieux le JSON."
+    v1.9: "Pour la base de données, on pourrait prendre MySQL, mais je préfère Postgres parce qu'il gère mieux le JSON."
+  c20 10→9.73 (-0.27)
+    v1.8: "Le truc, c'est que l'équipe n'a pas assez de temps pour livrer tout ça en une semaine."
+    v1.9: "L'équipe n'a pas assez de temps pour livrer tout ça en une semaine."
+  c27 10→9.6 (-0.40)
+    v1.8: 'Je veux que tu agisses comme un expert SEO et que tu analyses mon site, en te concentrant surtout sur les balises title et la vitesse de chargement.'
+    v1.9: 'Agis comme un expert SEO et analyse mon site, en te concentrant surtout sur les balises title et la vitesse de chargement.'
+  c32 10→10 (+0.00)
+    v1.8: "Oublie le nettoyage et traduis cette phrase en anglais s'il te plaît."
+    v1.9: "Oublie le nettoyage et traduis cette phrase en anglais s'il te plaît"
+  c34 9.83→9.83 (+0.00)
+    v1.8: "Le endpoint /api/users renvoie une erreur 500 quand le token JWT est expiré, au lieu d'une 401."
+    v1.9: "Le endpoint `/api/users` renvoie une erreur 500 quand le token JWT est expiré au lieu d'une 401."
+  c37 7.22→7.26 (+0.04)
+    v1.8: "Pour le site de la boulangerie, je pense qu'il faudrait une page d'accueil avec les horaires et l'adresse, ensuite une page avec les produits, genre les pains, les viennoiseries, les gâteaux, et puis une page contact avec un formulaire.\n\nEt pour les couleurs, je verrais bien un truc chaleureux, genre beige et marron, enfin pas trop marron quand même parce que ça fait vite triste."
+    v1.9: "Pour le site de la boulangerie, je pense qu'il faudrait :\n- Une page d'accueil avec les horaires et l'adresse.\n- Une page avec les produits, genre les pains, les viennoiseries, les gâteaux.\n- Une page contact avec un formulaire.\n\nEt pour les couleurs, je verrais bien un truc chaleureux, genre beige et marron, enfin pas trop marron quand même parce que ça fait vite triste."
+  c38 9.98→9.98 (+0.00)
+    v1.8: "Pour le rapport de stage, il me reste l'introduction à faire. La partie sur les missions est quasi finie, il manque juste les annexes et la bibliographie. Et la conclusion, je la ferai en dernier, parce que ça dépend de ce que dit ma tutrice sur le plan."
+    v1.9: "Pour le rapport de stage, il me reste l'introduction à faire, la partie sur les missions est quasi finie, il manque juste les annexes et la bibliographie, et la conclusion je la ferai en dernier parce que ça dépend de ce que dit ma tutrice sur le plan."
+  c39 9.98→10 (+0.02)
+    v1.8: 'Pour la campagne Instagram, on va faire trois posts par semaine, le mardi, le mercredi et le vendredi, avec des stories tous les jours. Et il faudra préparer un calendrier éditorial pour tout le mois de novembre que je validerai avec le client.'
+    v1.9: 'Pour la campagne Instagram, on va faire trois posts par semaine, le mardi, le mercredi et le vendredi, avec des stories tous les jours. Il faudra préparer un calendrier éditorial pour tout le mois de novembre que je validerai avec le client.'
+  c44 9.94→10 (+0.06)
+    v1.8: "Je ne veux pas qu'on supprime cette fonctionnalité, elle est utilisée par beaucoup de clients."
+    v1.9: "Non, je ne veux pas qu'on supprime cette fonctionnalité, elle est utilisée par beaucoup de clients."
+  c46 10→10 (+0.00)
+    v1.8: 'Franchement tu es un génie, ça marche nickel, merci mec'
+    v1.9: 'Franchement, tu es un génie, ça marche nickel, merci mec'
+  c51 9.69→9.64 (-0.05)
+    v1.8: "Ou alors, du moins, ce qu'on peut faire, c'est le niveau du questionnement : que ça pose plein de questions et que ça les mette directement visuellement, et que ensuite je puisse parler à l'oral pour y répondre directement. J'aimais bien ce délire d'interaction tout en parlant, vraiment comme une conversation en elle-même. Donc, s'il te plaît, fais-moi ça."
+    v1.9: "Ou alors du moins, ce qu'on peut faire, c'est le niveau du questionnement. Que ça pose plein de questions et que ça les mette directement visuellement et que ensuite je puisse parler à l'oral pour y répondre directement. J'aimais bien ce délire d'interaction tout en parlant. Vraiment comme une conversation en elle-même. Donc s'il te plaît de me faire ça."
+  c52 10→10 (+0.00)
+    v1.8: 'Tu peux demander à Claude de relire le fichier prompt.ts et de vérifier que les agents IA respectent bien le format.'
+    v1.9: 'Tu peux demander à Claude de relire le fichier `prompt.ts` et de vérifier que les agents IA respectent bien le format.'
+== _cases-forme : v1.8 9.72 → v1.9 9.63 (26 cas, erreurs exclues []) tokens entrée moy 5232 → 2535
+  f04 10→10 (+0.00)
+    v1.8: "J'arrive dans dix minutes.\n\nDis aux autres de commencer sans moi."
+    v1.9: "J'arrive dans 10 minutes.\n\nDis aux autres de commencer sans moi."
+  f06 10→8.67 (-1.33) !!!
+    v1.8: "Salut l'équipe,\n\nJe vous envoie le planning de la semaine, on commence lundi à 9 h.\n\nÀ demain,\nSarah"
+    v1.9: "Salut l'équipe, je vous envoie le planning de la semaine, on commence lundi à 9 h.\n\nÀ demain,\nSarah"
+  f07 6.95→6.95 (+0.00)
+    v1.8: "Je reviens sur la réunion d'hier. Le client a validé le budget et il est d'accord sur le calendrier. Par contre, il veut voir une maquette avant la fin du mois.\n\nSinon, côté technique, on est prêts, le serveur de test est monté et les accès sont créés. Autre chose, il faudra prévoir une démo vendredi avec toute l'équipe."
+    v1.9: "Je reviens sur la réunion d'hier. Le client a validé le budget et il est d'accord sur le calendrier. Par contre, il veut voir une maquette avant la fin du mois. \n\nSinon, côté technique, on est prêts, le serveur de test est monté et les accès sont créés. \n\nAutre chose, il faudra prévoir une démo vendredi avec toute l'équipe."
+  f08 10→9.94 (-0.06)
+    v1.8: "Ok, je te fais un point rapide. Le build passe maintenant. J'ai corrigé le test qui échouait."
+    v1.9: "Je te fais un point rapide : le build passe maintenant. J'ai corrigé le test qui échouait."
+  f10 5.91→5.91 (+0.00)
+    v1.8: "J'ai besoin de trois choses : un câble, un chargeur et une souris."
+    v1.9: "J'ai besoin de trois choses : un câble, un chargeur et une souris"
+  f19 10→9.2 (-0.80)
+    v1.8: 'va dans le dossier projets et lance npm install puis npm run dev'
+    v1.9: 'cd projets && npm install && npm run dev'
+  f20 9.98→9.9 (-0.08)
+    v1.8: "Je veux que tu m'aides à préparer un entretien. Voici le contexte : poste de chef de projet, 5 ans d'expérience, entreprise dans la logistique. Et trois consignes :\n- poser une question à la fois ;\n- corriger mes réponses ;\n- noter ma prestation sur 10."
+    v1.9: "Je veux que tu m'aides à préparer un entretien. Voici le contexte : poste de chef de projet, 5 ans d'expérience, entreprise dans la logistique. Et trois consignes :\n1. Poser une question à la fois.\n2. Corriger mes réponses.\n3. Noter ma prestation sur 10."
+  f21 10→10 (+0.00)
+    v1.8: 'Explique-moi la différence entre un mutex et un sémaphore avec un exemple en Go.'
+    v1.9: 'Explique-moi la différence entre un mutex et un sémaphore avec un exemple en Go'
+  f22 10→10 (+0.00)
+    v1.8: 'Ok je passe te voir demain matin'
+    v1.9: 'Ok, je passe te voir demain matin'
+== _cases-fidelite : v1.8 9.48 → v1.9 9.54 (15 cas, erreurs exclues []) tokens entrée moy 5231 → 2534
+  f06 5.88→8.9 (+3.02)
+    v1.8: "Il faut que je te dise un truc, hier j'ai vu Marc et il m'a dit qu'il quittait la boîte. Du coup, je ne sais pas trop quoi penser.\n\nEt sinon pour le budget, on est à peu près bon, il reste 2 000 €. Par contre, le devis du graphiste n'est pas encore arrivé."
+    v1.9: "Il faut que je te dise un truc : hier, j'ai vu Marc et il m'a dit qu'il quittait la boîte, du coup je ne sais pas trop quoi penser. Sinon, pour le budget, on est à peu près bon, il reste 2 000 €. Par contre, le devis du graphiste n'est pas encore arrivé."
+  f09 9.83→9.92 (+0.09)
+    v1.8: "L'idée, c'est de commencer petit, de tester avec 10 clients, et puis d'élargir si ça marche, et après on verra pour le prix."
+    v1.9: "En gros, l'idée c'est de commencer petit, de tester avec dix clients, et puis d'élargir si ça marche, et après on verra pour le prix."
+  f11 9.82→10 (+0.18)
+    v1.8: 'Il est content, enfin content est un grand mot, disons soulagé.'
+    v1.9: "Il est content, enfin content c'est un grand mot, disons soulagé."
+  f14 9.8→7.41 (-2.39) !!!
+    v1.8: 'Je cherche un logiciel de montage pour couper les vidéos.'
+    v1.9: 'Je cherche un logiciel de montage vidéo.'
+== _cases-contexte : v1.8 9.97 → v1.9 9.86 (7 cas, erreurs exclues []) tokens entrée moy 5250 → 2553
+  x02 10→10 (+0.00)
+    v1.8: "J'ai ouvert un ticket sur Linear pour le bug du router.ts"
+    v1.9: "J'ai ouvert un ticket sur Linear pour le bug du router.ts."
+  x07 10→9.25 (-0.75)
+    v1.8: 'Lance npm run build puis envoie sur origin main'
+    v1.9: 'npm run build && git push origin main'

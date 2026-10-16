@@ -1,6 +1,6 @@
 #!/bin/bash
 # Assets de release (CI et local) : DMG + ZIP de « CBW AI.app », vérifications de signature, latest.json.
-# Prérequis : npm run build && npm run build:fnwatch && npm run icon (cf. npm run dist:release).
+# Prérequis : npm run build && npm run build:fnwatch (compile aussi dicta-meeting) && npm run icon (cf. npm run dist:release).
 # Env : SKIP_DMG=1 (zip seul, test local) · REPO=owner/repo · NOTES_FILE=notes.md · ASSET_BASE=URL des assets
 # Sortie : dist-app/release/{CBW-AI-arm64.dmg, CBW-AI-<v>-arm64.dmg, CBW-AI-<v>-arm64.zip, latest.json}
 set -euo pipefail
@@ -28,6 +28,11 @@ check_app() { # $1 = bundle
   for b in "$1/Contents/Resources/bin/"*; do
     vtool -show-build "$b" | grep -q 'minos 14.0' || { echo "✗ $(basename "$b") n'est pas compilé pour macOS 14"; exit 1; }
   done
+  # moteur de réunion : présent, exécutable, signé, et AUCUN modèle (~490 Mo) dans le bundle (ils se téléchargent en arrière-plan)
+  local mb="$1/Contents/Resources/bin/dicta-meeting"
+  [ -x "$mb" ] || { echo "✗ dicta-meeting absent du bundle (scripts/meeting-engine → vendor/bin)"; exit 1; }
+  codesign --verify "$mb" 2>/dev/null || { echo "✗ dicta-meeting non signé"; exit 1; }
+  if find "$1" -name '*.mlmodelc' -o -name 'Parakeet*' | grep -q .; then echo "✗ des modèles Core ML sont dans le bundle"; exit 1; fi
 }
 check_app "$APP"
 echo "✓ signature ad hoc + DR identifier \"com.dicta-ai.app\" + bundle id + version $V"

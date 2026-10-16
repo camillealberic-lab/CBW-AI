@@ -1,12 +1,18 @@
 // Processus utilitaire (utilityProcess.fork) : diarisation sherpa-onnx sur le WAV complet d'une note.
 // Isolé du processus principal : ~300–400 Mo (onnxruntime + audio) libérés à la sortie, UI fluide.
 //
-// Entrée : { mix, mic?, sys?, segmentation, embedding, threads, threshold }
-// Sortie : { ok: true, mode, turns: { start, end, speaker }[], audioSec, ms } | { ok: false, error }
-//  - mode 'two-track' : micro + son du Mac présents et le son du Mac contient de la parole →
-//    diarisation de la piste système (« S0 », « S1 »…) + tours « Moi » là où le micro domine ;
-//  - mode 'mix' : diarisation du mélange (une seule piste utile).
+// Entrée : { mix, mic?, sys?, segmentation, embedding, threads, threshold, numSpeakers?, mergeSim?, maxSpeakers? }
+// Sortie : { ok: true, mode, turns: { start, end, speaker }[], audioSec, ms, sysVoicedSec, groups, merged } | { ok: false, error }
+//  - mode 'two-track' : micro + son du Mac présents et le son du Mac contient assez de parole →
+//    seule la piste système est triée par voix (« S0 », « S1 »…) ; la piste micro est « Moi » et n'est JAMAIS
+//    diarisée (les segments portent leur source, cf. src/main/notes.ts) ;
+//  - mode 'mix' : une seule piste utile (présentiel) : le mélange est trié, avec `numSpeakers` si fourni.
+// numSpeakers = nombre de personnes présentes (toi compris) : imposé au regroupement (numClusters) ; en deux
+// pistes, les autres sont numSpeakers − 1. Sans nombre : seuil de regroupement + fusion des groupes dont les
+// centroïdes sont proches (mergeSim) + absorption des groupes minuscules + plafond maxSpeakers.
+// Ligne de commande (mesures, sans Electron) : node dist/main/diarize-worker.js job.json
 import * as fs from 'node:fs';
+import { clusterCount, mergeCentroids } from './speakers';
 
 interface Job {
   mix: string;
@@ -16,6 +22,15 @@ interface Job {
   embedding: string;
   threads: number;
   threshold: number;
+  /** Personnes présentes, toi compris (imposé au regroupement quand fourni). */
+  numSpeakers?: number;
+  /** Similarité cosinus des centroïdes au-delà de laquelle deux groupes sont la même personne (défaut 0,7). */
+  mergeSim?: number;
+  /** Plafond de groupes en mode automatique (défaut 8). */
+  maxSpeakers?: number;
+  /** Seuil de parole de la piste système pour le mode deux pistes : max(sysMinSec, sysMinRatio × durée). */
+  sysMinSec?: number;
+  sysMinRatio?: number;
 }
 export interface Turn {
   start: number;
@@ -113,12 +128,16 @@ function runs(on: boolean[], gapFrames: number, minFrames: number): { start: num
   return out.map((r) => ({ start: (r.start * FRAME) / RATE, end: (r.end * FRAME) / RATE }));
 }
 
-/** Locuteurs très minoritaires (< 2 s ou < 2 % de la parole) : rattachés au tour voisin le plus proche. */
-function absorbSmall(turns: Turn[]): Turn[] {
+/**
+ * Locuteurs très minoritaires : rattachés au tour voisin le plus proche. Mode automatique : moins de
+ * max(4 s, 3 % de la parole) (une voix de 40 s sur 30 min ne survit plus en « faux locuteur » éphémère) ;
+ * nombre imposé : seulement les groupes de moins de 1,5 s.
+ */
+function absorbSmall(turns: Turn[], minSec = 4, minRatio = 0.03): Turn[] {
   const total = new Map<string, number>();
   for (const t of turns) total.set(t.speaker, (total.get(t.speaker) ?? 0) + t.end - t.start);
   const all = [...total.values()].reduce((a, b) => a + b, 0);
-  const small = new Set([...total].filter(([, d]) => d < Math.max(2, all * 0.02)).map(([k]) => k));
+  const small = new Set([...total].filter(([, d]) => d < Math.max(minSec, all * minRatio)).map(([k]) => k));
   if (small.size === 0 || small.size === total.size) return turns;
   const big = turns.filter((t) => !small.has(t.speaker));
   return turns.map((t) => {
@@ -136,25 +155,62 @@ function absorbSmall(turns: Turn[]): Turn[] {
   });
 }
 
-function diarize(job: Job, samples: Float32Array): Turn[] {
+interface DiaOut {
+  turns: Turn[];
+  /** Groupes renvoyés par le regroupement, puis après fusion. */
+  groups: number;
+  merged: number;
+}
+
+function diarize(job: Job, samples: Float32Array, nClusters: number): DiaOut {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const sherpa = require('sherpa-onnx-node');
   const sd = new sherpa.OfflineSpeakerDiarization({
     segmentation: { pyannote: { model: job.segmentation }, numThreads: job.threads },
     embedding: { model: job.embedding, numThreads: job.threads },
-    clustering: { numClusters: -1, threshold: job.threshold },
+    // numClusters > 0 : nombre imposé (le seuil est alors ignoré) ; −1 : seuil seul
+    clustering: { numClusters: nClusters, threshold: job.threshold },
     minDurationOn: 0.3,
     minDurationOff: 0.5,
   });
   const segs: { start: number; end: number; speaker: number }[] = sd.process(samples);
   const turns = segs.map((s) => ({ start: s.start, end: s.end, speaker: `S${s.speaker}` }));
-  let refined = turns;
+  const groups = new Set(turns.map((t) => t.speaker)).size;
+  let pieces: Unit[] = turns;
   try {
-    refined = refine(sherpa, job, samples, turns);
+    pieces = refine(sherpa, job, samples, turns);
   } catch (e) {
     refineError = e instanceof Error ? e.message : String(e); // affinage facultatif : tours bruts
   }
-  return mergeAdjacent(absorbSmall(refined));
+  const fused = fuseGroups(pieces, job, nClusters);
+  const forced = nClusters > 0;
+  const out = absorbSmall(fused.map(({ start, end, speaker }) => ({ start, end, speaker })), forced ? 1.5 : 4, forced ? 0.01 : 0.03);
+  const final = mergeAdjacent(out);
+  return { turns: final, groups, merged: new Set(final.map((t) => t.speaker)).size };
+}
+
+/**
+ * Fusion des groupes trop proches : la même personne éclatée en plusieurs groupes (réverbération, variations
+ * de timbre) se retrouve en centroïdes très similaires. Avec un nombre imposé, on fusionne les plus proches
+ * jusqu'à ce nombre ; sinon on fusionne au-dessus de `mergeSim` et on plafonne à `maxSpeakers`.
+ */
+function fuseGroups(pieces: Unit[], job: Job, nClusters: number): Unit[] {
+  const acc = new Map<string, { e: Float64Array; w: number }>();
+  for (const p of pieces) {
+    const d = p.end - p.start;
+    if (!p.e || d < 1) continue;
+    let a = acc.get(p.speaker);
+    if (!a) acc.set(p.speaker, (a = { e: new Float64Array(p.e.length), w: 0 }));
+    for (let i = 0; i < a.e.length; i++) a.e[i] += p.e[i] * d;
+    a.w += d;
+  }
+  if (acc.size < 2) return pieces;
+  const map = mergeCentroids([...acc].map(([id, a]) => ({ id, e: a.e, weight: a.w })), {
+    minSim: job.mergeSim ?? 0.7,
+    target: nClusters > 0 ? nClusters : undefined,
+    maxGroups: nClusters > 0 ? undefined : job.maxSpeakers ?? 8,
+  });
+  return pieces.map((p) => ({ ...p, speaker: map.get(p.speaker) ?? p.speaker }));
 }
 
 let refineError: string | undefined;
@@ -167,7 +223,7 @@ type Unit = Turn & { e?: Float32Array };
  * après une courte pause. On rend les tours disjoints, on les recoupe aux pauses internes ≥ 0,3 s, puis chaque
  * morceau ≥ 0,6 s est ré-attribué au centroïde (empreinte TitaNet moyenne pondérée) le plus proche. ~0,7 s / 2 min.
  */
-function refine(sherpa: any, job: Job, samples: Float32Array, turns: Turn[]): Turn[] {
+function refine(sherpa: any, job: Job, samples: Float32Array, turns: Turn[]): Unit[] {
   const sorted = turns.slice().sort((a, b) => a.start - b.start);
   const units: Unit[] = [];
   for (const t of sorted) {
@@ -261,7 +317,7 @@ function refine(sherpa: any, job: Job, samples: Float32Array, turns: Turn[]): Tu
     }
     if (!changed) break;
   }
-  return pieces.map(({ start, end, speaker }) => ({ start, end, speaker }));
+  return pieces;
 }
 
 /** Tours consécutifs du même locuteur (pause < 1 s) fusionnés : moins de coupes inutiles côté transcription. */
@@ -275,30 +331,34 @@ function mergeAdjacent(turns: Turn[]): Turn[] {
   return out;
 }
 
-function run(job: Job): { mode: 'two-track' | 'mix'; turns: Turn[]; audioSec: number } {
+function run(job: Job): { mode: 'two-track' | 'mix'; turns: Turn[]; audioSec: number; sysVoicedSec: number; groups: number; merged: number } {
   const exists = (f?: string) => !!f && fs.existsSync(f) && fs.statSync(f).size > 44 + RATE * 2;
   if (exists(job.mic) && exists(job.sys)) {
-    const mic = frameRms(job.mic!);
     const sys = frameRms(job.sys!);
-    const n = Math.max(mic.length, sys.length);
     let sysSpeech = 0;
-    for (let i = 0; i < sys.length; i++) if (sys[i] > 0.01) sysSpeech++;
-    if (sysSpeech * 0.1 >= 3) {
-      // Parole « à moi » : le micro est nettement au-dessus du son du Mac (l'écho des haut-parleurs reste en dessous).
-      const meOn: boolean[] = [];
-      for (let i = 0; i < n; i++) {
-        const m = mic[i] ?? 0;
-        const s = sys[i] ?? 0;
-        meOn.push(m > 0.015 && m > 2 * s);
-      }
-      const me = runs(meOn, 5, 4).map((r) => ({ ...r, speaker: 'Moi' }));
-      const others = diarize(job, loadFloat(job.sys!));
-      const turns = [...me, ...others].sort((a, b) => a.start - b.start);
-      return { mode: 'two-track', turns, audioSec: (n * FRAME) / RATE };
+    for (let i = 0; i < sys.length; i++) if (sys[i] > 0.004) sysSpeech++;
+    const sysVoicedSec = sysSpeech * 0.1;
+    const audioSec = (sys.length * FRAME) / RATE;
+    // Le son du Mac porte-t-il de la vraie conversation ? (une notification ne suffit pas : ≥ 8 s et ≥ 6 % de la durée)
+    if (sysVoicedSec >= Math.max(job.sysMinSec ?? 8, (job.sysMinRatio ?? 0.06) * audioSec)) {
+      const n = clusterCount(job.numSpeakers, 'two-track');
+      if (n === 1) return { mode: 'two-track', turns: [], audioSec, sysVoicedSec, groups: 1, merged: 1 }; // une seule voix distante : rien à trier
+      const d = diarize(job, loadFloat(job.sys!), n);
+      return { mode: 'two-track', turns: d.turns, audioSec, sysVoicedSec, groups: d.groups, merged: d.merged };
     }
+    // Pas de son système utile : présentiel (une piste) — le mélange est trié avec le nombre de personnes
+    const mix = loadFloat(job.mix);
+    return mixRun(job, mix, sysVoicedSec);
   }
-  const mix = loadFloat(job.mix);
-  return { mode: 'mix', turns: diarize(job, mix), audioSec: mix.length / RATE };
+  return mixRun(job, loadFloat(job.mix), 0);
+}
+
+function mixRun(job: Job, mix: Float32Array, sysVoicedSec: number) {
+  const n = clusterCount(job.numSpeakers, 'mix');
+  const audioSec = mix.length / RATE;
+  if (n === 1) return { mode: 'mix' as const, turns: [] as Turn[], audioSec, sysVoicedSec, groups: 1, merged: 1 };
+  const d = diarize(job, mix, n);
+  return { mode: 'mix' as const, turns: d.turns, audioSec, sysVoicedSec, groups: d.groups, merged: d.merged };
 }
 
 type Port = { on(ev: 'message', cb: (e: { data: unknown }) => void): void; postMessage(m: unknown): void };

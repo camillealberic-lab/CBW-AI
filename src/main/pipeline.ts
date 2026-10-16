@@ -23,6 +23,7 @@ interface RouterExtras {
   warmup?: () => Promise<void>;
   setRouterLogger?: (fn: ((msg: string, data?: unknown) => void) | null) => void;
   usableCloudProviders?: () => string[];
+  canSpeculate?: (raw: string, opts?: { language?: string; priorityVocabulary?: string[]; promptMode?: 'auto' | 'on' | 'off'; toneByApp?: boolean }) => { ok: boolean; reason?: string };
 }
 
 const MIN_DURATION_MS = 350;
@@ -374,6 +375,9 @@ export class Pipeline extends EventEmitter {
    * épuisé Groq, Z.ai, OpenRouter et Gemini → texte collé brut. Désormais : au plus un lancement par
    * intervalle (3 s + 10 % de la durée déjà dictée, reporté sur la dernière pause), et aucun quand il
    * reste moins de 2 fournisseurs cloud disponibles (le quota est gardé pour l'appel final).
+   * Et seulement si le 1er fournisseur cloud a encore des tokens/minute pour la spéculation ET l'appel
+   * final (≥ 2 × l'estimation, router.canSpeculate) : sinon la spéculation ferait basculer l'appel final
+   * de Groq (~0,9 s) vers un fournisseur plus lent.
    */
   private speculateLLM(t: Take, raw: string): void {
     if (!raw) return;
@@ -386,6 +390,10 @@ export class Pipeline extends EventEmitter {
     const run = () => {
       t.specTimer = null;
       if (this.state !== 'recording' || this.t !== t || t.partial !== raw) return;
+      // Évalué au moment du lancement (le quota a pu bouger pendant l'attente).
+      const lang = this.lang();
+      const { priorityVocabulary, promptMode, toneByApp } = this.dictionaryOpts();
+      if (this.router()?.canSpeculate?.(raw, { language: lang === 'auto' ? undefined : lang, priorityVocabulary, promptMode, toneByApp })?.ok === false) return;
       t.lastSpecAt = Date.now();
       void this.cleanOnce(t, raw, true);
     };

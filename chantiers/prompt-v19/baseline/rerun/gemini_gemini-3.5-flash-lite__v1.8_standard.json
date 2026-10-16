@@ -1,0 +1,29 @@
+{
+  "target": "gemini:gemini-3.5-flash-lite",
+  "prompt": "v1.8",
+  "level": "standard",
+  "date": "2026-10-15T08:46:06.692Z",
+  "p50": 4349,
+  "p90": 4349,
+  "mem": "—",
+  "rows": [
+    {
+      "id": "c51",
+      "cat": "asr_error",
+      "raw": "Ou alors du moins, ce qu'on peut faire, c'est le niveau du questionnement. Que ça pose plein de questions et que ça les mette directement visuellement et que ensuite je puisse parler à l'oral pour y répondre directement. J'aimais bien ce délire d'interaction tout en parlant. Vraiment comme une conversation en elle-même. Donc si tu plaisais de me faire ça.",
+      "expected": "Ou alors, ce qu'on peut faire, c'est travailler le niveau de questionnement : que ça pose plein de questions, que ça les affiche directement, et qu'ensuite je puisse y répondre directement à l'oral. J'aimais bien ce délire d'interaction tout en parlant, vraiment comme une conversation. Donc, s'il te plaît, fais-moi ça.",
+      "output": "Ou alors, du moins, ce qu'on peut faire, c'est le niveau du questionnement : que ça pose plein de questions et que ça les mette directement visuellement, et que ensuite je puisse parler à l'oral pour y répondre directement. J'aimais bien ce délire d'interaction tout en parlant, vraiment comme une conversation en elle-même. Donc, s'il te plaît, fais-moi ça.",
+      "rawModel": "Ou alors, du moins, ce qu'on peut faire, c'est le niveau du questionnement : que ça pose plein de questions et que ça les mette directement visuellement, et que ensuite je puisse parler à l'oral pour y répondre directement. J'aimais bien ce délire d'interaction tout en parlant, vraiment comme une conversation en elle-même. Donc, s'il te plaît, fais-moi ça.",
+      "ms": 4349,
+      "inTok": 5295,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 0.847,
+      "lenRatio": 1.18,
+      "score": 9.69
+    }
+  ]
+}

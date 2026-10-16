@@ -37,10 +37,10 @@ contextBridge.exposeInMainWorld('dictaApp', {
   clearRecent: () => invoke('clearRecent'),
 
   // prise de notes (docs/APP_API.md › Mode « Prise de notes »)
-  startNote: () => invoke('startNote'),
+  startNote: (opts?: { title?: string; participants?: string[]; eventId?: string }) => invoke('startNote', opts ?? {}),
   pauseNote: () => invoke('pauseNote'),
   resumeNote: () => invoke('resumeNote'),
-  stopNote: (opts?: { title?: string; markers?: { atMs: number; text: string }[] }) => invoke('stopNote', opts),
+  stopNote: (opts?: { title?: string; markers?: { atMs: number; text: string }[]; userNotes?: string; userTimes?: Record<string, string>; template?: string; participants?: string[] }) => invoke('stopNote', opts),
   cancelNote: () => invoke('cancelNote'),
   onNoteProgress: on('noteProgress'),
   listNotes: () => invoke('listNotes'),
@@ -49,7 +49,38 @@ contextBridge.exposeInMainWorld('dictaApp', {
   deleteNote: (id: string) => invoke('deleteNote', id),
   revealNote: (id: string) => invoke('revealNote', id),
   copyNote: (id: string) => invoke('copyNote', id),
+  copyText: (text: string) => invoke('copyText', text),
   renameSpeaker: (noteId: string, from: string, to: string) => invoke('renameSpeaker', noteId, from, to),
+  // notes v2 (docs/APP_API.md › Notes v2 — écran Notes)
+  notesV2: {
+    current: () => invoke('notes:current'),
+    call: (action: 'start' | 'snooze' | 'dismiss' | 'keep' | 'resume' | 'stopNow') => invoke('notes:call', action),
+    callState: () => invoke('notes:callState'),
+    onCallDetected: on('callDetected'), // { app?, bundleId?, seconds } | null (carte retirée)
+    onAutoStop: on('noteAutoStop'), // { phase: 'warn'|'stopped'|'cancel'|'done', seconds? }
+    regenerate: (id: string, o?: { template?: string }) => invoke('notes:regenerate', id, o ?? {}),
+    restorePrevious: (id: string) => invoke('notes:restorePrevious', id),
+    renameSegment: (id: string, startMs: number, to: string) => invoke('notes:renameSegment', id, startMs, to),
+    save: (id: string, patch: { annotated?: string; title?: string }) => invoke('notes:save', id, patch),
+    templates: () => invoke('notes:templates'),
+    ask: (qid: string, question: string, noteIds: string[], history?: { role: string; content: string }[]) => invoke('notes:ask', qid, question, noteIds, history ?? []),
+    search: (q: string) => invoke('notes:search', q),
+    audio: (id: string, fromMs: number, toMs: number) => invoke('notes:audio', id, fromMs, toMs),
+    privacy: () => invoke('notes:privacy'),
+    onLive: on('noteLive'), // { noteId, source: 'mic'|'system', startMs, endMs, text }
+    onStage: on('noteStage'), // { noteId, stage: 'transcript'|'voices'|'summary'|'done' }
+    onVoices: on('noteVoices'), // { noteId, segments, diarized, mode }
+    onDevice: on('noteDevice'), // { state: 'lost'|'recovered'|'fallback'|'muted', label }
+    onDraft: on('noteDraft'), // NoteMeta du brouillon
+    onDelta: on('noteDelta'), // { noteId, annotated } (cumulé ; '' = autre fournisseur)
+    onAskDelta: on('askDelta'), // { qid, answer }
+    onMeetingSoon: on('meetingSoon'), // CalendarEvent, ~1 min avant
+  },
+  hub: { available: () => invoke('hub:available'), send: (tasks: unknown) => invoke('hub:send', tasks) },
+  calendar: { status: () => invoke('calendar:status'), enable: (on?: boolean) => invoke('calendar:enable', on), current: () => invoke('calendar:current'), upcoming: () => invoke('calendar:upcoming') },
+  engine: { status: () => invoke('engine:status'), downloadNow: () => invoke('engine:downloadNow'), cancel: () => invoke('engine:cancel') },
+  onEngineProgress: on('engineProgress'),
+  licenses: () => invoke('licenses'),
 
   // mises à jour (docs/APP_API.md › Mises à jour)
   getVersion: () => invoke('getVersion'),

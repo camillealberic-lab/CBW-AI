@@ -1,0 +1,47 @@
+{
+  "target": "gemini:gemini-3.5-flash-lite",
+  "prompt": "v1.8",
+  "level": "standard",
+  "date": "2026-10-15T08:43:05.130Z",
+  "p50": 5404,
+  "p90": 5404,
+  "mem": "—",
+  "rows": [
+    {
+      "id": "x03",
+      "cat": "ctx_use",
+      "raw": "demande à cloud code de relire le composant use effect",
+      "expected": "Demande à Claude Code de relire le composant useEffect.",
+      "output": "Demande à Claude Code de relire le composant useEffect.",
+      "rawModel": "Demande à Claude Code de relire le composant useEffect.",
+      "ms": 5404,
+      "inTok": 5252,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 1,
+      "lenRatio": 1,
+      "score": 10
+    },
+    {
+      "id": "x05",
+      "cat": "ctx_unused",
+      "raw": "on se retrouve devant la gare à dix-huit heures",
+      "expected": "On se retrouve devant la gare à 18 heures.",
+      "output": "On se retrouve devant la gare à 18 h",
+      "rawModel": "On se retrouve devant la gare à 18 h",
+      "ms": 4219,
+      "inTok": 5245,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 0.889,
+      "lenRatio": 1,
+      "score": 9.78
+    }
+  ]
+}

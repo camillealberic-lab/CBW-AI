@@ -5,7 +5,10 @@ import type { DictaStatus } from '../shared/types';
 import { routerAvailable, routerModule } from './cleaner';
 import { PushToTalk } from './hotkey';
 import { Overlay } from './overlay';
-import { captureAppWindow, initAppIpc, openAppWindow } from './appWindow';
+import { captureAppWindow, initAppIpc, openAppWindow, startMeetingFromMain, wireCallDetection } from './appWindow';
+import { calendarWatcher, type CalendarEvent } from './calendar';
+import { callDetector } from './callDetect';
+import { addBusyProbe } from './meetingEngine';
 import { ensureOllama, stopOllama } from './ollama';
 import { distDir, logFile, log } from './paths';
 import { NoteSession } from './notes';
@@ -301,7 +304,9 @@ async function main(): Promise<void> {
   notes.on('saved', (meta: { id: string; title: string }) => {
     tray.rebuild();
     if (!Notification.isSupported()) return;
-    const n = new Notification({ title: 'Note prête', body: meta.title, silent: false });
+    // Wispr : « Résumé prêt : <titre> » ; sans moteur IA, la transcription seule est enregistrée.
+    const raw = (meta as { provider?: string }).provider === 'passthrough';
+    const n = new Notification({ title: raw ? `Note enregistrée : ${meta.title}` : `Résumé prêt : ${meta.title}`, body: raw ? 'Transcription enregistrée, résumé à générer.' : 'Clique pour ouvrir la note.', silent: false });
     n.on('click', () => openAppWindow(`notes:${meta.id}`));
     n.show();
   });
@@ -316,6 +321,31 @@ async function main(): Promise<void> {
   }
 
   initAppIpc({ hotkey, recorder, pipeline, notes });
+  // Moteur de notes (api-engine.md) : pas de téléchargement pendant une dictée (les notes sont déjà couvertes).
+  addBusyProbe(() => !['idle', 'done', 'error'].includes(pipeline.current));
+  // Calendrier (notes.calendar, défaut false) : notification ~1 min avant ; un clic démarre la prise de notes.
+  calendarWatcher.on('soon', (ev: CalendarEvent) => {
+    if (notes.busy || !Notification.isSupported()) return;
+    const others = ev.attendees.filter((a) => !a.me).map((a) => a.name);
+    const body = (others.length ? `Avec ${others.slice(0, 3).join(', ')}${others.length > 3 ? '…' : ''}. ` : '') + 'Clique pour prendre des notes.';
+    const nf = new Notification({ title: `${ev.title || 'Réunion'} dans 1 min`, body, silent: true });
+    nf.on('click', () => {
+      openAppWindow('notes');
+      if (!notes.busy && pipeline.current !== 'recording')
+        void startMeetingFromMain({ title: ev.title || undefined, participants: others, eventId: ev.id }).catch((e) => log('note: démarrage depuis le calendrier', e));
+    });
+    nf.show();
+  });
+  calendarWatcher.start();
+  // Détection d'appel (src/main/callDetect.ts) : carte « Réunion détectée », démarrage / arrêt auto (appWindow.ts).
+  wireCallDetection(callDetector);
+  callDetector.start();
+  settings.on('change', (k: string, v: unknown) => {
+    if (k !== 'notes.detectCalls') return;
+    if (v === false) callDetector.stop();
+    else callDetector.start();
+  });
+  app.on('will-quit', () => callDetector.stop());
   // Mises à jour : 30 s après le lancement, toutes les heures et au réveil ; fenêtre centrée « Mettre à jour » quand une version est prête (ou installation au Quitter).
   let lastUpKey = '';
   updater.on('update', (u: { state: string; percent?: number }) => {

@@ -27,6 +27,14 @@ export interface Settings {
   'notes.systemAudio': boolean; // notes : capte aussi le son du Mac (visios)
   'notes.diarization': boolean; // notes : séparation des voix (qui a dit quoi), locale
   'notes.keepAudio': boolean; // notes : garde ~/.dicta-ai/notes/<id>.wav après l'organisation
+  'notes.echoCancel': boolean; // notes : annule l'écho du haut-parleur sur le micro (api-core.md)
+  'notes.engine': 'auto' | 'whisper'; // moteur des réunions : auto (Parakeet si possible) ou Whisper forcé (api-engine.md)
+  'notes.engineDownloadPaused': boolean; // suspend le téléchargement du moteur de notes
+  'notes.calendar': boolean; // lit le Calendrier macOS : alerte 1 min avant une réunion, noms des invités (src/main/calendar.ts)
+  'notes.template': string; // type de réunion par défaut (src/llm/templates.ts), 'auto'
+  'notes.detectCalls': boolean; // notes : carte « Réunion détectée » quand une autre app prend le micro (src/main/callDetect.ts)
+  'notes.autoStart': boolean; // notes : démarre seul à la détection d'un appel (sinon carte avec compte à rebours)
+  'notes.autoStop': boolean; // notes : s'arrête seul à la fin de l'appel (« Toujours là ? » + Reprendre)
   'context.enabled': boolean; // lit l'app active (Accessibilité) pour orthographier les noms ; rien n'est enregistré
   'dictionary.autoLearn': boolean; // apprend les termes que la personne corrige après un collage
   'updates.auto': boolean; // vérifie + télécharge les mises à jour en arrière-plan (src/main/updater.ts)
@@ -50,6 +58,14 @@ export const DEFAULTS: Settings = {
   'notes.systemAudio': true,
   'notes.diarization': true,
   'notes.keepAudio': false,
+  'notes.echoCancel': true,
+  'notes.engine': 'auto',
+  'notes.engineDownloadPaused': false,
+  'notes.calendar': false,
+  'notes.template': 'auto',
+  'notes.detectCalls': true,
+  'notes.autoStart': false,
+  'notes.autoStop': true,
   'updates.auto': true,
   'context.enabled': true,
   'dictionary.autoLearn': true,
@@ -142,6 +158,8 @@ const BOOL_KEYS = new Set([
   'audio.avoidBluetooth', 'audio.pauseMedia', 'audio.lowVoice', 'cleaning.toneByApp', 'cleaning.frenchTypography',
   'context.readBefore', 'history.keepAudio', 'paste.rawUndoFirst', 'snippets.enabled', 'rewrite.enabled',
   'overlay.livePreview', 'notepad.enabled', 'context.enabled', 'dictionary.autoLearn',
+  'notes.systemAudio', 'notes.diarization', 'notes.keepAudio', 'notes.echoCancel', 'notes.engineDownloadPaused', 'notes.calendar',
+  'notes.detectCalls', 'notes.autoStart', 'notes.autoStop',
 ]);
 /** Règles strictes des clés connues (les autres gardent la règle générique de validateSetting). */
 const STRICT: Record<string, (v: unknown) => boolean> = {
@@ -160,6 +178,8 @@ const STRICT: Record<string, (v: unknown) => boolean> = {
   'shortcuts.copyLast': isAccelOrEmpty,
   'shortcuts.rewrite': isAccelOrEmpty,
   'shortcuts.mouseButton': (v) => v === 0 || isInt(v, 4, 32),
+  'notes.engine': (v) => v === 'auto' || v === 'whisper',
+  'notes.template': (v) => typeof v === 'string' && /^[a-z0-9-]{1,24}$/.test(v),
   'overlay.hiddenUntil': (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0,
 };
 

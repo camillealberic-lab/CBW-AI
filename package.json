@@ -76,7 +76,9 @@
           "whisper-*",
           "dicta-fnwatch",
           "dicta-fullscreen",
-          "dicta-context"
+          "dicta-context",
+          "dicta-callwatch",
+          "dicta-meeting"
         ]
       },
       {
@@ -86,6 +88,10 @@
       {
         "from": "assets/icon.png",
         "to": "assets/icon.png"
+      },
+      {
+        "from": "assets/licenses",
+        "to": "licenses"
       },
       {
         "from": "assets/sounds",
@@ -122,7 +128,9 @@
         "LSUIElement": false,
         "NSMicrophoneUsageDescription": "CBW AI utilise le micro pour transcrire votre dictée en local, sur votre Mac.",
         "NSAudioCaptureUsageDescription": "CBW AI enregistre le son du Mac pendant une prise de notes (visio, appel) pour transcrire aussi vos interlocuteurs, en local.",
-        "NSAppleEventsUsageDescription": "CBW AI lit vos contacts et votre agenda, uniquement à votre demande, pour mieux orthographier les noms. Il pilote aussi Musique et Spotify pour mettre la lecture en pause pendant une dictée."
+        "NSAppleEventsUsageDescription": "CBW AI lit vos contacts et votre agenda, uniquement à votre demande, pour mieux orthographier les noms. Il pilote aussi Musique et Spotify pour mettre la lecture en pause pendant une dictée.",
+        "NSCalendarsFullAccessUsageDescription": "CBW AI lit votre agenda, si vous l'activez, pour vous prévenir avant une réunion et proposer le nom des participants.",
+        "NSCalendarsUsageDescription": "CBW AI lit votre agenda, si vous l'activez, pour vous prévenir avant une réunion et proposer le nom des participants."
       }
     },
     "dmg": {

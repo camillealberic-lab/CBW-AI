@@ -1,0 +1,29 @@
+{
+  "target": "gemini:gemini-3.5-flash-lite",
+  "prompt": "v1.9",
+  "level": "standard",
+  "date": "2026-10-15T08:46:16.481Z",
+  "p50": 3605,
+  "p90": 3605,
+  "mem": "—",
+  "rows": [
+    {
+      "id": "x02",
+      "cat": "ctx_use",
+      "raw": "j'ai ouvert un ticket sur linéaire pour le bug du router point ts",
+      "expected": "J'ai ouvert un ticket sur Linear pour le bug du router.ts.",
+      "output": "J'ai ouvert un ticket sur Linear pour le bug du router.ts.",
+      "rawModel": "J'ai ouvert un ticket sur Linear pour le bug du router.ts.",
+      "ms": 3605,
+      "inTok": 2553,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 1,
+      "lenRatio": 1,
+      "score": 10
+    }
+  ]
+}

@@ -4,33 +4,49 @@
 //   Jeux : --cases cases-forme.jsonl (mise en forme v1.8), cases-contexte.jsonl, cases-fidelite.jsonl
 // Résultats : bench/results/<cible>.json + résumé en console + bench/results/summary.md
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
-import { buildMessages, postProcess, GENERATION, PROMPT_VERSION, isEmptyDictation, shouldSkipLLM, fallbackClean } from '../src/llm/prompt.ts';
 import { finalizeText } from '../src/llm/router.ts';
 import type { CleanLevel } from '../src/llm/prompt.ts';
 import { thinkingConfigFor } from '../src/llm/providers/gemini.ts';
+import { groqExtraBody } from '../src/llm/providers/groq.ts';
+import { autoParagraphs } from '../src/llm/prompt.ts';
+import { appProfile } from '../src/llm/format.ts';
 
 interface Case { id: string; cat: string; raw: string; context?: import('../src/shared/types.ts').DictationContext; expected: string; must: string[]; mustNot: string[];
   /** Début attendu, casse comprise (raccord). */ starts?: string;
   /** Sortie attendue SANS IA (fallbackClean + passe finale) : vérifiée par --dry. */ offline?: string }
 interface Row {
   id: string; cat: string; raw: string; expected: string; output: string; rawModel: string;
-  ms: number; rejected?: string; error?: string; skipped?: boolean;
+  ms: number; inTok?: number; rejected?: string; error?: string; skipped?: boolean;
   mustOk: boolean; missing: string[]; mustNotOk: boolean; leaked: string[]; fillerLeft: string[];
+  /** Blocs (séparés par une ligne vide) attendus / obtenus ; paraOk = même structure (1 bloc vs plusieurs). */
+  paraExp: number; paraOut: number; paraOk: boolean;
+  /** Formes orales restées (t'as, y a, faut, négation sans « ne ») absentes de l'attendu. */
+  oralLeft: string[];
   f1: number; lenRatio: number; score: number;
 }
 
 const args = process.argv.slice(2);
 const flag = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args.splice(i, 2)[1] : undefined; };
+// --prompt <module> : autre version du prompt (ex. src/llm/prompt.v18.bench.ts) pour une mesure de non-régression.
+const promptArg = flag('--prompt');
+const { buildMessages, postProcess, GENERATION, PROMPT_VERSION, isEmptyDictation, shouldSkipLLM, fallbackClean } = (await import(
+  promptArg ? new URL('../' + promptArg.replace(/^\.?\//, ''), import.meta.url).href : '../src/llm/prompt.ts'
+)) as typeof import('../src/llm/prompt.ts');
 const level = (flag('--level') ?? 'standard') as CleanLevel;
 const only = flag('--only')?.split(',');
 const cat = flag('--cat');
 const vocabulary = flag('--vocab')?.split(',') ?? [];
 const delayMs = Number(flag('--delay') ?? 0);
 const casesFile = flag('--cases') ?? 'cases.jsonl';
+const outDir = flag('--out'); // dossier des résultats JSON (défaut bench/results)
 const mark = args.includes('--mark') ? (args.splice(args.indexOf('--mark'), 1), true) : false;
+// --autopara : applique la passe de paragraphes de finalizeText (v1.10) à la sortie, comme l'app.
+const autopara = args.includes('--autopara') ? (args.splice(args.indexOf('--autopara'), 1), true) : false;
+// --rescore <fichier.json> : rejoue le score d'un résultat existant (avec --autopara : après la passe), sans appel modèle.
+const rescore = flag('--rescore');
 const dry = args.includes('--dry') ? (args.splice(args.indexOf('--dry'), 1), true) : false;
 const targets = args.length ? args : [];
-if (!targets.length && !dry) {
+if (!targets.length && !dry && !rescore) {
   console.error('Précisez une cible (ex. groq:<modèle>). Plus de cible Ollama par défaut : Mac 16 Go, jamais charger un modèle local en test.');
   process.exit(1);
 }
@@ -45,7 +61,10 @@ if (only) cases = cases.filter((c) => only.includes(c.id));
 if (cat) cases = cases.filter((c) => c.cat === cat);
 
 // ───────────────────────────────────────────── appels modèles (autonomes)
+/** Tokens d'entrée facturés par le dernier appel (usage renvoyé par l'API), pour mesurer le poids du prompt. */
+let lastInTok: number | undefined;
 async function call(target: string, system: string, user: string, maxTokens: number): Promise<string> {
+  lastInTok = undefined;
   const [prov, ...rest] = target.split(':');
   const model = rest.join(':');
   const t = GENERATION.temperature;
@@ -78,22 +97,29 @@ async function call(target: string, system: string, user: string, maxTokens: num
     });
     const j: any = await r.json();
     if (!r.ok) throw new Error(`${r.status} ${JSON.stringify(j).slice(0, 300)}`);
+    lastInTok = j.usageMetadata?.promptTokenCount;
     return j.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ?? '';
   }
   const base = prov === 'groq' ? 'https://api.groq.com/openai/v1' : prov === 'openrouter' ? 'https://openrouter.ai/api/v1' : '';
   if (!base) throw new Error(`fournisseur inconnu : ${prov}`);
   const key = process.env[prov === 'groq' ? 'GROQ_API_KEY' : 'OPENROUTER_API_KEY'];
   if (!key) throw new Error(`clé ${prov} manquante`);
-  const r = await fetch(`${base}/chat/completions`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, temperature: t, messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-      // Même réglage que src/llm/providers/groq.ts (gpt-oss : raisonnement bas, masqué, +512 tokens de marge)
-      ...(/gpt-oss/.test(model) ? { reasoning_effort: 'low', include_reasoning: false, max_completion_tokens: maxTokens + 512 } : { max_tokens: maxTokens }) }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  const j: any = await r.json();
-  if (!r.ok) throw new Error(`${r.status} ${JSON.stringify(j).slice(0, 300)}`);
+  // Groq : exactement le corps de src/llm/providers/groq.ts (gpt-oss : raisonnement bas + marge ; qwen3 : sans réflexion).
+  const body = JSON.stringify({ model, temperature: t, messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+    ...(prov === 'groq' ? groqExtraBody(model, maxTokens) : { max_tokens: maxTokens }) });
+  let r!: Response, j: any;
+  // 429 (quota tokens/minute partagé avec les dictées de Camille) : on attend ce que l'API demande, 3 fois au plus.
+  for (let attempt = 0; ; attempt++) {
+    r = await fetch(`${base}/chat/completions`, { method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body, signal: AbortSignal.timeout(45_000) });
+    j = await r.json();
+    if (r.status !== 429 || attempt >= 3) break;
+    const m = /try again in (?:(\d+)m)?([\d.]+)s/i.exec(JSON.stringify(j));
+    const waitS = Math.min(90, (m ? Number(m[1] ?? 0) * 60 + Number(m[2]) : Number(r.headers.get('retry-after') ?? 20)) + 2);
+    process.stdout.write(`    (429, attente ${Math.round(waitS)} s)\n`);
+    await new Promise((res) => setTimeout(res, waitS * 1000));
+  }
+  if (!r.ok) throw new Error(`${r.status} ${String(j?.error?.message ?? JSON.stringify(j)).replace(/org_\w+/g, 'org_…').slice(0, 300)}`);
+  lastInTok = j.usage?.prompt_tokens;
   return j.choices?.[0]?.message?.content ?? '';
 }
 
@@ -113,13 +139,45 @@ function f1(a: string, b: string) {
   const p = hit / A.length, r = hit / B.length;
   return p + r ? (2 * p * r) / (p + r) : 0;
 }
-const FILLERS = ['euh', 'heu', 'hum', 'bah', 'ben ', 'du coup', 'genre ', 'tu vois', ' quoi.', ' quoi,'];
+const FILLERS = ['euh', 'heu', 'hum', 'bah', 'ben ', 'du coup', 'genre ', 'tu vois', ' quoi.', ' quoi,', ' hein'];
+
+/** Blocs séparés par une ligne vide ; une liste (lignes « 1. » / « - ») compte comme un bloc à part. */
+function blocks(s: string): number {
+  const t = s.trim();
+  if (!t) return 0;
+  return t.split(/\n\s*\n/).reduce((n, b) => n + (/\n(?:\d+\.|-) /.test(b) ? 2 : 1), 0);
+}
+/** Formes orales : t'as / t'es, y a, faut sans « il », négation sans « ne ». */
+function oralForms(s: string): string[] {
+  const t = ' ' + norm(s).replace(/\n/g, ' ') + ' ';
+  const out: string[] = [];
+  const count = (re: RegExp) => (t.match(re) ?? []).length;
+  const pats: [string, RegExp][] = [
+    ["t'as/t'es", /[\s,.](t'as|t'es)\s/g],
+    ['y a', /[\s,.]y a\s/g],
+    ['faut', /(?<!\bil )\b(faut|faudra|faudrait)\b/g],
+  ];
+  for (const [k, re] of pats) for (let i = count(re); i > 0; i--) out.push(k);
+  const w = t.trim().split(/[\s,.;:!?]+/);
+  w.forEach((x, i) => {
+    if (x !== 'pas') return;
+    const prev = w.slice(Math.max(0, i - 4), i);
+    if (prev.some((p) => p === 'ne' || p.startsWith("n'"))) return;
+    if (['ou', 'non', 'pourquoi', 'surtout', 'meme', 'mais'].includes(w[i - 1] ?? '') || w[i + 1] === 'mal') return;
+    out.push('pas sans ne');
+  });
+  return out;
+}
 
 function score(c: Case, output: string, extra: Partial<Row>): Row {
   const missing = c.must.filter((m) => !has(output, m));
   if (c.starts && !output.startsWith(c.starts)) missing.push(`^${c.starts}`);
   const leaked = c.mustNot.filter((m) => has(output, m));
   const fillerLeft = FILLERS.filter((f) => ` ${norm(output)} `.includes(f) && !` ${norm(c.expected)} `.includes(f));
+  const oe = oralForms(c.expected);
+  const oralLeft = oralForms(output).filter((k) => { const i = oe.indexOf(k); if (i >= 0) { oe.splice(i, 1); return false; } return true; });
+  const paraExp = blocks(c.expected), paraOut = blocks(output);
+  const paraOk = !output.trim() ? paraExp === 0 : paraExp > 1 ? paraOut > 1 : paraOut === 1;
   const fs = f1(output, c.expected);
   const lenRatio = tokens(output).length / Math.max(1, tokens(c.expected).length);
   // Score /10 : contenu obligatoire 4, rien d'abandonné 3, fillers 1, proximité 2. Rejet = 0.
@@ -132,7 +190,7 @@ function score(c: Case, output: string, extra: Partial<Row>): Row {
   }
   return {
     id: c.id, cat: c.cat, raw: c.raw, expected: c.expected, output, rawModel: '', ms: 0, ...extra,
-    mustOk: !missing.length, missing, mustNotOk: !leaked.length, leaked, fillerLeft,
+    mustOk: !missing.length, missing, mustNotOk: !leaked.length, leaked, fillerLeft, paraExp, paraOut, paraOk, oralLeft,
     f1: +fs.toFixed(3), lenRatio: +lenRatio.toFixed(2), score: +s.toFixed(2),
   } as Row;
 }
@@ -145,6 +203,22 @@ async function ollamaMem(model: string): Promise<string> {
   } catch { return '?'; }
 }
 
+
+const codeLike = (c: Case) => ['terminal', 'code'].includes(appProfile(c.context));
+const finish = (c: Case, out: string) => (autopara && out && !codeLike(c) ? autoParagraphs(out) : out);
+
+if (rescore) {
+  const j = JSON.parse(readFileSync(rescore, 'utf8'));
+  const byId = new Map(cases.map((c) => [c.id, c]));
+  const rows: Row[] = j.rows.filter((r: Row) => byId.has(r.id)).map((r: Row) => {
+    const c = byId.get(r.id)!;
+    return score(c, r.skipped || r.error || r.rejected ? r.output : finish(c, r.output), { rejected: r.rejected, error: r.error, skipped: r.skipped });
+  });
+  const avg = (f: (r: Row) => number) => rows.reduce((a, r) => a + f(r), 0) / Math.max(1, rows.length);
+  for (const r of rows) if (!r.paraOk || r.score < 9) console.log(`  ${r.id} ${r.score} ¶${r.paraOut}/${r.paraExp}  ${r.output.replace(/\n/g, ' ⏎ ').slice(0, 140)}`);
+  console.log(`| ${j.target} | ${j.prompt}${autopara ? '+¶' : ''} | **${avg((r) => r.score).toFixed(2)}** | ${rows.filter((r) => r.mustOk).length}/${rows.length} | ${rows.filter((r) => r.mustNotOk).length}/${rows.length} | ${rows.filter((r) => !r.fillerLeft.length).length}/${rows.length} | ${rows.filter((r) => r.paraOk).length}/${rows.length} | ${rows.filter((r) => !r.oralLeft.length).length}/${rows.length} | ${avg((r) => r.f1).toFixed(2)} |`);
+  process.exit(0);
+}
 
 // ───────────────────────────────────────────── --dry : sans aucun appel modèle
 if (dry) {
@@ -188,13 +262,14 @@ for (const target of targets) {
     let rawModel = '', output = '', rejected: string | undefined, error: string | undefined;
     try {
       rawModel = await call(target, system, user, GENERATION.maxTokens(c.raw));
-      try { output = postProcess(rawModel, c.raw); } catch (e) { rejected = (e as Error).message; output = rawModel.trim(); }
+      try { output = finish(c, postProcess(rawModel, c.raw)); } catch (e) { rejected = (e as Error).message; output = rawModel.trim(); }
     } catch (e) { error = (e as Error).message; }
     const ms = Math.round(performance.now() - t0);
-    const row = score(c, output, { rawModel, ms, rejected, error });
+    const row = score(c, output, { rawModel, ms, inTok: lastInTok, rejected, error });
     rows.push(row);
     const flagStr = error ? 'ERR' : rejected ? 'REJ' : row.score >= 9 ? ' ok' : row.score >= 7 ? '  ~' : ' KO';
-    process.stdout.write(`  ${flagStr} ${c.id} ${c.cat.padEnd(16)} ${String(row.score).padStart(5)}  ${ms}ms  ${(error ?? output).replace(/\n/g, ' ⏎ ').slice(0, 110)}\n`);
+    const tags = `${row.paraOk ? '' : ` ¶${row.paraOut}/${row.paraExp}`}${row.oralLeft.length ? ` oral:${row.oralLeft.join(',')}` : ''}${row.fillerLeft.length ? ` filler:${row.fillerLeft.join(',').trim()}` : ''}`;
+    process.stdout.write(`  ${flagStr} ${c.id} ${c.cat.padEnd(16)} ${String(row.score).padStart(5)}  ${ms}ms${tags}  ${(error ?? output).replace(/\n/g, ' ⏎ ').slice(0, 110)}\n`);
   }
   const run = rows.filter((r) => !r.skipped);
   const avg = (f: (r: Row) => number, rs = rows) => rs.reduce((a, r) => a + f(r), 0) / Math.max(1, rs.length);
@@ -203,14 +278,19 @@ for (const target of targets) {
   const mem = target.startsWith('ollama:') ? await ollamaMem(target.slice(7)) : '—';
   const byCat = new Map<string, Row[]>();
   for (const r of rows) byCat.set(r.cat, [...(byCat.get(r.cat) ?? []), r]);
-  const line = `| ${target} | ${PROMPT_VERSION}/${level}${mark ? '+mark' : ''} | **${avg((r) => r.score).toFixed(2)}** | ${rows.filter((r) => r.mustOk).length}/${rows.length} | ${rows.filter((r) => r.mustNotOk).length}/${rows.length} | ${rows.filter((r) => !r.fillerLeft.length).length}/${rows.length} | ${avg((r) => r.f1).toFixed(2)} | ${rows.filter((r) => r.rejected).length} | ${rows.filter((r) => r.error).length} | ${p50} / ${p90} | ${mem} |`;
+  const line = `| ${target} | ${PROMPT_VERSION}/${level}${mark ? '+mark' : ''} | **${avg((r) => r.score).toFixed(2)}** | ${rows.filter((r) => r.mustOk).length}/${rows.length} | ${rows.filter((r) => r.mustNotOk).length}/${rows.length} | ${rows.filter((r) => !r.fillerLeft.length).length}/${rows.length} | ${rows.filter((r) => r.paraOk).length}/${rows.length} | ${rows.filter((r) => !r.oralLeft.length).length}/${rows.length} | ${avg((r) => r.f1).toFixed(2)} | ${rows.filter((r) => r.rejected).length} | ${rows.filter((r) => r.error).length} | ${p50} / ${p90} | ${mem} |`;
   summary.push(line);
   console.log('\n' + line);
+  const toks = run.map((r) => r.inTok).filter((n): n is number => typeof n === 'number');
+  if (toks.length) console.log(`  tokens d'entrée (API) : moyenne ${Math.round(toks.reduce((a, b) => a + b, 0) / toks.length)}, min ${Math.min(...toks)}, max ${Math.max(...toks)}`);
   console.log('  par catégorie : ' + [...byCat].map(([k, v]) => `${k} ${avg((r) => r.score, v).toFixed(1)}`).join(' · '));
-  const file = `${ROOT}results/${target.replace(/[:/]/g, '_')}__${PROMPT_VERSION}_${level}${mark ? '_mark' : ''}.json`;
+  const setTag = casesFile === 'cases.jsonl' ? '' : '_' + casesFile.replace(/^.*\//, '').replace(/\.jsonl$/, '');
+  const dir = outDir ? (outDir.endsWith('/') ? outDir : outDir + '/') : `${ROOT}results/`;
+  mkdirSync(dir, { recursive: true });
+  const file = `${dir}${target.replace(/[:/]/g, '_')}__${PROMPT_VERSION}_${level}${mark ? '_mark' : ''}${setTag}.json`;
   writeFileSync(file, JSON.stringify({ target, prompt: PROMPT_VERSION, level, date: new Date().toISOString(), p50, p90, mem, rows }, null, 2));
 }
-const head = '| cible | prompt | score /10 | contenu ✔ | abandonné ✘ | sans filler | F1 | rejets | erreurs | latence p50/p90 ms | RAM |\n|---|---|---|---|---|---|---|---|---|---|---|';
+const head = '| cible | prompt | score /10 | contenu ✔ | abandonné ✘ | sans filler | paragraphes ✔ | oral→écrit ✔ | F1 | rejets | erreurs | latence p50/p90 ms | RAM |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|';
 const sumFile = ROOT + 'results/summary.md';
 const prev = existsSync(sumFile) ? readFileSync(sumFile, 'utf8').split('\n').filter((l) => l.startsWith('| ') && !l.startsWith('| cible')) : [];
 writeFileSync(sumFile, `# Benchmark Dicta AI\n\n${head}\n${[...prev, ...summary].join('\n')}\n`);

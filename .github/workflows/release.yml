@@ -93,8 +93,26 @@ jobs:
         if: steps.whisper-cache.outputs.cache-hit != 'true'
         run: SDKROOT="$(xcrun --show-sdk-path)" WHISPER_NO_MODEL=1 bash scripts/setup-whisper.sh
 
-      - name: Build helper fnwatch (Swift)
-        run: bash scripts/build-fnwatch.sh
+      # Moteur de réunion dicta-meeting (FluidAudio, paquet Swift épinglé 0.17.7) : les dépendances SwiftPM sont en cache
+      # (clé = Package.resolved) ; seul le binaire (~19 Mo) est embarqué — les modèles (~490 Mo) ne le sont jamais.
+      - name: Cache SwiftPM (moteur de réunion)
+        uses: actions/cache@v4
+        with:
+          path: scripts/meeting-engine/.build
+          key: swiftpm-meeting-${{ runner.os }}-${{ hashFiles('scripts/meeting-engine/Package.swift', 'scripts/meeting-engine/Package.resolved') }}
+
+      - name: Xcode récent (outils Swift 6)
+        run: |
+          # swift-tools-version 6.0 : Xcode 16+ (le runner macos-14 en a plusieurs ; le plus récent < 26 est pris)
+          X=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1 || true)
+          if [ -n "$X" ]; then sudo xcode-select -s "$X/Contents/Developer"; fi
+          swift --version
+
+      - name: Build helpers natifs (fn, plein écran, contexte, dicta-meeting — Swift, macOS 14, signature ad hoc)
+        run: |
+          bash scripts/build-fnwatch.sh
+          test -x vendor/bin/dicta-meeting || { echo "::error::dicta-meeting n'a pas été compilé"; exit 1; }
+          vtool -show-build vendor/bin/dicta-meeting | grep 'minos'
 
       - name: Build app (TS + icône)
         run: |

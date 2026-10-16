@@ -5,7 +5,7 @@ import type { CleanOptions, CleanResult, ProviderErrorKind, ProviderId } from '.
 import { ProviderError } from '../shared/types.ts';
 import { ALL_PROVIDERS, loadConfig } from './config.ts';
 import type { LLMConfig } from './config.ts';
-import { GENERATION, buildMessages, fallbackClean, isEmptyDictation, postProcess, shouldSkipLLM } from './prompt.ts';
+import { GENERATION, autoParagraphs, buildMessages, fallbackClean, isEmptyDictation, postProcess, shouldSkipLLM } from './prompt.ts';
 import { appProfile, applyReplacements, frenchTypography, joinWithBefore, stripInventedBreaks } from './format.ts';
 import { isUserAbort } from './providers/common.ts';
 import type { DictaProvider, DictaProviderError } from './providers/common.ts';
@@ -84,6 +84,8 @@ export function finalizeText(text: string, raw: string, opts: RouterCleanOptions
   const profile = appProfile(opts.context);
   const codeLike = profile === 'terminal' || profile === 'code';
   if (codeLike && opts.promptMode !== 'on') t = stripInventedBreaks(t, raw);
+  // v1.10 : long bloc sans retour (petits modèles) → paragraphes aux changements de sujet nets. Jamais en terminal / code.
+  else if (!codeLike) t = autoParagraphs(t);
   t = applyReplacements(t, opts.replacements);
   if (opts.frenchTypography !== false && (opts.language ?? 'fr') === 'fr' && !codeLike) t = frenchTypography(t);
   t = joinWithBefore(t, opts.context?.before);
@@ -414,6 +416,37 @@ export function usableCloudProviders(cfg: LLMConfig = loadConfig()): ProviderId[
   });
 }
 
+/** Marge pour le bloc <contexte>/<avant> que la spéculation ne connaît pas encore (≤ 300 car. + noms). */
+const SPEC_CONTEXT_MARGIN_TOKENS = 200;
+
+/**
+ * Un nettoyage spéculatif (pendant une pause de la dictée) peut-il partir sans priver l'appel final ?
+ * Oui seulement si le PREMIER fournisseur cloud utilisable a encore, sur au moins un de ses modèles,
+ * des tokens/minute pour la spéculation ET l'appel final (≥ 2 × l'estimation d'une requête). Quota
+ * inconnu (pas encore observé) = autorisé. Synchrone et local (usage.json) : aucune requête.
+ */
+export function canSpeculate(
+  raw: string,
+  opts: Pick<RouterCleanOptions, 'language' | 'level' | 'vocabulary' | 'priorityVocabulary' | 'promptMode' | 'toneByApp'> = {},
+  cfg: LLMConfig = loadConfig(),
+): { ok: boolean; provider?: ProviderId; estTokens: number; reason?: string } {
+  const first = usableCloudProviders(cfg)[0];
+  const { system, user } = buildMessages(raw ?? '', {
+    language: opts.language ?? 'fr',
+    level: opts.level ?? cfg.cleanup.level,
+    vocabulary: opts.vocabulary ?? cfg.cleanup.vocabulary,
+    priorityVocabulary: opts.priorityVocabulary,
+    promptMode: opts.promptMode,
+    toneByApp: opts.toneByApp,
+  });
+  const estTokens = quota.estimateTokens({ system, user, maxTokens: GENERATION.maxTokens(raw ?? '') }) + SPEC_CONTEXT_MARGIN_TOKENS;
+  if (!first) return { ok: false, estTokens, reason: 'aucun fournisseur cloud disponible' };
+  const p = getProvider(first, cfg);
+  const { usable } = quota.orderModels(first, p.candidates ?? [p.model], 2 * estTokens);
+  if (usable.length) return { ok: true, provider: first, estTokens };
+  return { ok: false, provider: first, estTokens, reason: `${first} : moins de 2 × ~${estTokens} tokens/min restants` };
+}
+
 const lastProbe = new Map<ProviderId, number>();
 /** Un fournisseur dont le quota n'a pas été observé depuis ce délai est sondé (1 mini requête). */
 const PROBE_STALE_MS = 5 * 60_000;
@@ -460,3 +493,84 @@ export async function refreshQuotas(cfg: LLMConfig = loadConfig()): Promise<Prov
 export { clearCooldowns } from './quota.ts';
 export { setConfigOverrides, setSecretAccessor } from './config.ts';
 export { modelLimits } from './quota.ts';
+
+// ───────────────────────────────────────────────────── appels longs (comptes rendus, questions)
+
+export interface LongJob {
+  system: string;
+  user: string;
+  maxTokens: number;
+  temperature?: number;
+  /** Valide / nettoie la sortie ; lève pour passer au fournisseur suivant. */
+  post: (modelText: string) => string;
+  /** Streaming : texte cumulé (brut, avant `post`) à chaque morceau ; réinitialisé si on change de fournisseur. */
+  onDelta?: (textSoFar: string) => void;
+  /** Ordre de préférence (grands contextes d'abord) ; filtré par les fournisseurs activés dans la config. */
+  order?: ProviderId[];
+  label?: string;
+  signal?: AbortSignal;
+}
+
+export interface LongResult { text: string; provider: ProviderId; model: string; attempts: Attempt[] }
+
+/**
+ * Un appel long (compte rendu, réponse sur plusieurs réunions) à travers les mêmes fournisseurs, quotas et pauses
+ * que la dictée, mais SÉQUENTIEL (pas de course hedgée : un prompt de 10 000 tokens ne se double pas) et avec
+ * des délais longs. Un fournisseur en pause / sans quota suffisant est sauté ; si tous le sont, dernier recours
+ * sur eux. Aucun texte de réunion n'est journalisé.
+ */
+export async function routeLong(job: LongJob): Promise<LongResult> {
+  const cfg = loadConfig();
+  cfg.timeouts = { cloudMs: 180_000, localMs: 300_000 };
+  const wanted = job.order ?? ALL_PROVIDERS;
+  const order = wanted.filter((id) => cfg.providers.includes(id));
+  const temperature = job.temperature ?? 0.1;
+  const est = quota.estimateTokens({ system: job.system, user: job.user, maxTokens: job.maxTokens });
+  const attempts: Attempt[] = [];
+  const skipped: ProviderId[] = [];
+
+  const tryProvider = async (id: ProviderId): Promise<LongResult | undefined> => {
+    job.signal?.throwIfAborted();
+    const p = getProvider(id, cfg);
+    const av = await p.availability();
+    if (!av.ok) { attempts.push({ provider: id, outcome: 'skipped', message: av.reason }); return undefined; }
+    const t1 = now();
+    try {
+      if (id !== 'ollama') quota.recordRequest(id);
+      const out = await p.complete({ system: job.system, user: job.user, temperature, maxTokens: job.maxTokens, signal: job.signal, onDelta: job.onDelta });
+      let text: string;
+      try { text = job.post(out.text); } catch (e: any) { throw new ProviderError(id, 'bad_output', `${e?.name ?? 'Error'} : ${e?.message ?? e}`); }
+      if (!text.trim()) throw new ProviderError(id, 'bad_output', 'sortie vide après post-traitement');
+      quota.recordSuccess(id);
+      attempts.push({ provider: id, outcome: 'ok', latencyMs: Math.round(now() - t1) });
+      return { text, provider: id, model: out.model, attempts };
+    } catch (e: any) {
+      if (isUserAbort(e, job.signal)) throw e;
+      const err = e as DictaProviderError;
+      const kind: ProviderErrorKind = e instanceof ProviderError ? err.kind : 'unknown';
+      const message = e?.message ?? String(e);
+      attempts.push({ provider: id, outcome: kind, message, latencyMs: Math.round(now() - t1) });
+      if (kind === 'quota') quota.recordError(id, kind, message);
+      else if (kind !== 'bad_output') quota.recordFailure(id, kind, message, { retryAfterMs: err.retryAfterMs, daily: err.daily });
+      job.onDelta?.(''); // le fournisseur suivant repart de zéro : l'interface efface le texte partiel
+      return undefined;
+    }
+  };
+
+  for (const id of order) {
+    if (id !== 'ollama') {
+      const blocked = quota.blockedReason(id);
+      const mb = blocked ? null : quota.modelsBlockedReason(id, getProvider(id, cfg).candidates ?? [], est);
+      if (blocked || mb) { attempts.push({ provider: id, outcome: 'skipped', message: blocked ?? mb!.reason }); skipped.push(id); continue; }
+    }
+    const r = await tryProvider(id);
+    if (r) return r;
+  }
+  // Dernier recours : les fournisseurs mis de côté (une estimation de pause se trompe parfois).
+  for (const id of skipped) {
+    const r = await tryProvider(id);
+    if (r) return r;
+  }
+  logger(`router: ÉCHEC du ${job.label ?? 'appel long'} — aucun fournisseur n'a répondu`, attempts.map((a) => `${a.provider}: ${a.outcome}${a.message ? ` — ${redact(a.message).slice(0, 160)}` : ''}`));
+  throw new Error(`Aucun moteur n'a pu répondre (${job.label ?? 'appel long'}).\n${attempts.filter((a) => a.message).map((a) => `${a.provider}: ${redact(a.message ?? '').slice(0, 160)}`).join('\n')}`);
+}

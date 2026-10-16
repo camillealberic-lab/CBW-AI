@@ -1,0 +1,29 @@
+{
+  "target": "gemini:gemini-3.5-flash-lite",
+  "prompt": "v1.9",
+  "level": "standard",
+  "date": "2026-10-15T08:46:36.951Z",
+  "p50": 14285,
+  "p90": 14285,
+  "mem": "—",
+  "rows": [
+    {
+      "id": "f09",
+      "cat": "no_structure",
+      "raw": "en gros l'idée c'est de commencer petit, de tester avec dix clients, et puis d'élargir si ça marche, et après on verra pour le prix",
+      "expected": "En gros, l'idée, c'est de commencer petit, de tester avec 10 clients, puis d'élargir si ça marche. Après, on verra pour le prix.",
+      "output": "En gros, l'idée, c'est de commencer petit, de tester avec 10 clients, et puis d'élargir si ça marche, et après, on verra pour le prix.",
+      "rawModel": "En gros, l'idée, c'est de commencer petit, de tester avec 10 clients, et puis d'élargir si ça marche, et après, on verra pour le prix.",
+      "ms": 14285,
+      "inTok": 2547,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 0.958,
+      "lenRatio": 1.09,
+      "score": 9.92
+    }
+  ]
+}

@@ -4,7 +4,9 @@ import * as net from 'node:net';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { MAX_CHUNK_MS } from '../shared/vad';
+import { MAX_CHUNK_MS, MEETING_MAX_CHUNK_MS } from '../shared/vad';
+import { cleanWhisperOutput, collapseLoops, looksLooping } from '../shared/whisperText';
+import { wrongLanguage } from './langGuard';
 import { appRoot, dataDir, firstExisting, log, modelsDir, textForLog } from './paths';
 import { CATALOG, DEFAULT_DOWNLOAD, modelDownloader } from './whisperModels';
 
@@ -101,32 +103,30 @@ export function ensureWhisperModel(serverModel: string): void {
   downloadWhisper(key, serverModel).catch(() => undefined /* journalisé ; réessai via l'UI ou la prochaine dictée */);
 }
 
-/** Hallucinations classiques de Whisper sur du silence. */
-const HALLUCINATIONS = [
-  /sous-titr(es|age).*(amara|communaut|radio-canada)/i,
-  /^merci d'avoir regard[ée]/i,
-  /^\[?(musique|silence|applaudissements|rires)\]?\.?$/i,
-  /^\(.*\)$/,
-  /^thank you\.?$/i,
-];
-
-export function cleanWhisperOutput(s: string): string {
-  const text = s
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  if (HALLUCINATIONS.some((r) => r.test(text))) return '';
-  return text;
-}
+// Nettoyage et détection de boucles : src/shared/whisperText.ts (pur, testé).
+export { cleanWhisperOutput, collapseLoops, looksLooping };
 
 export interface TranscribeOpts {
   model: string;
   language: string; // 'fr' | 'en' | 'auto'
   prompt?: string;
   signal?: AbortSignal;
+  /**
+   * Prise de notes : serveur dédié à contexte audio complet (morceaux jusqu'à 25 s, 30 s de contexte) et
+   * réglages de réunion. La dictée garde son serveur (contexte 640) et ses réglages : jamais ralentie.
+   */
+  meeting?: boolean;
+}
+
+/** Réglages envoyés avec chaque requête (les paramètres de requête persistent côté serveur : on les envoie tous). */
+interface InferParams {
+  audioCtx: number; // 0 = contexte complet du modèle (1500)
+  beam: number;
+  bestOf: number;
+  /** Incrément de température du repli (0 = pas de repli). Le repli sur compression excessive casse les boucles. */
+  tempInc: number;
+  maxContext: number; // -1 = défaut ; 0 = ne réinjecte pas le texte déjà décodé
+  prompt?: string;
 }
 
 /** Cœurs « performance » (M4 : 4) : au-delà, les cœurs efficacité ralentissent whisper. */
@@ -150,24 +150,18 @@ function perfCores(): number {
 export const AUDIO_CTX = 640;
 const wavMs = (wav: Buffer): number => ((wav.length - 44) / 32000) * 1000;
 
-/** Sortie dégénérée (boucle de répétition / débit impossible) → refaire avec le contexte complet. */
-export function looksLooping(text: string, sec: number): boolean {
-  if (text.length > Math.max(60, sec * 30)) return true;
-  const w = text.toLowerCase().split(/\s+/).filter(Boolean);
-  for (let n = 1; n <= 6; n++) {
-    if (w.length < n * 3) break;
-    const tail = w.slice(-n).join(' ');
-    if (w.slice(-2 * n, -n).join(' ') === tail && w.slice(-3 * n, -2 * n).join(' ') === tail) return true;
-  }
-  return false;
-}
-
 /**
  * whisper-server persistant : modèle + pipelines Metal gardés en mémoire.
  * Évite ~0,4 s de chargement par dictée et surtout le démarrage à froid
  * (jusqu'à ~7 s observés après une période d'inactivité avec whisper-cli).
  */
 class WhisperServer {
+  constructor(
+    /** 640 pour la dictée (fixe : le serveur réutilise son état) ; 0 = contexte complet (réunion). */
+    private readonly audioCtx: number,
+    private readonly tag: string,
+    private readonly pidName: string,
+  ) {}
   private proc: ChildProcess | null = null;
   private port = 0;
   private model = '';
@@ -187,22 +181,24 @@ class WhisperServer {
     this.model = model;
     this.port = await freePort();
     // Greedy (beam 1, best-of 1), sans repli de température ; flash-attn + Metal actifs par défaut.
-    const args = ['-m', model, '--host', '127.0.0.1', '--port', String(this.port), '-nt', '-t', String(perfCores()), '-bo', '1', '-bs', '1', '-nf', '-fa', '-ac', String(AUDIO_CTX)];
-    log('whisper-server: démarrage', path.basename(model), 'port', this.port);
-    killStale(bin);
+    // Réunion : pas de -ac (contexte complet) ; le repli de température est décidé requête par requête.
+    const args = ['-m', model, '--host', '127.0.0.1', '--port', String(this.port), '-l', 'fr', '-nt', '-t', String(perfCores()), '-bo', '1', '-bs', '1', '-fa'];
+    if (this.audioCtx > 0) args.push('-nf', '-ac', String(this.audioCtx));
+    log(`whisper-server${this.tag}: démarrage`, path.basename(model), 'port', this.port);
+    killStale(bin, this.pidFile());
     // Chien de garde : un petit shell lance whisper-server et le tue dès que notre stdin se ferme
     // (Electron planté / tué) → jamais d'orphelin qui garde ~0,6 Go + le GPU.
     const p = spawn('/bin/sh', ['-c', WATCHDOG, bin, ...args], { stdio: ['pipe', 'pipe', 'pipe'] });
     this.proc = p;
     p.stdout!.once('data', (d) => {
       const pid = Number(String(d).trim());
-      if (pid) fs.writeFileSync(pidFile(), String(pid));
+      if (pid) fs.writeFileSync(this.pidFile(), String(pid));
     });
     let tail = '';
     p.stderr!.on('data', (d) => (tail = (tail + d).slice(-2000)));
     p.on('exit', (code) => {
       if (this.proc === p) {
-        log('whisper-server: arrêté', code, tail.split('\n').slice(-3).join(' '));
+        log(`whisper-server${this.tag}: arrêté`, code, tail.split('\n').slice(-3).join(' '));
         this.proc = null;
         this.ok = false;
         this.readyP = null;
@@ -215,7 +211,7 @@ class WhisperServer {
           const r = await fetch(`http://127.0.0.1:${this.port}/health`);
           if (r.ok) {
             this.ok = true;
-            log(`whisper-server: prêt en ${Date.now() - t0} ms`);
+            log(`whisper-server${this.tag}: prêt en ${Date.now() - t0} ms`);
             return true;
           }
         } catch {
@@ -228,20 +224,30 @@ class WhisperServer {
     return this.readyP;
   }
 
-  async infer(wav: Buffer, opts: TranscribeOpts): Promise<string> {
+  private pidFile(): string {
+    return path.join(dataDir(), this.pidName);
+  }
+
+  /** Attend que le serveur soit prêt (démarrage en cours) ; false s'il ne peut pas l'être. */
+  async whenReady(): Promise<boolean> {
+    return this.readyP ? this.readyP : false;
+  }
+
+  async infer(wav: Buffer, opts: TranscribeOpts, p: InferParams): Promise<string> {
     const fd = new FormData();
-    // Les paramètres de requête persistent côté serveur : on les envoie toujours tous.
-    fd.append('audio_ctx', String(AUDIO_CTX));
-    fd.append('beam_size', '1');
-    fd.append('best_of', '1');
-    fd.append('temperature_inc', '0.0');
+    // Les paramètres de requête persistent côté serveur : on les envoie toujours tous (prompt compris,
+    // même vide, sinon le prompt d'une requête précédente resterait actif).
+    fd.append('audio_ctx', String(p.audioCtx));
+    fd.append('beam_size', String(p.beam));
+    fd.append('best_of', String(p.bestOf));
+    fd.append('temperature_inc', String(p.tempInc));
+    fd.append('max_context', String(p.maxContext));
     fd.append('file', new Blob([new Uint8Array(wav)], { type: 'audio/wav' }), 'audio.wav');
     fd.append('response_format', 'text');
     fd.append('no_timestamps', 'true');
     fd.append('language', opts.language || 'fr');
     fd.append('temperature', '0.0');
-    const prompt = boundPrompt(opts.prompt);
-    if (prompt) fd.append('prompt', prompt);
+    fd.append('prompt', boundPrompt(p.prompt) ?? '');
     const r = await fetch(`http://127.0.0.1:${this.port}/inference`, { method: 'POST', body: fd, signal: opts.signal });
     if (!r.ok) throw new Error(`whisper-server HTTP ${r.status}`);
     return r.text();
@@ -254,12 +260,10 @@ class WhisperServer {
       this.proc.stdin?.end(); // le chien de garde tue whisper-server
       this.proc.kill();
       this.proc = null;
-      fs.rmSync(pidFile(), { force: true });
+      fs.rmSync(this.pidFile(), { force: true });
     }
   }
 }
-
-const pidFile = (): string => path.join(dataDir(), 'whisper-server.pid');
 
 /** sh -c : lance "$0" "$@", écrit son pid sur stdout, le tue à la fermeture de stdin ou à SIGTERM. */
 const WATCHDOG =
@@ -270,10 +274,10 @@ const WATCHDOG =
   'wait $c; kill $r 2>/dev/null';
 
 /** Tue les whisper-server orphelins (pidfile, ou même binaire rattaché à launchd) d'une session précédente. */
-function killStale(bin: string): void {
+function killStale(bin: string, pidFile: string): void {
   const { execFileSync } = require('node:child_process') as typeof import('node:child_process');
   try {
-    const pid = Number(fs.readFileSync(pidFile(), 'utf8'));
+    const pid = Number(fs.readFileSync(pidFile, 'utf8'));
     if (pid) {
       const cmd = execFileSync('ps', ['-p', String(pid), '-o', 'comm='], { encoding: 'utf8' }).trim();
       if (cmd.endsWith('whisper-server')) {
@@ -309,17 +313,57 @@ function freePort(): Promise<number> {
   });
 }
 
-export const whisperServer = new WhisperServer();
+export const whisperServer = new WhisperServer(AUDIO_CTX, '', 'whisper-server.pid');
+/** Serveur des notes (contexte audio complet, morceaux jusqu'à 25 s) : démarré avec la note, arrêté à la fin. */
+export const whisperMeetingServer = new WhisperServer(0, ' (réunion)', 'whisper-server-notes.pid');
+
+/** Dictée : greedy, contexte 640, sans repli de température (inchangé). */
+const DICTATION_PARAMS: InferParams = { audioCtx: AUDIO_CTX, beam: 1, bestOf: 1, tempInc: 0, maxContext: -1 };
+/** Réunion, 1re passe : contexte complet, greedy, repli de température permis (casse les boucles de compression). */
+const MEETING_PARAMS: InferParams = { audioCtx: 0, beam: 1, bestOf: 3, tempInc: 0.2, maxContext: -1 };
+/** Nouvel essai après une boucle : sans prompt, sans texte précédent réinjecté, beam 3, repli plus ample. */
+const anti = (p: InferParams): InferParams => ({ ...p, beam: 3, bestOf: 3, tempInc: 0.4, maxContext: 0, prompt: undefined });
 
 export async function transcribe(wav: Buffer | string, opts: TranscribeOpts): Promise<{ text: string; ms: number }> {
-  if (whisperServer.ready && typeof wav !== 'string' && wavMs(wav) <= MAX_CHUNK_MS + 300) {
+  const meeting = !!opts.meeting;
+  const srv = meeting ? whisperMeetingServer : whisperServer;
+  const maxMs = (meeting ? MEETING_MAX_CHUNK_MS : MAX_CHUNK_MS) + 300;
+  if (meeting && typeof wav !== 'string' && !srv.ready) {
+    await srv.start(opts.model).catch(() => false); // démarrage paresseux si la note l'a devancé
+    await srv.whenReady();
+  }
+  if (srv.ready && typeof wav !== 'string' && wavMs(wav) <= maxMs) {
     const t0 = Date.now();
+    const sec = wavMs(wav) / 1000;
     try {
-      const out = await whisperServer.infer(wav, opts);
+      const base = meeting ? MEETING_PARAMS : DICTATION_PARAMS;
+      // Un prompt (texte déjà dicté, noms) rédigé dans une autre langue fait TRADUIRE Whisper malgré `language`
+      // (reproduit : audio français + prompt anglais + language=fr → sortie anglaise) : il est alors écarté d'emblée.
+      const prompt = opts.prompt && wrongLanguage(opts.prompt, opts.language) ? undefined : opts.prompt;
+      if (opts.prompt && !prompt) log(`whisper-server: prompt dans une autre langue que ${opts.language} → ignoré`);
+      let text = cleanWhisperOutput(await srv.infer(wav, opts, { ...base, prompt }));
+      if (looksLooping(text, sec)) {
+        // Un nouvel essai sur le MÊME serveur (contexte inchangé) avec réglages anti-boucle : jamais de
+        // rechargement du modèle (whisper-cli ≈ 2,6 s par morceau).
+        const first = text.length;
+        text = cleanWhisperOutput(await srv.infer(wav, opts, anti(base)));
+        if (looksLooping(text, sec)) {
+          log(`whisper-server${meeting ? ' (réunion)' : ''}: boucle persistante (${first} puis ${text.length} car.) → répétitions réduites`);
+          text = cleanWhisperOutput(collapseLoops(text));
+          if (text.length > 30 + sec * 40) text = '';
+        }
+      }
+      // Garde-fou de langue : sortie manifestement dans une autre langue que celle demandée (ex. anglais alors que
+      // general.language = fr, poussé par un prompt plein de noms / de texte anglais) → nouvel essai sans prompt ni
+      // texte précédent ; on garde la version dans la bonne langue (sinon la 1re).
+      if (text && wrongLanguage(text, opts.language)) {
+        const again = cleanWhisperOutput(await srv.infer(wav, opts, { ...base, maxContext: 0, prompt: undefined }));
+        const fixed = !!again && !wrongLanguage(again, opts.language);
+        log(`whisper-server${meeting ? ' (réunion)' : ''}: langue ≠ ${opts.language} → nouvel essai sans prompt (${fixed ? 'corrigé' : 'inchangé'})`);
+        if (fixed) text = again;
+      }
       const ms = Date.now() - t0;
-      const text = cleanWhisperOutput(out);
-      if (looksLooping(text, wavMs(wav) / 1000)) throw new Error(`sortie en boucle (${text.length} car.)`);
-      log(`whisper(server): ${ms} ms → ${textForLog(text)}`);
+      log(`whisper(server${meeting ? ', réunion' : ''}): ${ms} ms → ${textForLog(text)}`);
       return { text, ms };
     } catch (e) {
       if (opts.signal?.aborted) throw e;
@@ -347,7 +391,7 @@ async function transcribeCli(wav: Buffer | string, opts: TranscribeOpts): Promis
   }
 
   const args = ['-m', model, '-f', file, '-l', opts.language || 'fr', '-nt', '-np', '-t', '4'];
-  const prompt = boundPrompt(opts.prompt);
+  const prompt = boundPrompt(opts.prompt && wrongLanguage(opts.prompt, opts.language) ? undefined : opts.prompt);
   if (prompt) args.push('--prompt', prompt);
   const t0 = Date.now();
   try {
@@ -367,7 +411,13 @@ async function transcribeCli(wav: Buffer | string, opts: TranscribeOpts): Promis
       });
     });
     const ms = Date.now() - t0;
-    const text = cleanWhisperOutput(out);
+    let text = cleanWhisperOutput(out);
+    // La sortie de whisper-cli était jusqu'ici invérifiée : une boucle de 870 car. entrait dans la note.
+    if (looksLooping(text, typeof wav === 'string' ? 30 : wavMs(wav) / 1000)) {
+      text = cleanWhisperOutput(collapseLoops(text));
+      log('whisper: boucle dans la sortie de whisper-cli → répétitions réduites');
+    }
+    if (text && wrongLanguage(text, opts.language)) log(`whisper: langue ≠ ${opts.language} dans la sortie de whisper-cli (gardée, pas de nouvel essai)`);
     log(`whisper: ${ms} ms (${path.basename(model)}) → ${textForLog(text)}`);
     return { text, ms };
   } finally {

@@ -1,0 +1,29 @@
+{
+  "target": "gemini:gemini-3.5-flash-lite",
+  "prompt": "v1.8",
+  "level": "standard",
+  "date": "2026-10-15T08:45:56.154Z",
+  "p50": 4409,
+  "p90": 4409,
+  "mem": "—",
+  "rows": [
+    {
+      "id": "f23",
+      "cat": "ton_mail",
+      "raw": "bonjour madame Durand je vous écris au sujet de votre commande cordialement Julien Perrin",
+      "expected": "Bonjour madame Durand,\n\nJe vous écris au sujet de votre commande.\n\nCordialement,\nJulien Perrin",
+      "output": "Bonjour Madame Durand,\n\nJe vous écris au sujet de votre commande.\n\nCordialement,\nJulien Perrin",
+      "rawModel": "Bonjour Madame Durand,\n\nJe vous écris au sujet de votre commande.\n\nCordialement,\nJulien Perrin",
+      "ms": 4409,
+      "inTok": 5240,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 1,
+      "lenRatio": 1,
+      "score": 10
+    }
+  ]
+}

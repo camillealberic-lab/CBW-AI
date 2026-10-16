@@ -2,7 +2,7 @@
 // Doc : https://ai.google.dev/api/generate-content , https://ai.google.dev/gemini-api/docs/generate-content/thinking
 
 import type { LLMConfig } from '../config.ts';
-import { providerError, requestJson } from './common.ts';
+import { providerError, requestJson, requestSSE } from './common.ts';
 import type { DictaProvider } from './common.ts';
 import * as quota from '../quota.ts';
 
@@ -99,6 +99,7 @@ export function createGeminiProvider(cfg: LLMConfig): DictaProvider {
           classify,
         );
 
+      if (req.onDelta) return streamWith(model, req, makeBody, !!thinking);
       let body: any;
       try {
         body = await call(true);
@@ -123,5 +124,45 @@ export function createGeminiProvider(cfg: LLMConfig): DictaProvider {
       if (fr && fr !== 'STOP') throw providerError('gemini', 'bad_output', `finishReason ${fr}`);
       if (!text) throw providerError('gemini', 'bad_output', 'réponse vide');
       return { text, model: String(body.modelVersion ?? model) };
+  }
+  /** Variante streaming (SSE) : texte cumulé envoyé à req.onDelta ; réessai sans thinkingConfig si refusé. */
+  async function streamWith(
+    model: string,
+    req: Parameters<DictaProvider['complete']>[0],
+    makeBody: (withThinking: boolean) => unknown,
+    hasThinking: boolean,
+  ): Promise<{ text: string; model: string }> {
+    const run = async (withThinking: boolean) => {
+      let acc = '';
+      let fr: string | undefined;
+      let blocked: string | undefined;
+      let ver = model;
+      await requestSSE(
+        'gemini',
+        `${BASE}/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,
+        { headers: { 'x-goog-api-key': key! }, body: makeBody(withThinking), timeoutMs: cfg.timeouts.cloudMs, signal: req.signal, model },
+        (ev) => {
+          if (ev?.promptFeedback?.blockReason) blocked = ev.promptFeedback.blockReason;
+          if (ev?.modelVersion) ver = String(ev.modelVersion);
+          const cand = ev?.candidates?.[0];
+          if (cand?.finishReason) fr = cand.finishReason;
+          for (const p of cand?.content?.parts ?? []) {
+            if (!p?.thought && typeof p?.text === 'string' && p.text) { acc += p.text; req.onDelta?.(acc.replace(/^\s+/, '')); }
+          }
+        },
+        classify,
+      );
+      if (blocked) throw providerError('gemini', 'bad_output', `prompt bloqué : ${blocked}`);
+      if (fr === 'MAX_TOKENS') throw providerError('gemini', 'bad_output', 'sortie tronquée (MAX_TOKENS)');
+      if (fr && fr !== 'STOP') throw providerError('gemini', 'bad_output', `finishReason ${fr}`);
+      if (!acc.trim()) throw providerError('gemini', 'bad_output', 'réponse vide');
+      return { text: acc.trim(), model: ver };
+    };
+    try {
+      return await run(true);
+    } catch (e: any) {
+      if (hasThinking && e?.status === 400 && /think/i.test(e?.message ?? '')) return run(false);
+      throw e;
+    }
   }
 }

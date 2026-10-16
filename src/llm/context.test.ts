@@ -6,7 +6,7 @@ import { validateLearnedTerm } from './learn.ts';
 let failed = 0;
 const check = (ok: boolean, msg: string) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (!ok) failed++; };
 
-check(PROMPT_VERSION === 'v1.8', 'version v1.8');
+check(PROMPT_VERSION === 'v1.10', 'version v1.10');
 const base = buildMessages('bonjour à tous', {});
 check(base.user === '<dictée>\nbonjour à tous\n</dictée>', 'sans contexte : message user inchangé');
 check(buildMessages('x', { context: {} }).user.indexOf('<contexte') < 0, 'contexte vide : pas de bloc');

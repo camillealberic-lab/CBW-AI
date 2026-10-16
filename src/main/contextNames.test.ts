@@ -56,7 +56,7 @@ assert.equal(domainOnly('pas une url ::'), undefined);
 assert.equal(domainOnly(undefined), undefined);
 
 // prompt Whisper : vocabulaire d'abord, dédoublonné, borné
-assert.equal(whisperNamesPrompt(['Supabase', 'CBW AI'], ['supabase', 'Karim'], 'fr'), 'Noms : Supabase, CBW AI, Karim.');
+assert.equal(whisperNamesPrompt(['Supabase', 'CBW AI'], ['supabase', 'Karim'], 'fr'), 'Supabase, CBW AI, Karim.');
 assert.equal(whisperNamesPrompt([], [], 'fr'), '');
 const long = whisperNamesPrompt(Array.from({ length: 300 }, (_, i) => 'Terme' + i), [], 'fr');
 assert.ok(long.length <= 470, String(long.length));

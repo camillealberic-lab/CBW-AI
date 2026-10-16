@@ -1,0 +1,12 @@
+[00:03] Moi : On cherche un nom et un angle pour la newsletter des clients. Tout est permis, on trie après.
+[00:19] Lina : Moi je verrais un truc très simple, « Le Mensuel », avec un seul sujet par numéro.
+[00:36] Théo : Ou alors une newsletter à la carte, le lecteur coche ses thèmes : design, dev, IA.
+[00:58] Moi : J'aime bien, mais ça demande un outil d'envoi segmenté. Qui connaît un outil pas cher ?
+[01:12] Lina : Brevo le fait, c'est gratuit jusqu'à trois cents mails par jour.
+[01:30] Théo : Autre idée : une rubrique « Ce qu'on a raté », où on raconte un échec de projet. Ça humanise.
+[01:55] Lina : Oui ! Et un format court, trois minutes de lecture maximum, sinon personne n'ouvre.
+[02:14] Moi : Et pourquoi pas un petit sondage en fin de mail pour choisir le sujet suivant ?
+[02:33] Théo : Bonne idée mais attention, il faut quelqu'un pour animer les réponses. Je ne sais pas qui a le temps.
+[02:52] Lina : On pourrait tester avec un numéro zéro, envoyé à vingt clients seulement.
+[03:10] Moi : On retient : un sujet par numéro, trois minutes, rubrique échec, numéro zéro à vingt clients. Le sondage et la version à la carte, on garde pour plus tard.
+[03:35] Théo : Je regarde Brevo ce week-end et je vous dis si ça tient.

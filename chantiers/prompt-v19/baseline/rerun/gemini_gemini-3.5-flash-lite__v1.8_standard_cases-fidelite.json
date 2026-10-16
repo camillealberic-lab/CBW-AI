@@ -1,0 +1,29 @@
+{
+  "target": "gemini:gemini-3.5-flash-lite",
+  "prompt": "v1.8",
+  "level": "standard",
+  "date": "2026-10-15T08:45:45.562Z",
+  "p50": 4049,
+  "p90": 4049,
+  "mem": "—",
+  "rows": [
+    {
+      "id": "f02",
+      "cat": "keep_words",
+      "raw": "franchement ce truc-là il est génial, je l'utilise tous les jours",
+      "expected": "Franchement, ce truc-là est génial, je l'utilise tous les jours.",
+      "output": "Franchement, ce truc-là, il est génial, je l'utilise tous les jours.",
+      "rawModel": "Franchement, ce truc-là, il est génial, je l'utilise tous les jours.",
+      "ms": 4049,
+      "inTok": 5227,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 0.957,
+      "lenRatio": 1.09,
+      "score": 9.91
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+CBW AI — moteur de réunion (notes) : mentions des auteurs et licences
+
+Ce moteur (binaire « dicta-meeting », embarqué) utilise les composants suivants. Les modèles ne sont pas dans l'app :
+ils sont téléchargés depuis Hugging Face au premier besoin, dans ~/.dicta-ai/models/fluid.
+
+FluidAudio — Apache License 2.0
+  Copyright Fluid Inference. https://github.com/FluidInference/FluidAudio
+  https://www.apache.org/licenses/LICENSE-2.0
+
+Parakeet TDT 0.6B v3 (reconnaissance vocale) — CC-BY-4.0
+  Modèle de NVIDIA (https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3), converti au format Core ML par FluidInference
+  (https://huggingface.co/FluidInference/parakeet-tdt-0.6b-v3-coreml). Modèle converti, non modifié sur le fond.
+  https://creativecommons.org/licenses/by/4.0/
+
+Séparation des voix — CC-BY-4.0
+  pyannote.audio « community-1 » (segmentation, empreintes), embeddings WeSpeaker, PLDA de BUT Speech@FIT,
+  convertis au format Core ML par FluidInference (https://huggingface.co/FluidInference/speaker-diarization-coreml).
+  https://creativecommons.org/licenses/by/4.0/

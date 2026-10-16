@@ -1,0 +1,29 @@
+{
+  "target": "gemini:gemini-3.5-flash-lite",
+  "prompt": "v1.9",
+  "level": "standard",
+  "date": "2026-10-15T08:46:51.044Z",
+  "p50": 7906,
+  "p90": 7906,
+  "mem": "—",
+  "rows": [
+    {
+      "id": "f11",
+      "cat": "petite_serie",
+      "raw": "il faut du pain, du lait et des œufs pour demain",
+      "expected": "Il faut du pain, du lait et des œufs pour demain.",
+      "output": "Il faut du pain, du lait et des œufs pour demain.",
+      "rawModel": "Il faut du pain, du lait et des œufs pour demain.",
+      "ms": 7906,
+      "inTok": 2522,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 1,
+      "lenRatio": 1,
+      "score": 10
+    }
+  ]
+}

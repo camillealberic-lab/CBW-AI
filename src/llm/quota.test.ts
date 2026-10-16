@@ -16,7 +16,7 @@ Object.assign(process.env, {
   DICTA_HEDGE_MS: '5000',
 });
 
-const { cleanTranscriptDetailed, refreshQuotas, usableCloudProviders, setRouterLogger } = await import('./router.ts');
+const { cleanTranscriptDetailed, refreshQuotas, usableCloudProviders, setRouterLogger, canSpeculate, getProvider } = await import('./router.ts');
 const quota = await import('./quota.ts');
 
 const logs: string[] = [];
@@ -210,6 +210,24 @@ const wipeUsage = () => rmSync(join(home, 'usage.json'), { force: true });
   const r2 = await cleanTranscriptDetailed(RAW);
   check(r2.provider === 'ollama' && r2.model === 'qwen3.5:4b', `7c. tous les quotas cloud épuisés → qwen3.5:4b en ultime recours (${r2.provider} ${r2.model})`);
   process.env.OLLAMA_HOST = 'http://127.0.0.1:9';
+}
+
+// 8. Spéculation : seulement si le 1er fournisseur cloud a ≥ 2 × l'estimation en tokens/minute.
+{
+  const u = JSON.parse(readFileSync(join(home, 'usage.json'), 'utf8'));
+  u.models = {};
+  writeFileSync(join(home, 'usage.json'), JSON.stringify(u));
+  quota.clearCooldowns();
+  const first = usableCloudProviders()[0];
+  const s0 = canSpeculate(RAW);
+  check(s0.ok && s0.provider === first && s0.estTokens > 0 && s0.estTokens < 4000, `8a. quota inconnu → spéculation permise (${first}, ~${s0.estTokens} tokens)`);
+  const p = getProvider(first);
+  const hdr = (rem: number) => new Headers({ 'x-ratelimit-remaining-tokens': String(rem), 'x-ratelimit-limit-tokens': '8000', 'x-ratelimit-reset-tokens': '30s' });
+  for (const m of p.candidates ?? [p.model]) quota.observe(first, m, hdr(Math.floor(s0.estTokens * 1.5)), 200);
+  const s1 = canSpeculate(RAW);
+  check(!s1.ok && s1.provider === first, `8b. ${first} : 1,5 × l'estimation restante → pas de spéculation (${s1.reason})`);
+  for (const m of p.candidates ?? [p.model]) quota.observe(first, m, hdr(s0.estTokens * 2 + 10), 200);
+  check(canSpeculate(RAW).ok, '8c. ≥ 2 × l\'estimation restante → spéculation permise');
 }
 
 const usage = JSON.parse(readFileSync(join(home, 'usage.json'), 'utf8'));

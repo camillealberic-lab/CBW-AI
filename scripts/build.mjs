@@ -27,14 +27,32 @@ await Promise.all([
 const router = join(root, 'src/llm/router.ts');
 if (existsSync(router)) {
   try {
-    // Un seul bundle (état config/quotas partagé) : router + organizeNotes (src/llm/notes.ts) s'il existe.
-    const notes = existsSync(join(root, 'src/llm/notes.ts'));
+    // Un seul bundle (état config/quotas partagé) : router + notes v2 (organizeNotes, askNotes, gabarits, balises).
+    const has = (f) => existsSync(join(root, f));
+    const notes = has('src/llm/notes.ts');
+    // organizeNotes est enveloppé : src/main/appWindow.ts pose, juste avant NoteSession.stop()/reorganize(), le contexte
+    // du prochain compte rendu (notes tapées, gabarit, titre, invités, flux onDelta, résultat balisé) via setNextOrganize().
+    const notesEntry = notes
+      ? `
+import { organizeNotes as __organize } from './src/llm/notes.ts';
+export { parseAnnotated, stripMarkers } from './src/llm/notes.ts';
+let __next = null;
+export function setNextOrganize(o) { __next = o && typeof o === 'object' ? o : null; }
+export function organizeNotes(transcript, opts = {}) {
+  const x = __next; __next = null;
+  if (!x) return __organize(transcript, opts);
+  const { onResult, ...extra } = x;
+  return __organize(transcript, { ...opts, ...extra }).then((r) => { try { onResult && onResult(r); } catch (e) { /* rien */ } return r; });
+}`
+      : '';
     await build({
       ...node,
       stdin: {
         contents:
           `export * from './src/llm/router.ts';` +
-          (notes ? `\nexport { organizeNotes } from './src/llm/notes.ts';` : ''),
+          notesEntry +
+          (has('src/llm/ask.ts') ? `\nexport { askNotes } from './src/llm/ask.ts';` : '') +
+          (has('src/llm/templates.ts') ? `\nexport { listTemplates } from './src/llm/templates.ts';` : ''),
         resolveDir: root,
         sourcefile: 'llm-entry.ts',
         loader: 'ts',

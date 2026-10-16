@@ -14,7 +14,8 @@
 //  - les deux sources passent par un ChannelMerger (canal 0 = micro, 1 = Mac) : synchronisées à l'échantillon ;
 //  - le VAD / Whisper reçoivent le mélange ; le WAV de session (mélange + pistes séparées pour la
 //    diarisation) part au main par blocs de 0,5 s (rien d'accumulé ici).
-import { encodeWav, RATE, Segmenter, trimSilence } from '../shared/vad';
+import { EchoCanceller } from '../shared/aec';
+import { encodeWav, MEETING_VAD, RATE, Segmenter, trimSilence, type SpeechBounds } from '../shared/vad';
 
 interface RecorderBridge {
   onArm(cb: (cfg?: AudioCfg) => void): void;
@@ -33,8 +34,10 @@ interface RecorderBridge {
   onCancel(cb: () => void): void;
   level(v: number): void;
   started(info: { openMs: number; prerollMs: number }): void;
-  segment(wav: ArrayBuffer, start: number, end: number, commit: boolean): void;
-  result(r: { interrupted?: string; tail: ArrayBuffer | null; tailStart: number; full: ArrayBuffer; durationMs: number; lastSpeechEnd: number; total: number; voicedMs?: number }): void;
+  segment(wav: ArrayBuffer, start: number, end: number, commit: boolean, source: 'mic' | 'system', from: number, to: number): void;
+  /** Notes : le micro a changé / disparu / est revenu — la note continue. */
+  device(state: 'lost' | 'recovered' | 'fallback' | 'muted', label: string): void;
+  result(r: { interrupted?: string; tails?: { source: 'mic' | 'system'; wav: ArrayBuffer; start: number; end: number; from: number; to: number }[]; tail: ArrayBuffer | null; tailStart: number; full: ArrayBuffer; durationMs: number; lastSpeechEnd: number; total: number; voicedMs?: number }): void;
   error(msg: string): void;
   pcm(mix: ArrayBuffer, mic: ArrayBuffer | null, sys: ArrayBuffer | null): void;
   log(msg: string): void;
@@ -56,6 +59,8 @@ interface StartOpts {
   wav?: boolean;
   /** Capte aussi le son du Mac (réglage notes.systemAudio). */
   systemAudio?: boolean;
+  /** Annulation d'écho logicielle (NLMS) du micro en réunion (défaut : oui). */
+  echoCancel?: boolean;
   /** Autotest : ouvre la capture du son du Mac même en mode injecté (vérifie le chemin, données ignorées). */
   probeSys?: boolean;
 }
@@ -73,6 +78,13 @@ const NO_SIGNAL_PEAK = 0.0015; // ~ -56 dBFS : micro mort / coupé
 const LOW_VOICE_GAIN = 4; // +12 dB (c12)
 const BT_RE = /airpods|bluetooth|beats|bose|jabra|sony|wh-1000|wf-1000|buds|powerbeats|galaxy|sennheiser|hfp/i;
 const BUILTIN_RE = /built-?in|int[ée]gr|macbook|internal|imac|mac mini|studio display/i;
+// Réunion : micro fixé pour toute la session, annulation d'écho, deux segmenteurs (micro / son du Mac).
+let sessionDevice = '';
+let segSys: Segmenter | null = null;
+let aec: EchoCanceller | null = null;
+let recovering = false;
+/** Note (dictaphone) : son brut du micro. */
+const RAW_MIC = { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false };
 let cfg: AudioCfg = { deviceId: '', avoidBluetooth: true, lowVoice: false, maxMs: 20 * 60_000 };
 let gainNode: GainNode | null = null;
 let limiter: DynamicsCompressorNode | null = null;
@@ -196,20 +208,25 @@ function checkSession(mix: Float32Array): void {
 }
 
 /** Session en cours : mélange micro + Mac → VAD ; mélange et pistes → WAV de session (main). */
-function ingest(mic: Float32Array, sys: Float32Array | null): void {
+function ingest(micRaw: Float32Array, sys: Float32Array | null): void {
   if (!seg) return;
+  // Réunion avec son du Mac : le micro est nettoyé de l'écho (référence = son du Mac, aligné à l'échantillon)
+  const mic = noteMode && aec && sys ? aec.process(micRaw, sys) : micRaw;
   let mix = mic;
   if (sys) {
     mix = new Float32Array(mic.length);
     for (let i = 0; i < mic.length; i++) mix[i] = Math.max(-1, Math.min(1, mic[i] + (sys[i] ?? 0)));
   }
   if (interrupted) return; // micro perdu : plus rien à ajouter, l'audio capté reste intact
-  seg.push(mix);
+  // Deux pistes : chacune a son découpage (micro = « Moi », son du Mac = les autres) ; jamais de mélange transcrit
+  seg.push(noteMode && segSys ? mic : mix);
+  segSys?.push(sys ?? new Float32Array(mic.length));
   meter(mix);
   checkSession(mix);
   if (noteMode && (sinceCompact += mix.length) > RATE * 30) {
     sinceCompact = 0;
     seg.compact(); // l'audio déjà transcrit n'est plus gardé en mémoire
+    segSys?.compact();
   }
   if (wavOn) writeOut(mix, mic, sys);
 }
@@ -322,19 +339,59 @@ function watchTrack(s: MediaStream): void {
   // c10 : micro débranché / périphérique perdu → on prévient, l'audio déjà capté reste dans le Segmenter.
   t.addEventListener('ended', () => {
     if (stream !== s) return;
-    if (recording) markInterrupted('device-lost');
+    if (recording && noteMode) void recoverMic('lost');
+    else if (recording) markInterrupted('device-lost');
     else closeMic();
   });
   // Appel entrant / micro pris par une autre app : piste coupée plus d'1,5 s.
   t.addEventListener('mute', () => {
     if (!recording) return;
     if (muteTimer) clearTimeout(muteTimer);
-    muteTimer = setTimeout(() => stream === s && recording && t.muted && markInterrupted('muted'), 1500);
+    muteTimer = setTimeout(() => {
+      if (stream !== s || !recording || !t.muted) return;
+      if (noteMode) bridge.device('muted', t.label); // la note continue (silence enregistré)
+      else markInterrupted('muted');
+    }, 1500);
   });
   t.addEventListener('unmute', () => {
     if (muteTimer) clearTimeout(muteTimer);
     muteTimer = null;
   });
+}
+
+/** Notes : micro disparu → la note continue ; on rouvre le micro de la session (sinon le défaut) dès que possible. */
+async function recoverMic(why: 'lost'): Promise<void> {
+  if (recovering) return;
+  recovering = true;
+  bridge.device(why, '');
+  bridge.log('micro de la note perdu → reprise automatique (la note continue)');
+  try {
+    for (let i = 0; i < 30 && recording; i++) {
+      await new Promise((r) => setTimeout(r, i < 5 ? 1000 : 2000));
+      if (!recording || paused) continue;
+      const devs = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter((d) => d.kind === 'audioinput');
+      const back = devs.some((d) => d.deviceId === sessionDevice);
+      // 10 s sans retour du micro d'origine : on bascule (une fois) sur le défaut du système
+      if (!back && i < 8) continue;
+      closeMic();
+      const meeting = RAW_MIC;
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ audio: back ? { ...meeting, deviceId: { exact: sessionDevice } } : meeting });
+        stream = s;
+        src = ctx!.createMediaStreamSource(s);
+        src.connect(gainNode!);
+        watchTrack(s);
+        const label = s.getAudioTracks()[0]?.label || '';
+        if (!back) sessionDevice = s.getAudioTracks()[0]?.getSettings().deviceId ?? sessionDevice;
+        bridge.device(back ? 'recovered' : 'fallback', label);
+        return;
+      } catch {
+        /* nouvel essai */
+      }
+    }
+  } finally {
+    recovering = false;
+  }
 }
 
 function markInterrupted(reason: string): void {
@@ -346,7 +403,14 @@ function markInterrupted(reason: string): void {
 
 function arm(c?: AudioCfg): Promise<number> {
   if (c) cfg = { ...cfg, ...c };
+  if (noteMode) cfg = { ...cfg, maxMs: 0 }; // notes : jamais de limite ni d'avertissement
   if (stream && stream.getAudioTracks()[0]?.readyState !== 'live') closeMic(); // micro perdu pendant la pré-écoute
+  // Le flux pré-ouvert doit avoir les bons traitements : brut en note (dictaphone), traité (AGC…) en dictée.
+  if (stream) {
+    const st = stream.getAudioTracks()[0]?.getSettings() ?? {};
+    const processed = !!(st.echoCancellation || st.autoGainControl || st.noiseSuppression);
+    if (noteMode ? processed : st.autoGainControl === false) closeMic();
+  }
   if (stream) {
     applyLowVoice(cfg.lowVoice);
     return Promise.resolve(0);
@@ -356,8 +420,14 @@ function arm(c?: AudioCfg): Promise<number> {
     const t0 = performance.now();
     const c = await ensureGraph();
     if (c.state === 'suspended') await c.resume();
-    const constraints = { channelCount: 1, echoCancellation: false, noiseSuppression: !cfg.lowVoice, autoGainControl: true };
-    let pick = await pickDevice(cfg);
+    // Réunion : annulation d'écho activée (le micro ne recapte pas le haut-parleur), réduction de bruit coupée
+    // (elle atténue les voix lointaines de la salle). Dictée : inchangé.
+    // Note = dictaphone : micro BRUT (ni annulation d'écho système, ni réduction de bruit, ni AGC). Le traitement vocal
+    // du système (AEC + AGC, réglé pour une seule voix proche) écrasait les voix lointaines de la salle (15 oct. :
+    // 3 personnes → 1 voix). L'écho du haut-parleur est retiré en logiciel (NLMS, shared/aec.ts) sur la piste micro.
+    const constraints = noteMode ? RAW_MIC : { channelCount: 1, echoCancellation: false, noiseSuppression: !cfg.lowVoice, autoGainControl: true };
+    // micro choisi UNE fois au début de la session (plus de bascules à la reprise / au changement de périphérique)
+    let pick = noteMode && sessionDevice ? { id: sessionDevice, why: 'micro de la session' } : await pickDevice(cfg);
     let s: MediaStream;
     try {
       s = await navigator.mediaDevices.getUserMedia({ audio: pick.id ? { ...constraints, deviceId: { exact: pick.id } } : constraints });
@@ -368,6 +438,7 @@ function arm(c?: AudioCfg): Promise<number> {
       s = await navigator.mediaDevices.getUserMedia({ audio: constraints });
     }
     bridge.log(`micro : ${s.getAudioTracks()[0]?.label || '?'} (${pick.why}${cfg.lowVoice ? ', voix basse' : ''})`);
+    if (noteMode && !sessionDevice) sessionDevice = s.getAudioTracks()[0]?.getSettings().deviceId ?? '';
     ringPos = 0;
     ringFill = 0;
     stream = s;
@@ -423,7 +494,12 @@ async function start(opts: StartOpts = {}): Promise<void> {
   maxSent = false;
   interrupted = '';
   if (opts.note) cfg = { ...cfg, maxMs: 0 }; // notes : pas de limite
+  sessionDevice = ''; // nouvelle session : le micro est choisi une fois, puis conservé
+  recovering = false;
+  segSys = null;
+  aec = null;
   wantSys = !!opts.systemAudio && (!feeding || !!opts.probeSys);
+  aec = opts.note && wantSys && opts.echoCancel !== false ? new EchoCanceller() : null;
   tracksOn = wavOn && wantSys; // (autotest : activé par feed() si une piste « Mac » est injectée)
   sysEver = false;
   feedSys = false;
@@ -438,10 +514,25 @@ async function start(opts: StartOpts = {}): Promise<void> {
     }
     recording = true;
     if (wantSys) void openSys();
-    const s = new Segmenter((a, b, commit) => {
-      const audio = trimSilence(s.audio(a, b));
-      if (audio.length) bridge.segment(encodeWav(audio), a, b, commit);
-    });
+    let s: Segmenter;
+    if (opts.note) {
+      // Réunion : réglages Granola (marge 256 ms, fin après 800 ms de silence, 25 s max, seuil bas), aucun rognage.
+      const mk = (source: 'mic' | 'system', get: () => Segmenter) =>
+        new Segmenter((a, b, commit, sp: SpeechBounds) => {
+          const audio = get().audio(a, b);
+          if (audio.length) bridge.segment(encodeWav(audio), a, b, commit, source, sp.from, sp.to);
+        }, MEETING_VAD);
+      s = mk('mic', () => s);
+      if (wantSys) {
+        const t: Segmenter = mk('system', () => t);
+        segSys = t;
+      }
+    } else {
+      s = new Segmenter((a, b, commit, sp: SpeechBounds) => {
+        const audio = trimSilence(s.audio(a, b));
+        if (audio.length) bridge.segment(encodeWav(audio), a, b, commit, 'mic', sp.from, sp.to);
+      });
+    }
     // pré-écoute (ordre chronologique)
     const pre = new Float32Array(ringFill);
     for (let i = 0; i < ringFill; i++) pre[i] = ring[(ringPos - ringFill + i + PREROLL * 2) % PREROLL];
@@ -476,9 +567,20 @@ function stop(): void {
   wantSys = false;
   closeMic(); // micro coupé dès la fin (pastille orange éteinte)
   closeSys();
-  const tail = trimSilence(s.audio(s.cut));
+  const tails: { source: 'mic' | 'system'; wav: ArrayBuffer; start: number; end: number; from: number; to: number }[] = [];
+  if (noteMode) {
+    // reste non transcrit de chaque piste (parole sans pause finale)
+    for (const [src, g] of [['mic', s], ['system', segSys]] as const) {
+      const pb = g?.pendingBounds;
+      if (g && pb) tails.push({ source: src, wav: encodeWav(g.audio(g.tailFrom, g.length)), start: g.tailFrom, end: g.length, from: pb.from, to: pb.to });
+    }
+  }
+  segSys = null;
+  aec = null;
+  const tail = noteMode ? null : trimSilence(s.audio(s.cut));
   bridge.result({
-    tail: tail.length ? encodeWav(tail) : null,
+    tails,
+    tail: tail && tail.length ? encodeWav(tail) : null,
     tailStart: s.cut,
     full: encodeWav(s.audio()),
     durationMs: Math.round((s.length / RATE) * 1000),

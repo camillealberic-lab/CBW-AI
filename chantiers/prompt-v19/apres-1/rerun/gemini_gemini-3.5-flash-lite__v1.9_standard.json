@@ -1,0 +1,87 @@
+{
+  "target": "gemini:gemini-3.5-flash-lite",
+  "prompt": "v1.9",
+  "level": "standard",
+  "date": "2026-10-15T08:47:33.019Z",
+  "p50": 5420,
+  "p90": 5564,
+  "mem": "—",
+  "rows": [
+    {
+      "id": "c10",
+      "cat": "correction",
+      "raw": "mets la couleur en bleu, ou plutôt en vert foncé",
+      "expected": "Mets la couleur en vert foncé.",
+      "output": "Mets la couleur en vert foncé.",
+      "rawModel": "Mets la couleur en vert foncé.",
+      "ms": 2440,
+      "inTok": 2521,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 1,
+      "lenRatio": 1,
+      "score": 10
+    },
+    {
+      "id": "c20",
+      "cat": "abandoned",
+      "raw": "le truc c'est que, comment dire, l'équipe n'a pas assez de temps pour livrer tout ça en une semaine",
+      "expected": "Le truc, c'est que l'équipe n'a pas assez de temps pour livrer tout ça en une semaine.",
+      "output": "Le truc, c'est que l'équipe n'a pas assez de temps pour livrer tout ça en une semaine.",
+      "rawModel": "Le truc, c'est que l'équipe n'a pas assez de temps pour livrer tout ça en une semaine.",
+      "ms": 4356,
+      "inTok": 2538,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 1,
+      "lenRatio": 1,
+      "score": 10
+    },
+    {
+      "id": "c37",
+      "cat": "long",
+      "raw": "Alors en fait euh pour le site de la boulangerie je pense qu'il faudrait une page d'accueil avec les horaires et l'adresse, euh ensuite une page avec les produits, genre les pains, les viennoiseries, les gâteaux, et puis euh une page contact avec un formulaire. Et euh pour les couleurs je verrais bien un truc chaleureux, genre beige et marron, enfin pas trop marron quand même parce que ça fait vite triste.",
+      "expected": "Pour le site de la boulangerie, je pense qu'il faudrait une page d'accueil avec les horaires et l'adresse, une page avec les produits (pains, viennoiseries, gâteaux) et une page contact avec un formulaire.\n\nPour les couleurs, je verrais bien quelque chose de chaleureux, beige et marron, mais pas trop marron parce que ça fait vite triste.",
+      "output": "Pour le site de la boulangerie, je pense qu'il faudrait :\n- Une page d'accueil avec les horaires et l'adresse.\n- Une page avec les produits, genre les pains, les viennoiseries, les gâteaux.\n- Une page contact avec un formulaire.\n\nEt pour les couleurs, je verrais bien un truc chaleureux, genre beige et marron, enfin pas trop marron quand même parce que ça fait vite triste.",
+      "rawModel": "Pour le site de la boulangerie, je pense qu'il faudrait :\n- Une page d'accueil avec les horaires et l'adresse.\n- Une page avec les produits, genre les pains, les viennoiseries, les gâteaux.\n- Une page contact avec un formulaire.\n\nEt pour les couleurs, je verrais bien un truc chaleureux, genre beige et marron, enfin pas trop marron quand même parce que ça fait vite triste.",
+      "ms": 5564,
+      "inTok": 2606,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": false,
+      "leaked": [
+        "genre"
+      ],
+      "fillerLeft": [
+        "genre "
+      ],
+      "f1": 0.881,
+      "lenRatio": 1.11,
+      "score": 7.26
+    },
+    {
+      "id": "c42",
+      "cat": "punct_cmd",
+      "raw": "Bonjour Julien virgule à la ligne je te confirme notre rendez-vous de jeudi point",
+      "expected": "Bonjour Julien,\nJe te confirme notre rendez-vous de jeudi.",
+      "output": "Bonjour Julien,\n\nJe te confirme notre rendez-vous de jeudi.",
+      "rawModel": "Bonjour Julien,\n\nJe te confirme notre rendez-vous de jeudi.",
+      "ms": 5420,
+      "inTok": 2527,
+      "mustOk": true,
+      "missing": [],
+      "mustNotOk": true,
+      "leaked": [],
+      "fillerLeft": [],
+      "f1": 1,
+      "lenRatio": 1,
+      "score": 10
+    }
+  ]
+}
