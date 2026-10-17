@@ -153,7 +153,7 @@ button.alert:hover { background: var(--fond-2); }
     </button>
     <button class="tile" id="t-note" type="button">
       <span class="glyph lines" aria-hidden="true"><i></i><i></i><i></i></span>
-      <span class="row"><span class="t" id="t-note-l">Note</span><span class="kbd" id="k-note">⌃⌃⌃</span></span>
+      <span class="row"><span class="t" id="t-note-l">Note</span><span class="kbd" id="k-note" hidden></span></span>
     </button>
   </div>
   <button class="pause label" id="pause" type="button" hidden>Mettre en pause</button>
@@ -231,7 +231,7 @@ button.alert:hover { background: var(--fond-2); }
     $('t-note-l').textContent = s.note.active ? 'Terminer' : 'Note';
     $('k-note').textContent = s.note.active ? mmss(s.note.elapsedMs) : (s.shortcuts.note || '');
     $('k-note').hidden = !$('k-note').textContent;
-    $('pause').hidden = !s.note.active;
+    $('pause').hidden = true; // plus de pause dans les notes (décision du 16/10)
     $('pause').textContent = s.note.paused ? '▶ Reprendre la note' : 'Ⅱ Mettre en pause';
 
     var t = s.today || { words: 0, savedMin: 0 };
@@ -309,7 +309,7 @@ button.alert:hover { background: var(--fond-2); }
   var base = {
     tone: 'ready', label: 'Prêt à dicter', detail: '', dictating: false, canDictate: true,
     note: { active: false, paused: false, elapsedMs: 0, busy: false }, canNote: true,
-    shortcuts: { dictate: '⌃⌃', note: '⌃⌃⌃' },
+    shortcuts: { dictate: '⌃⌃', note: '' },
     today: { words: 1240, dictations: 18, savedMin: 23 },
     last: { text: 'Salut Marie, je te confirme le rendez-vous de jeudi à 14 h. Je t’envoie le brief complet ce soir avec les maquettes de la page d’accueil.', at: new Date(Date.now() - 4 * 60000).toISOString() },
     alerts: [], version: '1.0.11', update: { ready: false }, theme: 'system',

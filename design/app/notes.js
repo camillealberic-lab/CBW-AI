@@ -544,8 +544,8 @@
   };
   /* Genre reconnu par l'IA (NotesResult.kind, api-llm.md §3) */
   const GENRES = { reunion: 'Réunion de travail', brainstorm: 'Brainstorm / atelier', cours: 'Cours / conférence', collegues: 'Conversation entre collègues', client: 'Entretien client', recrutement: 'Entretien de recrutement' };
-  const COURT_MS = 5 * 60e3;
-  const quasiVide = (m) => (m.words || 0) < 12 || (m.durationMs || 0) < 15e3;
+  /* Presque rien capté (même seuil que le main, notes.ts › TINY_WORDS) : « Démarré par erreur ? Garder / Jeter ». Toujours un résumé sinon, quelle que soit la durée. */
+  const quasiVide = (m) => (m.words || 0) < 15 && m.provider === 'passthrough';
   const PHRASE = 'Je prends des notes avec CBW AI : l’audio reste sur mon ordinateur.';
   /* Fiche courte d'une note (aperçu, pile de voix) : voix nommées + début du paragraphe général (ou de l’ancien « En bref ») */
   function ficheDe(n) {
@@ -588,6 +588,7 @@
       renameSegment: v.renameSegment, copy: (id) => api.copyNote(id), del: (id) => api.deleteNote(id), reveal: (id) => api.revealNote(id),
       current: v.current, regenerate: v.regenerate, restorePrevious: v.restorePrevious,
       save: v.save, templates: v.templates, ask: v.ask, search: v.search, audio: v.audio, privacy: v.privacy,
+      meeting: v.meeting || (async () => false), keep: v.keep || (async () => {}),
       call: v.call || (async () => {}), callState: v.callState || (async () => null),
       onProgress: on(f(api, 'onNoteProgress')), onStatus: on(f(api, 'onStatus')),
       onLive: on(v.onLive), onStage: on(v.onStage), onVoices: on(v.onVoices), onDevice: on(v.onDevice), onDelta: on(v.onDelta),
@@ -734,6 +735,7 @@
       search: async (q) => { const k = norm(q); const hit = TR.find((r) => norm(r[2]).includes(k)); return hit && store.has('demo-now') ? [{ id: 'demo-now', snippet: hit[2] }] : []; },
       audio: async () => ({ ok: false, message: 'Démo : pas d’audio' }),
       privacy: async () => ({ local: false, provider: 'groq', label: 'Groq' }),
+      meeting: async () => true, keep: async () => {},
       call: async (a) => {
         if (a === 'start') { emit('call', null); await api.start(); }
         else if (a === 'snooze' || a === 'dismiss') emit('call', null);
@@ -1093,7 +1095,7 @@
       return `<div class="ligne endirect${sel && sel.k === 'live' ? ' sel' : ''}"><button type="button" class="reu" data-reu="__live" aria-current="false" aria-label="${rec ? 'Ouvrir la note de réunion en direct' : 'Ouvrir la note en préparation'}${NB}: ${esc(titreSession())}"><span class="pile" aria-hidden="true"><i class="rec">${rec ? '●' : '…'}</i></span><span><b>${esc(fr(titreSession()))}</b><small>${sub}</small></span></button></div>`;
     }
     function statutLigne(n) {
-      if (n.provider === 'passthrough') return (n.durationMs || 0) < COURT_MS ? '<span class="st-l">Générer le résumé</span>' : '<span class="st-e">Résumé non préparé</span>';
+      if (n.provider === 'passthrough') return quasiVide(n) ? '<span class="st-l">Presque rien capté</span>' : '<span class="st-e">Résumé non préparé</span>';
       if (n.provider === 'pending') return '<span class="st-l">Résumé en préparation…</span>';
       return '';
     }
@@ -1189,7 +1191,7 @@
     const participantsHtml = (noms, moiEn) => {
       if (!noms.length) return '';
       const l = apTout ? noms : noms.slice(0, 5);
-      return `<div class="ap-s"><h3 class="lab">Participants</h3><ul class="ap-p">${l.map((n, i) => `<li style="--c:${n.me ? 'var(--c-moi)' : 'var(--c-p' + (2 + (i % 5)) + ')'}">${esc(n.name || n)}${n.me ? ' <em>(vous)</em>' : ''}</li>`).join('')}</ul>${noms.length > 5 ? `<button type="button" class="btn3" data-act="apPlus" style="padding-left:0">${apTout ? 'Afficher moins' : '+' + (noms.length - 5) + ' de plus'}</button>` : ''}</div>`;
+      return `<div class="ap-s"><h3 class="lab">Participants</h3><ul class="ap-p">${l.map((n, i) => `<li style="--c:${n.me ? 'var(--c-moi)' : 'var(--c-p' + (2 + (i % 5)) + ')'}">${esc(n.name || n)}${n.me ? ' <em>(toi)</em>' : ''}</li>`).join('')}</ul>${noms.length > 5 ? `<button type="button" class="btn3" data-act="apPlus" style="padding-left:0">${apTout ? 'Afficher moins' : '+' + (noms.length - 5) + ' de plus'}</button>` : ''}</div>`;
     };
     let apCle = '';
     function rendApercu(it) {
@@ -1215,7 +1217,7 @@
       const voix = f ? (f.moi ? [{ name: 'Moi', me: true }] : []).concat(f.voix.map((v) => ({ name: v }))) : [];
       const g = n.kind && GENRES[n.kind] ? GENRES[n.kind] : '';
       const bref = !f ? '<p class="ap-bref st">Chargement…</p>' : f.bref ? `<p class="ap-bref">${esc(fr(f.bref))}</p>`
-        : `<p class="ap-bref st">${n.provider === 'passthrough' ? ((n.durationMs || 0) < COURT_MS ? 'Pas de résumé automatique sous 5 minutes. La transcription est prête.' : 'Le résumé n’a pas pu être préparé. La transcription est enregistrée.') : 'Pas encore de résumé.'}</p>`;
+        : `<p class="ap-bref st">${n.provider === 'passthrough' ? (quasiVide(n) ? 'Presque rien n’a été capté.' : 'Le résumé n’a pas pu être préparé. La transcription est enregistrée.') : 'Pas encore de résumé.'}</p>`;
       R.apercu.innerHTML = `<h2>${esc(fr(n.title || 'Sans titre'))}</h2><p class="ap-l">${esc(puceDate(n.createdAt))} • ${esc(hm(n.createdAt))} • ${esc(durLab(n.durationMs))}</p>${g ? `<p class="ap-l">${esc(g)}</p>` : ''}${participantsHtml(voix)}<div class="ap-s"><h3 class="lab">Vue d’ensemble</h3>${bref}</div>`;
     }
     const itemDe = (el) => {
@@ -1335,7 +1337,7 @@
         return `<div class="tr" data-i="${i}" style="--c:${colorOf(s.speaker)}"><button type="button" class="tt" ${pend ? 'disabled' : `data-ecoute="${s.startMs}"`} aria-label="${pend ? fmt(s.startMs / 1000) : 'Réécouter à ' + fmt(s.startMs / 1000)}">${fmt(s.startMs / 1000)}</button>${who}<p>${esc(fr(s.text))}</p></div>`;
       }).join('') || (q ? '<p class="vide-t">Rien ne correspond. Essaie un autre mot.</p>'
         : E === 'avant' ? `<div class="bienvenue"><b>Bienvenue dans Notes</b><p>Lance « Démarrer » au début d’une visio ou d’une réunion en salle. Rien à faire ensuite${NB}: le résumé arrive à la fin.</p><small>CBW AI reconnaît seul qui parle. Tu corriges les noms après coup, d’un clic.</small></div>`
-          : `<p class="vide-t">${pend ? 'Les passages transcrits arrivent ici au fil de l’appel. Nous ajouterons les noms des intervenants après la réunion.' : E === 'arret' ? 'La transcription arrive à l’étape 2.' : 'Pas de transcription pour cette note.'}</p>`);
+          : `<p class="vide-t">${pend ? 'Les passages transcrits arrivent ici au fil de l’appel. Les noms arrivent après l’arrêt.' : E === 'arret' ? 'La transcription arrive à l’étape 2.' : 'Pas de transcription pour cette note.'}</p>`);
       R.trCpt.textContent = q ? n + NB + 'passage' + (n > 1 ? 's' : '') : '';
       roving(R.trListe, '.tt');
       R.pInfo.classList.toggle('direct', pend);
@@ -1470,7 +1472,7 @@
       order.forEach((x) => {
         if (x.label) out.push({ k: 'h' + x.idx, html: `<div class="bh" contenteditable="false"><h2 class="mgh">${esc(fr(sansMd(x.label)))}</h2></div>` });
         x.rows.forEach((i) => out.push({ k: 'r' + i, html: rowHtml(ls[i], i) }));
-        if (final && x.key === 'faire' && x.rows.length && !legacy) out.push({ k: 'acts' + x.idx, html: `<div class="acts" contenteditable="false"><button type="button" class="btn3" data-act="copyActs">Copier les prochaines étapes</button>${hubOK ? '<button type="button" class="btn3" data-act="hub">Envoyer au Hub</button>' : ''}<span>Les cases non cochées, en Markdown.</span></div>` });
+        if (final && x.key === 'faire' && x.rows.length) out.push({ k: 'acts' + x.idx, html: `<div class="acts" contenteditable="false"><button type="button" class="btn3" data-act="copyActs">Copier les prochaines étapes</button>${hubOK ? '<button type="button" class="btn3" data-act="hub">Envoyer au Hub</button>' : ''}<span>Les cases non cochées, en Markdown.</span></div>` });
       });
       return out;
     }
@@ -1563,7 +1565,7 @@
     R.titre.addEventListener('blur', () => {
       const t = R.titre.textContent.trim(); if (!t) { R.titre.textContent = (cur && E === 'apres' && cur.meta.title) || 'Nouvelle note'; return; }
       if (E === 'apres' && curId && cur && t !== cur.meta.title) changerTitre(t);
-      else if (enSession()) { sujet.title = t; rendListe(); }
+      else if (enSession()) { sujet.title = t; rendListe(); if (E === 'pendant') Promise.resolve(V.meeting({ title: t })).catch(() => {}); }
     });
     function changerTitre(t) { cur.meta.title = t; R.titre.textContent = t; Promise.resolve(V.save(curId, { title: t })).then(refreshList).catch(() => {}); }
 
@@ -1590,7 +1592,7 @@
           ? `<span class="st-err">Le résumé n’a pas pu être préparé.</span><span class="esp"></span><button type="button" class="btn1" data-act="retry">Réessayer</button>`
           : `<button type="button" class="btn2" disabled><span class="charge" aria-hidden="true"><i></i><i></i><i></i></span>Finalisation…</button><span class="st-ia" role="status"><span data-stl>${esc(stageLabel())}</span><span class="mono" data-sts>${Math.round((Date.now() - arretT0) / 1000)}${NB}s</span></span>`;
       } else {
-        b.innerHTML = `<button type="button" class="btn2" data-act="suite" title="Reprendre l’enregistrement dans une nouvelle note (suite)">Reprendre</button><div class="demande"><input data-ask autocomplete="off" placeholder="Demander… une question ou une modification (/ pour les demandes rapides)" aria-label="Demander : une question à cette note, ou une modification du résumé" aria-autocomplete="list" aria-controls="rRap" aria-expanded="false"><kbd>⌘J</kbd><ul class="rapides" id="rRap" role="listbox" aria-label="Demandes rapides" hidden></ul></div>`;
+        b.innerHTML = `<button type="button" class="btn2" data-act="suite" title="Reprendre l’enregistrement dans cette note : la transcription et le résumé seront mis à jour">Reprendre</button><div class="demande"><input data-ask autocomplete="off" placeholder="Demander… une question ou une modification (/ pour les demandes rapides)" aria-label="Demander : une question à cette note, ou une modification du résumé" aria-autocomplete="list" aria-controls="rRap" aria-expanded="false"><kbd>⌘J</kbd><ul class="rapides" id="rRap" role="listbox" aria-label="Demandes rapides" hidden></ul></div>`;
         brancherAsk();
       }
       rendInfo(); majOnglets();
@@ -1610,11 +1612,12 @@
       else if (a === 'suite') reprendreSuite();
       else if (a === 'retry') refaire(cur && (cur.templatePick || cur.templateId));
     });
+    /* Reprendre = continuer la MÊME note (même fichier) : la capture s'ajoute, transcription, voix et résumé sont refaits sur l'ensemble. */
     function reprendreSuite() {
-      if (E !== 'apres' || !cur) return;
-      const t = String(cur.meta.title || 'Note').replace(/\s*\(suite\)$/, '') + ' (suite)';
-      demarrer({ title: t, participants: cur.participants || [] });
-      toast(`Reprise dans une nouvelle note${NB}: « ${t} ».`);
+      if (E !== 'apres' || !cur || !curId) return;
+      const id = curId, t = String(cur.meta.title || 'Note');
+      demarrer({ title: t, participants: cur.participants || [], continueId: id });
+      toast(`Reprise de « ${t} ». Le résumé sera mis à jour à l’arrêt.`);
     }
 
     /* ═════════ « Demander… » : questions + modifications (tiroir vers le haut) ═════════ */
@@ -1891,7 +1894,7 @@ ${ex ? `<div class="dv-x">${audio ? `<button type="button" class="jouer" data-x=
       else if (a === 'finder') { fermerPops(true); const id = cible || curId; if (id) V.reveal(id); }
       else if (a === 'suppr') { fermerPops(false); supprimer(cible || curId); }
       else if (a === 'jeter') supprimer(curId, true);
-      else if (a === 'garder') { gardees.add(curId); try { localStorage.setItem('cbw.notes.gardees', JSON.stringify([...gardees].slice(-200))); } catch (err) { /* */ } entrerApres({ garderOnglet: true }); }
+      else if (a === 'garder') { Promise.resolve(V.keep(curId)).then(refreshList).catch(() => {}); gardees.add(curId); try { localStorage.setItem('cbw.notes.gardees', JSON.stringify([...gardees].slice(-200))); } catch (err) { /* */ } entrerApres({ garderOnglet: true }); }
       else if (a === 'generer' || a === 'retry2') { pendingUndoPrev = false; refaire(cur && (cur.templatePick || cur.templateId)); }
       else if (a === 'renommer') R.popForm.requestSubmit();
       else if (a === 'phrase') { try { await (window.dictaApp && window.dictaApp.copyText ? window.dictaApp.copyText : (t) => navigator.clipboard.writeText(t))(PHRASE); toast('Phrase copiée. Colle-la dans le chat de la visio.'); } catch (err) { toast('Copie impossible.'); } }
@@ -1913,7 +1916,7 @@ ${ex ? `<div class="dv-x">${audio ? `<button type="button" class="jouer" data-x=
     R.bPlus.onclick = (e) => { e.stopPropagation(); cible = curId; ancre = R.bPlus; placer(R.popPlus, R.bPlus); $('button', R.popPlus).focus(); };
     R.bRes.onclick = (e) => {
       e.stopPropagation(); ancre = R.bRes;
-      R.mPrev.hidden = !(cur && cur.previous); R.mHub.hidden = !hubOK; R.mRegen.hidden = legacy;
+      R.mPrev.hidden = !(cur && cur.previous); R.mHub.hidden = !hubOK; R.mRegen.hidden = false;
       placer(R.popRes, R.bRes); $('button', R.popRes).focus();
     };
     [R.popRes, R.popPlus, R.popEv].forEach((m) => m.addEventListener('keydown', (e) => {
@@ -1973,9 +1976,10 @@ ${ex ? `<div class="dv-x">${audio ? `<button type="button" class="jouer" data-x=
     async function demarrer(o) {
       o = o || {};
       if (enSession()) { montrerNote(); navigate('#notes:' + (E === 'arret' && runId ? runId : 'direct')); if (E === 'pendant') toast('Une note est déjà en cours.'); return; }
+      const reprise = o.continueId && cur && cur.meta ? Math.floor((cur.meta.durationMs || 0) / 1000) : 0;
       repos(o);
-      sec = 0; paused = false; entrerPendant(); montrerNote(); navigate('#notes:direct');
-      try { await V.start({ title: o.title || undefined, participants: o.participants || [], eventId: o.eventId }); }
+      sec = reprise; paused = false; entrerPendant(); montrerNote(); navigate('#notes:direct');
+      try { await V.start(o.continueId ? { continueId: o.continueId } : { title: o.title || undefined, participants: o.participants || [], eventId: o.eventId }); }
       catch (e) { toast('Impossible de démarrer : ' + errMsg(e)); repos(); allerListe(); }
     }
     function entrerPendant() {
@@ -2045,16 +2049,13 @@ ${ex ? `<div class="dv-x">${audio ? `<button type="button" class="jouer" data-x=
         R.cas.innerHTML = `<div class="cas" role="alert"><p><b>Démarré par erreur${NB}?</b> Presque rien n’a été capté (${esc(durLab(m.durationMs))}).</p><div class="act"><button type="button" class="btn2" data-act="garder">Garder</button><button type="button" class="btn3" data-act="jeter">Jeter</button></div></div>`;
         lines = []; paint([], false); R.note.hidden = true;
       } else if (cur.panne) {
-        const court = (m.durationMs || 0) < COURT_MS;
-        R.cas.innerHTML = court
-          ? `<div class="cas"><p>Note de moins de 5${NB}minutes${NB}: pas de résumé automatique. La transcription est dans l’onglet d’à côté.</p><div class="act"><button type="button" class="btn1" data-act="generer">Générer le résumé</button></div></div>`
-          : `<div class="cas panne" role="alert"><p><span class="err">Le résumé n’a pas pu être préparé.</span> Aucun moteur d’IA n’a répondu (clé absente, plus de crédit ou pas de réseau). La transcription complète est enregistrée${NB}: rien n’est perdu.</p><div class="act"><button type="button" class="btn2" data-act="retry2">Réessayer</button><button type="button" class="btn3" data-act="panneReglages">Ouvrir Réglages</button></div></div>`;
+        R.cas.innerHTML = `<div class="cas panne" role="alert"><p><span class="err">Le résumé n’a pas pu être préparé.</span> Aucun moteur d’IA n’a répondu (clé absente, plus de crédit ou pas de réseau). La transcription complète est enregistrée${NB}: rien n’est perdu.</p><div class="act"><button type="button" class="btn2" data-act="retry2">Réessayer</button><button type="button" class="btn3" data-act="panneReglages">Ouvrir Réglages</button></div></div>`;
         lines = []; paint([], false); R.note.hidden = true;
       } else {
         R.oRes.hidden = false; R.lecture.textContent = lecture();
-        R.legende.hidden = legacy; R.note.hidden = false; R.pied.hidden = false;
+        R.legende.hidden = false; R.note.hidden = false; R.pied.hidden = false;
         paint(buildRows(lines, true), false);
-        R.note.contentEditable = legacy ? 'false' : 'true';
+        R.note.contentEditable = 'true'; // ancienne note (sans fichier UI) : modifiable et « Régénérer » possible, comme les autres
         if (!lines.some((l) => l.kind === 'text')) paint([{ k: 'msg', html: '<p class="att" contenteditable="false">Résumé vide : rien d’exploitable n’a été entendu.</p>' }], false);
       }
       if (o.nouvelle) { R.qListe.innerHTML = ''; R.tiroir.hidden = true; }
@@ -2108,9 +2109,9 @@ ${ex ? `<div class="dv-x">${audio ? `<button type="button" class="jouer" data-x=
       const refait = pendingUndoPrev; pendingUndoPrev = false;
       try { await charger(id); } catch (e) { toast('Note introuvable.'); return; }
       R.regle.style.setProperty('--p', 1);
-      if (cur.panne) { entrerApres({ nouvelle: true }); if (warn && (cur.meta.durationMs || 0) >= COURT_MS) toast(warn); return; }
+      if (cur.panne) { entrerApres({ nouvelle: true }); if (warn && !quasiVide(cur.meta)) toast(warn); return; }
       root.dataset.etat = 'pret';
-      R.barre.innerHTML = '<span class="st-ok" role="status">Vos notes sont prêtes</span>';
+      R.barre.innerHTML = '<span class="st-ok" role="status">Tes notes sont prêtes</span>';
       R.chargeTab.hidden = true;
       say('Résumé prêt : ' + (cur.meta.title || ''));
       await sleep(rm() ? 300 : 1200);
@@ -2125,7 +2126,7 @@ ${ex ? `<div class="dv-x">${audio ? `<button type="button" class="jouer" data-x=
       if (E !== 'arret') return;
       if (stageNow !== 'retry') stageNow = s.stage; majStage();
       if (s.stage === 'transcript' && s.noteId) {
-        V.get(s.noteId).then((n) => { if (E !== 'arret') return; segs = (n.segments || []).map((x) => ({ startMs: x.startMs, endMs: x.endMs, speaker: x.speaker === 'Moi' ? 'Moi' : 'Les autres', text: x.text })); majSpeakers(); if (tab === 'tr') rendTR(); say('Étape 2 sur 3 : transcription prête, séparation des voix.'); }).catch(() => {});
+        V.get(s.noteId).then((n) => { if (E !== 'arret') return; const deuxPistes = (n.segments || []).some((x) => x.source === 'system'); segs = (n.segments || []).map((x) => ({ startMs: x.startMs, endMs: x.endMs, speaker: x.speaker || (x.source === 'system' ? 'Les autres' : deuxPistes ? 'Moi' : 'Micro'), text: x.text })); majSpeakers(); if (tab === 'tr') rendTR(); say('Étape 2 sur 3 : transcription prête, séparation des voix.'); }).catch(() => {});
       }
       if (s.stage === 'summary') say('Étape 3 sur 3 : rédaction du résumé.');
     });

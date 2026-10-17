@@ -1341,6 +1341,10 @@ body:not([data-view="hub"]) .side-resize { display: none; }
 .pair.add input, .pair.add textarea { width: 100%; }
 .pair.add textarea { height: auto; min-height: 40px; padding: 9px 12px; resize: vertical; line-height: 1.45; }
 .pair.add .arr { padding-top: 10px; }
+.learn-acts { margin: var(--s3) 0; }
+.pair.learned { grid-template-columns: minmax(0, 1.4fr) minmax(0, 2fr) auto; }
+.pair.learned .ptxt { font-size: 12.5px; }
+.pair.learned.off > b { color: var(--texte-sec); font-weight: 600; }
 .chipw .star { width: 26px; height: 26px; margin-left: -10px; font-size: 14px; color: var(--texte-3); }
 .chipw .star.on { color: var(--texte); }
 .dict-acts { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 0 0 var(--s5); }
@@ -1630,7 +1634,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
         <div class="card mic-card">
           <div class="card-h"><h2>Micro</h2></div>
           <div class="mic-test">
-            <div class="mic-meter" id="micMeter" aria-hidden="true"></div>
+            <div class="mic-meter" id="homeMicMeter" aria-hidden="true"></div>
             <p class="note" id="micNote" aria-live="polite">Parle quelques secondes : les barres doivent monter au moins jusqu'au milieu.</p>
             <div class="mic-acts"><button class="btn" id="micTestBtn">Tester mon micro</button><button class="link" data-goto="settings:audio">Choisir le micro</button></div>
           </div>
@@ -1839,6 +1843,20 @@ body:not([data-view="hub"]) .side-resize { display: none; }
           <label class="switch"><input type="checkbox" data-setting="cleaning.frenchTypography" aria-label="Typographie française"><span></span></label></div>
       </div>
 
+      <p class="group-title" id="style-learned">Préférences apprises</p>
+      <div class="group">
+        <div class="row"><div class="label">Observer mes retouches après une dictée<span class="hint">Sur ce Mac, chiffré, 60 jours : CBW compare ce qu'il a collé et ce que tu gardes. Rien n'est envoyé.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="learning.observe" aria-label="Observer mes retouches après une dictée"><span></span></label></div>
+      </div>
+      <div class="dict-acts learn-acts">
+        <span class="note mono" id="learnInfo" style="font-size:11px"></span>
+        <span class="sp"></span>
+        <button class="btn ghost" id="learnOpen" hidden>Ouvrir le dernier rapport</button>
+        <button class="btn" id="learnAnalyze">Analyser mes corrections</button>
+      </div>
+      <div class="pairs" id="learnList"></div>
+      <p class="note" style="margin:var(--s3) 0 var(--s5)">Une retouche devient une préférence quand tu la refais 5 fois, sans jamais faire l'inverse. Le rapport hebdomadaire reste sur ce Mac et ne modifie jamais le nettoyage tout seul.</p>
+
       <p class="group-title" id="style-rewrite">Réécriture à la voix</p>
       <div class="group">
         <div class="row"><div class="label">Réécrire la sélection<span class="hint">Sélectionne du texte, appuie sur <span id="rwKey"></span>, dis la consigne (« plus court »), puis appuie de nouveau.</span></div>
@@ -1959,8 +1977,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
           <label class="switch"><input type="checkbox" data-setting="notes.diarization" aria-label="Séparer les voix"><span></span></label></div>
         <div class="row"><div class="label">Annuler l'écho du haut-parleur sur le micro<span class="hint">Utile sans casque : ta voix reste nette, celle des autres n'est pas captée deux fois</span></div>
           <label class="switch"><input type="checkbox" data-setting="notes.echoCancel" aria-label="Annuler l'écho du haut-parleur sur le micro"><span></span></label></div>
-        <div class="row"><div class="label">Garder l'audio des réunions<span class="hint">Permet de réécouter un passage depuis la loupe. Stocké sur ce Mac, supprimé avec la note.</span></div>
-          <label class="switch"><input type="checkbox" data-setting="notes.keepAudio" aria-label="Garder l'audio des réunions"><span></span></label></div>
+        <div class="row"><div class="label">Garder l'audio des réunions<span class="hint">Pour réécouter un passage et reconnaître les voix. Chiffré sur ce Mac, effacé passé ce délai ou avec la note.</span></div>
+          <span class="row-ctl"><select data-setting="notes.audioDays" data-num aria-label="Durée de conservation de l'audio des réunions"><option value="7">7 jours</option><option value="15">15 jours</option><option value="30">30 jours</option><option value="60">60 jours</option></select><label class="switch"><input type="checkbox" data-setting="notes.keepAudio" aria-label="Garder l'audio des réunions"><span></span></label></span></div>
         <div class="row"><div class="label">Moteur de notes<span class="hint" id="engHint" role="status">…</span><div class="eng-bar" id="engBar" role="progressbar" aria-label="Téléchargement du moteur de notes" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden><i></i></div></div>
           <span class="row-ctl"><button class="btn" id="engDl" hidden>Télécharger maintenant</button><button class="btn ghost" id="engCancel" hidden>Arrêter</button></span></div>
         <div class="row"><div class="label">Suspendre le téléchargement du moteur de notes<span class="hint">Il reprend où il s'était arrêté quand tu le réactives</span></div>
@@ -1975,6 +1993,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
           <label class="switch"><input type="checkbox" data-setting="context.enabled" aria-label="Lire l'app active pour orthographier les noms"><span></span></label></div>
         <div class="row"><div class="label">Apprendre de mes corrections<span class="hint">Un nom que tu corriges après une dictée est ajouté au Dictionnaire, où tu peux le retirer.</span></div>
           <label class="switch"><input type="checkbox" data-setting="dictionary.autoLearn" aria-label="Apprendre de mes corrections"><span></span></label></div>
+        <div class="row"><div class="label">Observer mes retouches après une dictée<span class="hint">Chiffré sur ce Mac, 60 jours. Sert aux préférences apprises (page Style), que tu peux désactiver une à une.</span></div>
+          <label class="switch"><input type="checkbox" data-setting="learning.observe" aria-label="Observer mes retouches après une dictée (Confidentialité)"><span></span></label></div>
         <div class="row"><div class="label">Lire le texte avant le curseur<span class="hint">Jusqu'à 300 caractères, envoyés au moteur IA avec la dictée pour la raccorder (majuscule, ponctuation)</span></div>
           <label class="switch"><input type="checkbox" data-setting="context.readBefore" aria-label="Lire le texte avant le curseur"><span></span></label></div>
         <div class="row"><div class="label">Garder l'enregistrement de chaque dictée<span class="hint">Chiffré, sur ce Mac : sert à Réessayer et à récupérer une dictée annulée</span></div>
@@ -2338,14 +2358,14 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     'general.shortcut': 'LCtrl×2', 'general.insertMode': 'paste', 'general.language': 'fr', 'general.launchAtLogin': true,
     'providers.order': ['groq', 'gemini', 'zai', 'ollama', 'openrouter'], 'providers.localFirst': false,
     'providers.ollama.model': 'gemma4:e4b', 'whisper.model': 'large-v3-turbo',
-    'cleaning.level': 'standard', 'cleaning.keepRawOnFailure': true, 'cleaning.vocabulary': [], 'context.enabled': true, 'dictionary.autoLearn': true, 'dictionary.learned': [],
+    'cleaning.level': 'standard', 'cleaning.keepRawOnFailure': true, 'cleaning.vocabulary': [], 'context.enabled': true, 'dictionary.autoLearn': true, 'learning.observe': true, 'dictionary.learned': [],
     'audio.inputDeviceId': '', 'audio.avoidBluetooth': true, 'audio.maxDurationMin': 20, 'audio.pauseMedia': true, 'audio.lowVoice': false,
     'cleaning.promptMode': 'auto', 'cleaning.toneByApp': true, 'cleaning.frenchTypography': true, 'context.readBefore': true,
     'dictionary.priority': [], 'dictionary.replacements': [], 'history.keepAudio': true, 'history.audioDays': 14,
     'snippets.enabled': true, 'rewrite.enabled': true, 'notepad.enabled': false, 'overlay.livePreview': false,
     'shortcuts.pasteLast': 'Control+Command+V', 'shortcuts.copyLast': 'Control+Command+C', 'shortcuts.rewrite': 'Control+Command+R', 'shortcuts.mouseButton': 0,
     'appearance.theme': 'light',
-    'notes.systemAudio': true, 'notes.diarization': true, 'notes.keepAudio': false, 'notes.echoCancel': true, 'notes.calendar': false,
+    'notes.systemAudio': true, 'notes.diarization': true, 'notes.keepAudio': true, 'notes.audioDays': 15, 'notes.echoCancel': true, 'notes.calendar': false,
     'notes.template': 'auto', 'notes.detectCalls': true, 'notes.autoStart': false, 'notes.autoStop': true, 'notes.engine': 'auto', 'notes.engineDownloadPaused': false
   };
   function cget(key) {
@@ -3059,7 +3079,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     if (p === 'settings') { refreshStatuses(); refreshWhisper(); renderPermRows(); refreshMics(); setTimeout(moveIndex, 30); if (sub && /^settings-[a-z]+$/.test(sub)) scrollToSection(sub); }
     if (p === 'history') refreshHistory();
     if (p === 'snippets') refreshSnippets();
-    if (p === 'style') { refreshPresets(); renderPromptMode(); }
+    if (p === 'style') { refreshPresets(); renderPromptMode(); refreshLearning(); }
     if (p === 'dictionary') { renderVocab(); renderReps(); }
     if (p === 'notes') openNotes(sub);
     syncSegs();
@@ -3828,6 +3848,49 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     const list = presets.slice(); list.splice(k, 1);
     if (await savePresets(list, 'Consigne supprimée') && rwEdit === k) resetRwForm();
   });
+  // — Préférences apprises (apprentissage continu, chantiers/apprentissage/api.md)
+  let learn = null;
+  async function refreshLearning() {
+    const L = grp('learning');
+    if (!L) { $('#learnList').innerHTML = ''; $('#learnAnalyze').hidden = true; return; }
+    try { learn = await L.get(); } catch (e) { learn = null; }
+    renderLearning();
+  }
+  function renderLearning() {
+    const list = (learn && Array.isArray(learn.prefs)) ? learn.prefs : [];
+    $('#learnInfo').textContent = learn ? plural(learn.observations || 0, 'dictée relue', 'dictées relues') + ' · ' + plural(list.filter((p) => p.active).length, 'préférence active', 'préférences actives') : '';
+    $('#learnOpen').hidden = !(learn && learn.lastReport);
+    $('#learnList').innerHTML = list.length
+      ? list.map((p) => {
+          const st = p.active ? '' : (p.reason === 'contredite' ? ' · désactivée : tu as remis ce mot' : ' · désactivée');
+          const ex = p.examples && p.examples[0] ? ' · ex. ' + p.examples[0] : '';
+          return '<div class="pair learned' + (p.active ? '' : ' off') + '"><b class="selectable">' + esc(p.text) + '</b><span class="ptxt selectable">' + esc(p.hits + ' fois' + st + ex) + '</span><span class="pacts">'
+            + '<button class="btn ghost" data-lp="toggle" data-id="' + esc(p.id) + '">' + (p.active ? 'Désactiver' : 'Réactiver') + '</button>'
+            + '<button class="btn ghost danger" data-lp="del" data-id="' + esc(p.id) + '" aria-label="Supprimer la préférence ' + esc(p.text) + '">Supprimer</button></span></div>';
+        }).join('')
+      : '<div class="empty">Rien d\'appris pour l\'instant. Quand tu refais la même retouche après tes dictées, CBW la retient ici.</div>';
+  }
+  $('#learnList').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-lp]'); if (!b) return;
+    const L = grp('learning'); const p = learn && (learn.prefs || []).find((x) => x.id === b.dataset.id); if (!L || !p) return;
+    try {
+      if (b.dataset.lp === 'toggle') { await L.setActive(p.id, !p.active); toast(p.active ? 'Préférence désactivée' : 'Préférence réactivée'); }
+      else {
+        if (!(await cbwConfirm({ title: 'Supprimer cette préférence ?', body: p.text + '. CBW ne la proposera plus.', ok: 'Supprimer' }))) return;
+        await L.remove(p.id); toast('Préférence supprimée');
+      }
+    } catch (err) { toast(errMsg(err), 'err'); }
+    refreshLearning();
+  });
+  $('#learnAnalyze').addEventListener('click', async (e) => {
+    const L = grp('learning'), b = e.currentTarget; if (!L) return;
+    btnState(b, 'loading', 'Analyse…');
+    try { const r = await L.analyze(); btnState(b, 'success', 'Rapport prêt'); toast(plural(r.observations || 0, 'dictée analysée', 'dictées analysées') + ' · rapport dans ~/.dicta-ai/learning'); refreshLearning(); }
+    catch (err) { btnState(b, 'error', 'Échec'); toast(errMsg(err), 'err'); }
+  });
+  $('#learnOpen').addEventListener('click', () => { const L = grp('learning'); if (L) L.openReport(); });
+  if (has('onLearningChanged')) api.onLearningChanged(() => { if (page === 'style') refreshLearning(); });
+
   function renderPromptMode() {
     const m = cget('cleaning.promptMode');
     $$('input[name="pmode"]').forEach((r) => { r.checked = r.value === (m === 'on' || m === 'off' ? m : 'auto'); });
@@ -3891,7 +3954,7 @@ body:not([data-view="hub"]) .side-resize { display: none; }
     $('#guideHide').addEventListener('click', () => { $('#guideCard').hidden = true; try { localStorage.setItem('cbw.guideHidden', '1'); } catch (e) { /* */ } });
   })();
   (function micTest() {
-    const meter = $('#micMeter'); meter.innerHTML = '<i></i>'.repeat(20); const bars = $$('i', meter);
+    const meter = $('#homeMicMeter'); meter.innerHTML = '<i></i>'.repeat(20); const bars = $$('i', meter);
     const btn = $('#micTestBtn'); const M = grp('micTest'); let active = false, peak = 0, demoIv = 0;
     const draw = (lv) => { const n = Math.round(Math.max(0, Math.min(1, lv)) * 20); bars.forEach((b, i) => b.classList.toggle('on', i < n)); };
     const end = () => {

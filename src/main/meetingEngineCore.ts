@@ -137,65 +137,110 @@ export function parseDiarize(stdout: string): EngineDiarization {
 }
 
 /**
- * Réglages de séparation des voix FluidAudio (recalibrés le 15 oct. sur 3 / 2 / 1 voix, dictaphone.md) :
- * VBx « sur-découpe » (Fa 0,4 au lieu de 0,07 : sur 50 s le défaut fondait 3 voix en 2), puis les groupes dont les
- * empreintes moyennes sont proches (cosinus ≥ 0,62) sont refondus ; un groupe de moins de 1,5 s de parole est
- * rattaché au tour voisin. Mesures : même voix 0,69–0,85, voix différentes ≤ 0,57.
+ * Réglages de séparation des voix FluidAudio (recalibrés le 15 oct. sur 3 / 2 / 1 voix, dictaphone.md ; puis le 16 oct.
+ * sur une vraie réunion de 21 min à 3 personnes, chantiers/notes-v2/ynov/mesures.md) :
+ * VBx « sur-découpe » (Fa 0,4 au lieu de 0,07 : sur 50 s le défaut fondait 3 voix en 2), puis
+ *  - les groupes « principaux » dont les empreintes moyennes sont proches sont refondus : cosinus ≥ 0,62 si l'un des
+ *    deux a moins de 30 s de parole (empreinte bruitée ; voix de synthèse : même voix 0,69–0,85, différentes ≤ 0,57),
+ *    ≥ 0,78 si les deux en ont 30 s ou plus (vraie salle : même personne 0,80–0,93, personnes différentes jusqu'à 0,76 —
+ *    à 0,62 les 3 personnes étaient fondues en une seule, 96 % du temps) ;
+ *  - les bribes (moins de 15 s, ou de 3 % de la parole totale si c'est moins — jamais moins de 1,5 s) ne font pas une
+ *    personne : rattachées à la voix principale la plus ressemblante (sinon au tour voisin).
  */
 export const FLUID_DIARIZE_ARGS = ['--fa', '0.4', '--embeddings'];
 export const FLUID_MERGE_SIM = 0.62;
+/** Seuil de fusion entre deux groupes qui ont chacun au moins FLUID_SOLID_SEC de parole. */
+export const FLUID_MERGE_SIM_SOLID = 0.78;
+export const FLUID_SOLID_SEC = 30;
 export const FLUID_MIN_SPEAKER_SEC = 1.5;
+/** Bribe : moins de FLUID_BRIBE_SEC s de parole ET moins de FLUID_BRIBE_SHARE de la parole totale (plancher FLUID_MIN_SPEAKER_SEC). */
+export const FLUID_BRIBE_SEC = 15;
+export const FLUID_BRIBE_SHARE = 0.03;
 
-/** Fusion agglomérative (centroïdes pondérés par la durée, cosinus ≥ minSim), comme speakers.mergeCentroids (pur, sans import). */
-function mergeByCentroid(items: { id: string; e: number[]; weight: number }[], minSim: number): Map<string, string> {
-  const norm = (v: Float64Array) => {
-    const n = Math.sqrt(v.reduce((a, x) => a + x * x, 0)) || 1;
-    for (let i = 0; i < v.length; i++) v[i] /= n;
-    return v;
-  };
-  const g = items.map((c) => ({ ids: [c.id], e: norm(Float64Array.from(c.e)), w: Math.max(c.weight, 1e-6) }));
-  const dot = (a: Float64Array, b: Float64Array) => a.reduce((s, x, i) => s + x * b[i], 0);
+const normalize = (v: Float64Array): Float64Array => {
+  const n = Math.sqrt(v.reduce((a, x) => a + x * x, 0)) || 1;
+  for (let i = 0; i < v.length; i++) v[i] /= n;
+  return v;
+};
+const dot = (a: Float64Array, b: Float64Array): number => a.reduce((s, x, i) => s + x * b[i], 0);
+
+/**
+ * Fusion agglomérative (centroïdes pondérés par la durée), comme speakers.mergeCentroids (pur, sans import) : à chaque
+ * tour, la paire la plus proche parmi celles qui passent leur seuil — `minSim`, ou `solidSim` si les deux groupes ont
+ * chacun au moins `solidSec` s de parole. Renvoie id → id fusionné et les centroïdes finaux.
+ */
+function mergeByCentroid(
+  items: { id: string; e: number[]; weight: number }[],
+  o: { minSim: number; solidSim?: number; solidSec?: number },
+): { map: Map<string, string>; groups: { id: string; e: Float64Array; w: number }[] } {
+  const g = items.map((c) => ({ ids: [c.id], e: normalize(Float64Array.from(c.e)), w: Math.max(c.weight, 1e-6) }));
+  const need = (a: { w: number }, b: { w: number }) => (o.solidSim != null && Math.min(a.w, b.w) >= (o.solidSec ?? Infinity) ? o.solidSim : o.minSim);
   while (g.length > 1) {
-    let bi = 0;
-    let bj = 1;
+    let bi = -1;
+    let bj = -1;
     let bs = -2;
     for (let i = 0; i < g.length; i++)
       for (let j = i + 1; j < g.length; j++) {
         const v = dot(g[i].e, g[j].e);
-        if (v > bs) [bs, bi, bj] = [v, i, j];
+        if (v >= need(g[i], g[j]) && v > bs) [bs, bi, bj] = [v, i, j];
       }
-    if (bs < minSim) break;
+    if (bi < 0) break;
     const A = g[bi];
     const B = g[bj];
-    const e = norm(A.e.map((x, i) => (x * A.w + B.e[i] * B.w) / (A.w + B.w)));
+    const e = normalize(A.e.map((x, i) => (x * A.w + B.e[i] * B.w) / (A.w + B.w)));
     g.splice(bj, 1);
     g[bi] = { ids: [...A.ids, ...B.ids], e, w: A.w + B.w };
   }
-  const m = new Map<string, string>();
-  for (const x of g) for (const id of x.ids) m.set(id, x.ids[0]);
-  return m;
+  const map = new Map<string, string>();
+  for (const x of g) for (const id of x.ids) map.set(id, x.ids[0]);
+  return { map, groups: g.map((x) => ({ id: x.ids[0], e: x.e, w: x.w })) };
 }
 
-/** Fusion des groupes sur-découpés + absorption des groupes minuscules. Pur. */
-export function refineDiarization(d: EngineDiarization, o: { minSim?: number; minSec?: number } = {}): EngineDiarization {
+export interface RefineOptions {
+  minSim?: number;
+  solidSim?: number;
+  solidSec?: number;
+  /** Plancher des bribes (s). */
+  minSec?: number;
+  bribeSec?: number;
+  bribeShare?: number;
+}
+
+/** Fusion des groupes sur-découpés + rattachement des bribes. Pur. */
+export function refineDiarization(d: EngineDiarization, o: RefineOptions = {}): EngineDiarization {
   const dur = new Map<string, number>();
   for (const t of d.turns) dur.set(t.speaker, (dur.get(t.speaker) ?? 0) + t.end - t.start);
-  let turns = d.turns;
-  const emb = d.embeddings ?? {};
-  const items = [...dur.keys()].filter((k) => emb[k]).map((k) => ({ id: k, e: emb[k], weight: dur.get(k)! }));
-  if (items.length > 1) {
-    const map = mergeByCentroid(items, o.minSim ?? FLUID_MERGE_SIM);
-    turns = turns.map((t) => ({ ...t, speaker: map.get(t.speaker) ?? t.speaker }));
-  }
-  // groupes minuscules → tour voisin le plus proche
-  const tot = new Map<string, number>();
-  for (const t of turns) tot.set(t.speaker, (tot.get(t.speaker) ?? 0) + t.end - t.start);
+  const total = [...dur.values()].reduce((a, b) => a + b, 0);
   const minSec = o.minSec ?? FLUID_MIN_SPEAKER_SEC;
-  const small = new Set([...tot].filter(([, v]) => v < minSec).map(([k]) => k));
-  if (small.size && small.size < tot.size) {
-    const big = turns.filter((t) => !small.has(t.speaker));
+  const bribeSec = Math.max(minSec, Math.min(o.bribeSec ?? FLUID_BRIBE_SEC, (o.bribeShare ?? FLUID_BRIBE_SHARE) * total));
+  const emb = d.embeddings ?? {};
+  const isBribe = (k: string) => (dur.get(k) ?? 0) < bribeSec;
+  const mainIds = [...dur.keys()].filter((k) => !isBribe(k));
+  let turns = d.turns;
+  // 1. groupes principaux : fusion des empreintes proches
+  const items = mainIds.filter((k) => emb[k]).map((k) => ({ id: k, e: emb[k], weight: dur.get(k)! }));
+  let centroids: { id: string; e: Float64Array; w: number }[] = [];
+  if (items.length) {
+    const r = mergeByCentroid(items, { minSim: o.minSim ?? FLUID_MERGE_SIM, solidSim: o.solidSim ?? FLUID_MERGE_SIM_SOLID, solidSec: o.solidSec ?? FLUID_SOLID_SEC });
+    centroids = r.groups;
+    turns = turns.map((t) => ({ ...t, speaker: r.map.get(t.speaker) ?? t.speaker }));
+  }
+  // 2. bribes (s'il reste au moins une voix principale) : voix principale la plus ressemblante, sinon tour voisin
+  if (mainIds.length && mainIds.length < dur.size) {
+    const toMain = new Map<string, string>();
+    for (const k of dur.keys()) {
+      if (!isBribe(k) || !emb[k] || !centroids.length) continue;
+      const e = normalize(Float64Array.from(emb[k]));
+      let best = centroids[0];
+      for (const c of centroids) if (dot(e, c.e) > dot(e, best.e)) best = c;
+      toMain.set(k, best.id);
+    }
+    const mains = new Set(turns.filter((t) => !isBribe(t.speaker) || !dur.has(t.speaker)).map((t) => t.speaker));
+    const big = turns.filter((t) => mains.has(t.speaker));
     turns = turns.map((t) => {
-      if (!small.has(t.speaker)) return t;
+      if (mains.has(t.speaker)) return t;
+      const m = toMain.get(t.speaker);
+      if (m) return { ...t, speaker: m };
       let best = big[0];
       let gap = Infinity;
       for (const b of big) {

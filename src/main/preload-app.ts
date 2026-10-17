@@ -37,8 +37,8 @@ contextBridge.exposeInMainWorld('dictaApp', {
   clearRecent: () => invoke('clearRecent'),
 
   // prise de notes (docs/APP_API.md › Mode « Prise de notes »)
-  startNote: (opts?: { title?: string; participants?: string[]; eventId?: string }) => invoke('startNote', opts ?? {}),
-  pauseNote: () => invoke('pauseNote'),
+  // continueId : « Reprendre » une note terminée (même note, même fichier)
+  startNote: (opts?: { title?: string; participants?: string[]; eventId?: string; continueId?: string }) => invoke('startNote', opts ?? {}),
   resumeNote: () => invoke('resumeNote'),
   stopNote: (opts?: { title?: string; markers?: { atMs: number; text: string }[]; userNotes?: string; userTimes?: Record<string, string>; template?: string; participants?: string[] }) => invoke('stopNote', opts),
   cancelNote: () => invoke('cancelNote'),
@@ -67,6 +67,8 @@ contextBridge.exposeInMainWorld('dictaApp', {
     search: (q: string) => invoke('notes:search', q),
     audio: (id: string, fromMs: number, toMs: number) => invoke('notes:audio', id, fromMs, toMs),
     privacy: () => invoke('notes:privacy'),
+    meeting: (patch: { title?: string; participants?: string[] }) => invoke('notes:meeting', patch), // titre modifié pendant la note
+    keep: (id: string) => invoke('notes:keep', id), // « Garder » une note presque vide → .md dans Documents
     onLive: on('noteLive'), // { noteId, source: 'mic'|'system', startMs, endMs, text }
     onStage: on('noteStage'), // { noteId, stage: 'transcript'|'voices'|'summary'|'done' }
     onVoices: on('noteVoices'), // { noteId, segments, diarized, mode }
@@ -114,6 +116,16 @@ contextBridge.exposeInMainWorld('dictaApp', {
     run: (id: string) => invoke('rewrite:run', id),
   },
   dictionary: { export: () => invoke('dictionary:export'), import: () => invoke('dictionary:import') },
+  // apprentissage continu (chantiers/apprentissage/api.md) — page Style › Préférences apprises
+  learning: {
+    get: () => invoke('learning:get'), // { observe, observations, lastReport, prefs: [{ id, kind, text, hits, observations, active, reason?, examples, createdAt }] }
+    setActive: (id: string, on: boolean) => invoke('learning:setActive', id, on),
+    remove: (id: string) => invoke('learning:remove', id),
+    analyze: () => invoke('learning:analyze'), // { path, observations, modified, motifs }
+    openReport: () => invoke('learning:openReport'),
+    clear: () => invoke('learning:clear'),
+  },
+  onLearningChanged: on('learningChanged'),
   importContacts: (opts?: { calendar?: boolean }) => invoke('contacts:import', opts ?? {}),
   notepad: {
     list: () => invoke('notepad:list'),

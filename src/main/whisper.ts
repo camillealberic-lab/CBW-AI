@@ -248,7 +248,9 @@ class WhisperServer {
     fd.append('language', opts.language || 'fr');
     fd.append('temperature', '0.0');
     fd.append('prompt', boundPrompt(p.prompt) ?? '');
-    const r = await fetch(`http://127.0.0.1:${this.port}/inference`, { method: 'POST', body: fd, signal: opts.signal });
+    // Délai de garde : un serveur bloqué (~1 fois sur 10 observé en test) ne doit jamais figer la dictée → repli.
+    const guard = AbortSignal.timeout(Math.max(8_000, Math.round(wavMs(wav) * 2) + 4_000));
+    const r = await fetch(`http://127.0.0.1:${this.port}/inference`, { method: 'POST', body: fd, signal: opts.signal ? AbortSignal.any([opts.signal, guard]) : guard });
     if (!r.ok) throw new Error(`whisper-server HTTP ${r.status}`);
     return r.text();
   }

@@ -72,3 +72,11 @@ bench/results/
 .vercel/
 scratch/
 tmp/
+
+# Contenus personnels (réunions, dictées réelles, audits sur données réelles) : jamais publiés
+chantiers/notes-v2/ynov/
+chantiers/audit-prompt/
+chantiers/audit-notes/
+chantiers/parakeet-dictee/
+chantiers/compte-rendu-global/
+bench/cases-v111.jsonl

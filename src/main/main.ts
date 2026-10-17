@@ -5,13 +5,13 @@ import type { DictaStatus } from '../shared/types';
 import { routerAvailable, routerModule } from './cleaner';
 import { PushToTalk } from './hotkey';
 import { Overlay } from './overlay';
-import { captureAppWindow, initAppIpc, openAppWindow, startMeetingFromMain, wireCallDetection } from './appWindow';
+import { captureAppWindow, initAppIpc, openAppWindow, startMeetingFromMain, stopMeetingFromMain, wireCallDetection } from './appWindow';
 import { calendarWatcher, type CalendarEvent } from './calendar';
 import { callDetector } from './callDetect';
 import { addBusyProbe } from './meetingEngine';
 import { ensureOllama, stopOllama } from './ollama';
 import { distDir, logFile, log } from './paths';
-import { NoteSession } from './notes';
+import { NoteSession, purgeNoteAudio } from './notes';
 import { contextHelper } from './context';
 import { Pipeline } from './pipeline';
 import { Recorder } from './recorder';
@@ -22,6 +22,7 @@ import { unreadableSecrets } from './secrets';
 import { hardenProcess, isTrustedSender } from './security';
 import { initSettingsIpc, setLastDictation } from './settingsWindow';
 import { getRecent, getStats } from './history';
+import { initLearning, startWeeklyReport } from './learn';
 import { recoverLast } from './recovery';
 import { getRewritePresets, runRewritePreset, startRewrite } from './rewrite';
 import { AppTray, type TrayAction, type TrayPopoverState } from './tray';
@@ -76,6 +77,7 @@ async function main(): Promise<void> {
   settings.migrateV3();
   settings.migrateV4();
   settings.migrateV5();
+  settings.migrateV6();
   await app.whenReady();
   app.setName('CBW AI');
   secureStartup(); // clés API chiffrées (clé locale), session durcie, permissions des données
@@ -133,7 +135,7 @@ async function main(): Promise<void> {
   const trayState = (): TrayPopoverState => {
     const cur = pipeline.current;
     const noteOn = notes.active;
-    const paused = notes.state === 'paused';
+    const paused = false; // pas de pause (décision du 16 oct.) ; la pause interne de fin d'appel ne dure que 4 s
     const el = notes.elapsed();
     const mmss = `${String(Math.floor(el / 60000)).padStart(2, '0')}:${String(Math.floor(el / 1000) % 60).padStart(2, '0')}`;
     let tone: TrayPopoverState['tone'] = 'ready';
@@ -141,7 +143,7 @@ async function main(): Promise<void> {
     let detail = '';
     if (noteOn) {
       tone = 'rec';
-      label = paused ? `Note en pause ${mmss}` : `Note en cours ${mmss}`;
+      label = `Note en cours ${mmss}`;
     } else if (notes.busy) {
       tone = 'ia';
       label = notes.state === 'organizing' ? 'Compte rendu…' : 'Transcription de la note…';
@@ -182,7 +184,7 @@ async function main(): Promise<void> {
       canDictate: !longCapture(),
       note: { active: noteOn, paused, elapsedMs: Math.floor(el / 1000) * 1000, busy: notes.busy },
       canNote: noteOn || !longCapture(),
-      shortcuts: { dictate: sc, note: sc === '⌃⌃' ? '⌃⌃⌃' : '' },
+      shortcuts: { dictate: sc, note: '' }, // plus de ⌃⌃⌃ : les notes se lancent depuis l'app
       today: today(),
       last: last ? { text: (last.text || last.raw || '').slice(0, 400), at: last.at } : null,
       alerts,
@@ -207,9 +209,7 @@ async function main(): Promise<void> {
           return void setTimeout(toggleDictation, 120); // popover refermé avant d'ouvrir le micro
         case 'note':
           return toggleNote();
-        case 'notePause':
-          if (notes.state === 'paused') notes.resume();
-          else if (notes.state === 'recording') notes.pause();
+        case 'notePause': // pas de pause : le bouton (ancien popover) ne fait plus que rafraîchir
           return tray.refresh();
         case 'openApp':
           return void openAppWindow();
@@ -305,22 +305,42 @@ async function main(): Promise<void> {
     tray.rebuild();
     if (!Notification.isSupported()) return;
     // Wispr : « Résumé prêt : <titre> » ; sans moteur IA, la transcription seule est enregistrée.
+    if ((meta as { tiny?: boolean }).tiny) return; // presque rien capté : « Démarré par erreur ? » à l'écran, pas de notification
     const raw = (meta as { provider?: string }).provider === 'passthrough';
     const n = new Notification({ title: raw ? `Note enregistrée : ${meta.title}` : `Résumé prêt : ${meta.title}`, body: raw ? 'Transcription enregistrée, résumé à générer.' : 'Clique pour ouvrir la note.', silent: false });
     n.on('click', () => openAppWindow(`notes:${meta.id}`));
     n.show();
   });
-  const startNote = async (): Promise<void> => {
-    if (pipeline.current === 'recording') pipeline.cancel();
-    await notes.start();
-  };
+  // Démarrage et arrêt d'une note : un seul chemin, celui de l'écran Notes (appWindow.ts › startMeeting / stopMeeting).
+  const startNote = (): Promise<void> => startMeetingFromMain({}).catch((e) => log('note: démarrage', e));
+  const stopNote = (): Promise<void> => stopMeetingFromMain({}).catch((e) => log('note: arrêt', e));
   try {
     notes.recoverOrphans();
   } catch (e) {
     log('note: récupération', e);
   }
+  // Audio des réunions : chiffré au repos, gardé notes.audioDays jours (15), purgé au démarrage puis toutes les 6 h.
+  const purgeNotes = (): void => {
+    try {
+      purgeNoteAudio(notes.busy ? notes.currentId : '');
+    } catch (e) {
+      log('note: purge de l’audio', e);
+    }
+  };
+  setTimeout(purgeNotes, 20_000);
+  setInterval(purgeNotes, 6 * 3600_000);
+  settings.on('change', (k: string) => {
+    if (k === 'notes.keepAudio' || k === 'notes.audioDays') purgeNotes();
+  });
 
   initAppIpc({ hotkey, recorder, pipeline, notes });
+  // Apprentissage continu (chantiers/apprentissage/api.md) : préférences chargées, rapport hebdomadaire local.
+  try {
+    initLearning();
+    startWeeklyReport();
+  } catch (e) {
+    log('learn: initialisation impossible', e instanceof Error ? e.message : e);
+  }
   // Moteur de notes (api-engine.md) : pas de téléchargement pendant une dictée (les notes sont déjà couvertes).
   addBusyProbe(() => !['idle', 'done', 'error'].includes(pipeline.current));
   // Calendrier (notes.calendar, défaut false) : notification ~1 min avant ; un clic démarre la prise de notes.
@@ -393,19 +413,11 @@ async function main(): Promise<void> {
     if (notes.active) return void (notes.elapsed() < 30000 ? notes.cancel() : log('note: Échap ignoré (> 30 s)'));
     pipeline.cancel();
   });
-  // Control gauche ×3 : la dictée lancée au 2e appui est remplacée par une prise de notes.
-  hotkey.on('triple', () => {
-    if (SELFTEST) return;
-    if (longCapture()) return;
-    pipeline.cancel();
-    setTimeout(() => {
-      if (pipeline.current === 'recording') pipeline.cancel();
-      void notes.start();
-    }, 150);
-  });
+  // Plus de ⌃⌃⌃ (décision du 16 oct.) : les notes se lancent depuis l'app ou la carte « Réunion détectée ».
+  // Un simple appui sur Control pendant une note l'arrête, par le même chemin que l'écran Notes.
   hotkey.on('noteStop', () => {
     if (SELFTEST) return;
-    if (notes.active) void notes.stop();
+    if (notes.active) void stopNote();
   });
 
   // ── Raccourcis d'action (api-keys.md) : coller / copier la dernière dictée, réécrire la sélection
@@ -479,7 +491,7 @@ async function main(): Promise<void> {
     else if (['idle', 'done', 'error'].includes(pipeline.current)) void pipeline.begin();
   };
   const toggleNote = (): void => {
-    if (notes.active) void notes.stop();
+    if (notes.active) void stopNote();
     else if (!longCapture()) void startNote();
   };
   ipcMain.on('overlay:hover', (e, on: boolean) => isTrustedSender(e) && overlay.setInteractive(!!on));
@@ -508,12 +520,7 @@ async function main(): Promise<void> {
     app.dock?.setMenu(
       Menu.buildFromTemplate([
         { label: pipeline.current === 'recording' ? 'Arrêter la dictée' : 'Dicter', click: toggleDictation, enabled: !longCapture() },
-        { label: notes.active ? 'Terminer la note' : 'Démarrer une note', click: toggleNote, enabled: notes.active || !longCapture() },
-        ...(notes.active
-          ? [notes.state === 'paused'
-              ? { label: 'Reprendre la note', click: () => notes.resume() }
-              : { label: 'Mettre la note en pause', click: () => notes.pause() }]
-          : []),
+        { label: notes.active ? 'Arrêter la note' : 'Démarrer une note', click: toggleNote, enabled: notes.active || !longCapture() },
         { type: 'separator' },
         { label: 'Mes notes', click: () => openAppWindow('notes') },
       ]),

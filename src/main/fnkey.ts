@@ -27,15 +27,12 @@ export const isFnShortcut = (acc: string): boolean => triggerOf(acc) !== null;
 export const fnwatchBin = (): string | undefined => findBin('dicta-fnwatch', process.env.DICTA_FNWATCH_BIN);
 
 const DOUBLE_TAP_MS = 350;
-const TRIPLE_TAP_MS = 350;
 const HOLD_MS = 350; // un peu plus long qu'avec fn : Control sert aussi aux raccourcis
 
 /** Machine à états du geste fn (indépendante du helper, testable). */
 export class FnGesture extends EventEmitter {
   private state: 'idle' | 'pressed' | 'hold' | 'free' | 'notetap' = 'idle';
   private lastTapUp = 0;
-  /** Relâchement du 2e appui (dictée mains libres lancée) : un 3e appui rapide = prise de notes ('triple'). */
-  private freeUpAt = 0;
   private noteTapAt = 0;
   /** Prise de notes en cours : un simple appui (sans autre touche) émet 'noteStop', rien d'autre. */
   noteActive = false;
@@ -56,14 +53,6 @@ export class FnGesture extends EventEmitter {
       this.ignoreUp = false;
       return;
     }
-    if (this.state === 'free' && this.freeUpAt && now - this.freeUpAt < TRIPLE_TAP_MS && !this.keySinceTap) {
-      // 3e appui rapide : la dictée à peine lancée est remplacée par une prise de notes
-      this.state = 'idle';
-      this.freeUpAt = 0;
-      this.ignoreUp = true;
-      this.emit('triple');
-      return;
-    }
     if (this.state === 'free') {
       this.state = 'idle';
       this.ignoreUp = true;
@@ -75,7 +64,6 @@ export class FnGesture extends EventEmitter {
     if (this.lastTapUp && now - this.lastTapUp < DOUBLE_TAP_MS && !this.keySinceTap) {
       this.state = 'free';
       this.lastTapUp = 0;
-      this.freeUpAt = 0;
       this.keySinceTap = false;
       this.ignoreUp = true; // le relâchement du 2e appui ne doit pas arrêter
       this.emit('down');
@@ -101,7 +89,6 @@ export class FnGesture extends EventEmitter {
     }
     if (this.ignoreUp) {
       this.ignoreUp = false;
-      if (this.state === 'free') this.freeUpAt = now;
       return;
     }
     this.clearTimer();
@@ -147,7 +134,6 @@ export class FnGesture extends EventEmitter {
     this.clearTimer();
     this.state = 'idle';
     this.lastTapUp = 0;
-    this.freeUpAt = 0;
   }
 }
 
@@ -169,7 +155,7 @@ export class FnWatcher extends EventEmitter {
     super();
     for (const e of ['arm', 'down', 'up']) this.mouse.on(e, () => this.emit(e));
     this.gesture.on('escape', () => this.mouse.reset());
-    for (const e of ['arm', 'down', 'up', 'cancel', 'escape', 'triple', 'noteStop']) this.gesture.on(e, () => this.emit(e));
+    for (const e of ['arm', 'down', 'up', 'cancel', 'escape', 'noteStop']) this.gesture.on(e, () => this.emit(e));
   }
 
   start(): Promise<boolean> {

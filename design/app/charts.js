@@ -158,8 +158,8 @@
   var CSS = [
     '#stats.kpis{display:none!important}',
     '.cbwc-soon{padding-top:8px;text-transform:none;letter-spacing:0;font-size:13px}',
-    '.cbwc{--g:16px;font-family:var(--police,system-ui);color:var(--texte,#111);display:grid;gap:var(--g);min-width:0}',
-    '.cbwc *{box-sizing:border-box}',
+    '.cbwc-root{--g:16px;font-family:var(--police,system-ui);color:var(--texte,#111);display:grid;gap:var(--g);min-width:0}',
+    '.cbwc-root *{box-sizing:border-box}',
     '.cbwc-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:2px solid var(--trait,#111);border-bottom:1px solid var(--fil,#ddd)}',
     '.cbwc-kpi{padding:14px 18px 12px;border-left:1px solid var(--fil,#ddd);min-width:0;display:flex;flex-direction:column;gap:8px}',
     '.cbwc-kpi:first-child{border-left:0;padding-left:0}',
@@ -194,11 +194,11 @@
     '.cbwc-empty{position:relative;border-top:2px solid var(--trait,#111);padding-top:14px}',
     '.cbwc-empty p{position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);margin:0;padding:14px 20px;background:var(--fond,#fff);border:2px solid var(--trait,#111);font-size:17px;font-weight:800;letter-spacing:-.01em;text-align:center;max-width:calc(100% - 32px)}',
     '.cbwc-empty p small{display:block;margin-top:6px;font-family:var(--mono,monospace);font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--texte-sec,#4a4a4a)}',
-    '.cbwc.narrow .cbwc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}',
-    '.cbwc.narrow .cbwc-kpi:nth-child(3){border-left:0;padding-left:0}',
-    '.cbwc.narrow .cbwc-kpi:nth-child(n+3){border-top:1px solid var(--fil,#ddd)}',
-    '.cbwc.narrow .cbwc-row{grid-template-columns:minmax(0,1fr);gap:var(--g)}',
-    '.cbwc.narrow .cbwc-leg{grid-template-columns:minmax(0,1fr)}',
+    '.cbwc-root.narrow .cbwc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}',
+    '.cbwc-root.narrow .cbwc-kpi:nth-child(3){border-left:0;padding-left:0}',
+    '.cbwc-root.narrow .cbwc-kpi:nth-child(n+3){border-top:1px solid var(--fil,#ddd)}',
+    '.cbwc-root.narrow .cbwc-row{grid-template-columns:minmax(0,1fr);gap:var(--g)}',
+    '.cbwc-root.narrow .cbwc-leg{grid-template-columns:minmax(0,1fr)}',
     '@media (prefers-reduced-motion:reduce){.cbwc-tip{transition:none}}'
   ].join('\n');
   function ensureStyle() {
@@ -640,7 +640,7 @@
     var narrow = width < 760;
 
     var root = document.createElement('div');
-    root.className = 'cbwc' + (narrow ? ' narrow' : '');
+    root.className = 'cbwc-root' + (narrow ? ' narrow' : '');
     root.style.setProperty('--police', th.police);
     root.style.setProperty('--mono', th.mono);
 

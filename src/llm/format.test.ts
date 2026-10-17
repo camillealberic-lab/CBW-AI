@@ -16,7 +16,7 @@ const eq = (got: unknown, want: unknown, msg: string) => {
 };
 const check = (ok: boolean, msg: string) => eq(ok, true, msg);
 
-check(PROMPT_VERSION === 'v1.10', 'version v1.10');
+check(PROMPT_VERSION === 'v1.12', 'version v1.12 (v1.5 + paragraphes, listes, « enfin » de la v1.11)');
 
 // ── b1 / b2 : commandes
 eq(applyDictationCommands('Salut Karim virgule à la ligne'), 'Salut Karim,\n', 'Salut Karim virgule à la ligne');
@@ -93,7 +93,7 @@ eq(renderContextBlock({ app: 'Notes', before: 'x'.repeat(500) }).length < 400, t
 eq(postProcess('cd projets && npm install && npm run dev', 'va dans le dossier projets et lance npm install puis npm run dev'), 'Va dans le dossier projets et lance npm install puis npm run dev.', 'syntaxe shell inventée → repli');
 eq(postProcess('Lance cd src puis ls.', 'lance cd src puis ls'), 'Lance cd src puis ls.', 'cd dicté : gardé');
 const sys = buildSystemPrompt({});
-check(sys.includes('profil=') && sys.includes('<avant>'), 'le prompt décrit profil et avant');
+check(sys.includes('profil') && sys.includes('<avant>'), 'le prompt décrit profil et avant');
 check(buildMessages('x', { context: { app: 'Slack' } }).system === buildMessages('y', {}).system, 'système identique avec ou sans contexte');
 check(buildSystemPrompt({ priorityVocabulary: ['Supabase'], vocabulary: ['supabase', 'Linear'] }).includes('PRIORITAIRES') , 'vocabulaire prioritaire');
 const vp = buildSystemPrompt({ priorityVocabulary: ['Zeta'], vocabulary: ['Alpha', 'zeta'] });
@@ -155,7 +155,19 @@ eq(autoParagraphs(longBlock.replace(' Sinon,', '\nSinon,')), longBlock.replace('
 eq(autoParagraphs('Je viens. Sinon, on verra. Ensuite, on part. Par contre, pas demain.'), 'Je viens. Sinon, on verra. Ensuite, on part. Par contre, pas demain.', 'autoParagraphs : texte court intact');
 eq(autoParagraphs(longBlock.replace(' Sinon,', ' Et pour la suite,')), longBlock.replace(' Sinon,', ' Et pour la suite,'), 'autoParagraphs : sans marqueur, aucun paragraphe');
 check(!finalizeText(longBlock, longBlock, { context: { app: 'Terminal' } }).includes('\n'), 'finalize : jamais de paragraphe en terminal');
-check(finalizeText(longBlock, longBlock, {}).includes('\n\nSinon'), 'finalize : paragraphe de secours appliqué');
+check(!finalizeText(longBlock, longBlock, {}).includes('\n'), 'finalize : plus de filet sur une sortie de LLM (v1.11+)');
+check(finalizeText(longBlock, longBlock, {}, true).includes('\n\nSinon'), 'finalize : filet en dernier recours (aucun LLM)');
+
+// ── v1.12 : v1.5 + éléments v1.11
+const s12 = buildSystemPrompt({});
+check(/une idée/.test(s12) && /qu'un mot l'annonce ou non/.test(s12), 'v1.12 : paragraphes par le sens');
+check(/1\. 2\. 3\./.test(s12) && /tirets/.test(s12), 'v1.12 : listes numérotées / tirets');
+check(/enfin si/.test(s12) && /= finalement/.test(s12) && /un an/.test(s12), 'v1.12 : règles « enfin »');
+check(/ne les recopie jamais/.test(s12) && /arobase/.test(s12) && /émoji/.test(s12), 'v1.12 : « … », e-mails, emoji');
+check(/trucs → choses/.test(s12) && /corrige activement/.test(s12) && /la dernière ou la plus claire/.test(s12), 'v1.12 : garde la v1.5 (familier, correction active, répétitions)');
+check(!/⟦corrige/.test(s12) && /⟦corrige/.test(buildSystemPrompt({ markCorrections: true })), 'v1.12 : repère ⟦corrige⟧ seulement avec markCorrections');
+check(s12.length < 10000, `v1.12 : prompt système compact (${s12.length} car.)`);
+check(!shouldSkipLLM('lundi, enfin mardi'), 'v1.12 : « enfin » court → LLM');
 
 console.log(failed ? `\n${failed} échec(s)` : '\ntous les tests passent');
 process.exitCode = failed ? 1 : 0;

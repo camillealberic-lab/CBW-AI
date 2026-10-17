@@ -18,7 +18,7 @@ import { distDir, log } from './paths';
 import type { DictationResult, Pipeline } from './pipeline';
 import type { Recorder } from './recorder';
 import { settings } from './settings';
-import { assertNoteId, copyNote, deleteNote, getNote, listNotes, notesOutDir, renameSpeaker, revealNote, type NoteSession } from './notes';
+import { assertNoteId, copyNote, deleteNote, getNote, listNotes, noteAudioSlice, notesOutDir, renameSpeaker, revealNote, type NoteSession } from './notes';
 import { calendarAccess, calendarWatcher, currentMeeting, requestCalendarAccess, upcomingMeetings, type CalendarEvent } from './calendar';
 import { engineStatus, fluidModels } from './meetingEngine';
 import * as os from 'node:os';
@@ -27,6 +27,7 @@ import { modelDownloader, type DownloadProgress } from './whisperModels';
 import { updater, type UpdateStatus } from './updater';
 import { isTrustedSender } from './security';
 import { wipeAllUserData } from './privacy';
+import { clearObservations, learningEvents, learningView, openLatestReport, removePref, setPrefActive, writeReport } from './learn';
 
 /**
  * Fenêtre principale (onboarding + hub) : design/app/app.html, pont `window.dictaApp`
@@ -93,7 +94,7 @@ function stopPermLoop(): void {
 /** Réglages modifiés côté main (apprentissage, import, menu de la pastille, raccourcis) que l'UI recharge en direct. */
 const CHANGED_KEYS = new Set([
   'cleaning.vocabulary', 'dictionary.learned', 'dictionary.priority', 'dictionary.replacements', 'snippets.list',
-  'rewrite.presets', 'general.language', 'overlay.livePreview', 'notepad.enabled',
+  'rewrite.presets', 'general.language', 'overlay.livePreview', 'notepad.enabled', 'learning.observe',
 ]);
 
 /** Clés transmises au router LLM en mémoire (prise en compte immédiate, sans attendre le mtime du fichier). */
@@ -210,38 +211,6 @@ function disarmOrganize(): void {
 }
 const wavPaths = (id: string) => ['', '.sys', '.mic'].map((x) => path.join(dataDir(), 'notes', `${id}${x}.wav`));
 const hasAudio = (id: string): boolean => wavPaths(id).some((p) => fs.existsSync(p) && fs.statSync(p).size > 44 + 32000);
-/** PCM16 mono 16 kHz entre a et b (ms) : mélange si présent, sinon somme des pistes son du Mac + micro. */
-function readAudio(id: string, a: number, b: number): Buffer | null {
-  const slice = (p: string): Buffer | null => {
-    try {
-      const fd = fs.openSync(p, 'r');
-      try {
-        const size = fs.fstatSync(fd).size;
-        const start = 44 + Math.floor((a / 1000) * 16000) * 2;
-        const len = Math.min(size - start, Math.floor(((b - a) / 1000) * 16000) * 2);
-        if (len <= 0) return null;
-        const buf = Buffer.alloc(len);
-        fs.readSync(fd, buf, 0, len, start);
-        return buf;
-      } finally {
-        fs.closeSync(fd);
-      }
-    } catch {
-      return null;
-    }
-  };
-  const [mix, sys, mic] = wavPaths(id);
-  if (fs.existsSync(mix)) return slice(mix);
-  const s = fs.existsSync(sys) ? slice(sys) : null;
-  const m = fs.existsSync(mic) ? slice(mic) : null;
-  if (!s || !m) return s ?? m;
-  const out = Buffer.alloc(Math.max(s.length, m.length));
-  for (let i = 0; i + 1 < out.length; i += 2) {
-    const v = (i + 1 < s.length ? s.readInt16LE(i) : 0) + (i + 1 < m.length ? m.readInt16LE(i) : 0);
-    out.writeInt16LE(Math.max(-32768, Math.min(32767, v)), i);
-  }
-  return out;
-}
 function wavBuffer(pcm: Buffer): Buffer {
   const h = Buffer.alloc(44);
   h.write('RIFF', 0, 'ascii');
@@ -374,6 +343,14 @@ export function wireCallDetection(det: NodeJS.EventEmitter): void {
 export function startMeetingFromMain(o: { title?: string; participants?: string[]; eventId?: string }): Promise<void> {
   return startMeetingFn ? startMeetingFn(o) : Promise.resolve();
 }
+/**
+ * Arrêt d'une note depuis le main (touche Control, pastille, Dock, barre de menus) : MÊME chemin que le bouton
+ * « Arrêter » de l'écran Notes (résumé en direct, fichier UI balisé, gabarit, invités, « Régénérer »).
+ */
+export function stopMeetingFromMain(o: Record<string, unknown> = {}): Promise<void> {
+  if (stopMeetingFn) return stopMeetingFn(o);
+  return notesRef?.active ? notesRef.stop().then(() => undefined) : Promise.resolve();
+}
 
 export function initAppIpc(d: {
   hotkey: PushToTalk;
@@ -495,21 +472,29 @@ export function initAppIpc(d: {
   const n = d.notes;
   // Contexte de la réunion en cours (événement calendrier, invités, nombre de personnes) : relu par la page à son montage.
   // Le nombre de personnes n'est jamais demandé (décision Camille, 15 oct.) : les voix sont détectées seules.
-  let meeting: { title?: string; participants: string[]; eventId?: string; startedAt: number; app?: string } | null = null;
+  let meeting: { title?: string; participants: string[]; eventId?: string; startedAt: number; app?: string; continueId?: string; userNotes?: string } | null = null;
   let stageId = '';
   const strArr = (v: unknown, max: number, len: number): string[] =>
     Array.isArray(v) ? v.slice(0, max).map((x) => String(x ?? '').replace(/[\x00-\x1f\x7f]+/g, ' ').trim().slice(0, len)).filter(Boolean) : [];
   const startMeeting = async (opts: unknown): Promise<void> => {
     const o = (opts ?? {}) as Record<string, unknown>;
+    if (n.busy) return;
     if (d.pipeline.current === 'recording') d.pipeline.cancel();
+    // « Reprendre » une note terminée : même note (titre, invités, notes tapées gardés), capture ajoutée à la suite.
+    const continueId = o.continueId != null ? assertNoteId(String(o.continueId)) : undefined;
+    const prev = continueId ? readUi(continueId) : null;
+    const prevMeta = continueId ? listNotes().find((m) => m.id === continueId) : undefined;
+    if (continueId && !prevMeta) throw new Error('Note introuvable');
     meeting = {
-      title: typeof o.title === 'string' ? o.title.slice(0, 160).trim() || undefined : undefined,
-      participants: strArr(o.participants, 40, 60),
+      title: continueId ? prev?.title || prevMeta?.title : typeof o.title === 'string' ? o.title.slice(0, 160).trim() || undefined : undefined,
+      participants: continueId ? prev?.participants ?? [] : strArr(o.participants, 40, 60),
       eventId: typeof o.eventId === 'string' ? o.eventId.slice(0, 200) : undefined,
       startedAt: Date.now(),
       app: typeof o.app === 'string' ? o.app.slice(0, 60) : undefined,
+      continueId,
+      userNotes: prev?.userNotes,
     };
-    await n.start({});
+    await n.start(continueId ? { continueId } : {});
   };
   startMeetingFn = startMeeting;
   notesRef = n;
@@ -552,14 +537,23 @@ export function initAppIpc(d: {
     autoStop: autoPhase,
   }));
   handle('app:startNote', (_e, opts: unknown) => startMeeting(opts));
-  handle('app:pauseNote', () => n.pause());
+  // Pas de pause (décision du 16 oct.) : « Reprendre » ne sert qu'après « Notes arrêtées » (fin d'appel, 4 s).
   handle('app:resumeNote', () => n.resume());
+  // Titre / invités modifiés à l'écran pendant la note : gardés pour l'arrêt, d'où qu'il vienne (Control, pastille…).
+  handle('app:notes:meeting', (_e, patch: unknown) => {
+    if (!meeting || !n.active) return false;
+    const p = (patch ?? {}) as Record<string, unknown>;
+    if (typeof p.title === 'string') meeting.title = p.title.replace(/[\x00-\x1f\x7f]+/g, ' ').slice(0, 160).trim() || undefined;
+    if (Array.isArray(p.participants)) meeting.participants = strArr(p.participants, 40, 60);
+    return true;
+  });
   const stopMeeting = async (opts: unknown): Promise<void> => {
+    if (!n.active) return;
     const o = (opts ?? {}) as Record<string, unknown>;
     const markers = Array.isArray(o.markers)
       ? o.markers.slice(0, 200).map((m: any) => ({ atMs: Math.max(0, Number(m?.atMs) || 0), text: String(m?.text ?? '').slice(0, 200) })).filter((m) => m.text.trim())
       : [];
-    const userNotes = typeof o.userNotes === 'string' ? o.userNotes.slice(0, 30_000) : '';
+    const userNotes = typeof o.userNotes === 'string' ? o.userNotes.slice(0, 30_000) : meeting?.userNotes ?? '';
     const template = typeof o.template === 'string' && /^[a-z0-9-]{1,24}$/.test(o.template) ? o.template : String(settings.get('notes.template') || 'auto');
     const title = typeof o.title === 'string' ? o.title.slice(0, 120).trim() || undefined : meeting?.title;
     const participants = strArr(o.participants, 40, 60).length ? strArr(o.participants, 40, 60) : meeting?.participants ?? [];
@@ -569,7 +563,9 @@ export function initAppIpc(d: {
     armOrganize(() => stageId, { userNotes: userNotes || undefined, template, title, participants }, ctx);
     try {
       // Notes tapées données en `userNotes` : plus de « repères » ajoutés à la transcription (sinon en double).
-      await n.stop({ title: typeof o.title === 'string' ? title : undefined, markers: userNotes ? [] : markers });
+      // Titre imposé : saisi à l'écran, ou celui de la note reprise (même note, même titre).
+      const forced = typeof o.title === 'string' ? title : meeting?.continueId ? meeting.title : undefined;
+      await n.stop({ title: forced, markers: userNotes ? [] : markers });
     } finally {
       disarmOrganize();
       meeting = null;
@@ -767,10 +763,12 @@ export function initAppIpc(d: {
     const nid = assertNoteId(String(id));
     const a = Math.max(0, Number(fromMs) || 0);
     const b = Math.min(a + 90_000, Math.max(a + 1000, Number(toMs) || a + 15_000));
-    const pcm = readAudio(nid, a, b);
+    const pcm = noteAudioSlice(nid, a, b);
     return pcm ? { ok: true, dataUrl: 'data:audio/wav;base64,' + wavBuffer(pcm).toString('base64') } : { ok: false, message: 'Audio non conservé pour cette réunion' };
   });
   handle('app:notes:privacy', () => privacyInfo());
+  // « Garder » une note presque vide (« Démarré par erreur ? ») : son .md est alors écrit dans Documents.
+  handle('app:notes:keep', (_e, id: unknown) => n.keepNote(String(id)));
 
   // ── CBW Hub : seulement si ~/cbw-studio/mcp/hub.mjs existe (sinon le bouton est masqué)
   handle('app:hub:available', () => fs.existsSync(hubScript()));
@@ -1016,6 +1014,19 @@ export function initAppIpc(d: {
     }
     return { added: m.added, found: r.names.length, errors: r.errors.map((x) => ({ source: x.source, reason: x.reason })) };
   });
+
+  // ── apprentissage continu (chantiers/apprentissage/api.md) : préférences apprises, page Style
+  const prefId = (id: unknown): string => {
+    if (typeof id !== 'string' || !/^p[a-z0-9]{2,40}$/.test(id)) throw new Error('Identifiant invalide');
+    return id;
+  };
+  learningEvents.on('changed', () => send('app:learningChanged', null));
+  handle('app:learning:get', () => learningView());
+  handle('app:learning:setActive', (_e, id: unknown, on: unknown) => setPrefActive(prefId(id), on === true));
+  handle('app:learning:remove', (_e, id: unknown) => removePref(prefId(id)));
+  handle('app:learning:analyze', () => writeReport(true));
+  handle('app:learning:openReport', () => openLatestReport());
+  handle('app:learning:clear', () => clearObservations());
 
   // ── bloc-notes vocal (f10, api-notes.md)
   handle('app:notepad:list', () => listNotepad());

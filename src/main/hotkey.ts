@@ -20,7 +20,7 @@ import { settings } from './settings';
  *    jusqu'à ce que la permission soit accordée.
  *
  * Événements : 'arm' (fn : 1er appui), 'down', 'up', 'cancel' (Échap), 'mode' (mode: 'hold' | 'toggle' | 'fn'),
- * 'triple' (3 appuis rapides : prise de notes), 'noteStop' (simple appui pendant une note).
+ * 'noteStop' (simple appui pendant une note). Plus de triple appui : les notes se lancent depuis l'app.
  *
  * Raccourcis d'actions (globalShortcut, configurables, vide = désactivé) — voir chantiers/wispr-parite/api-keys.md :
  *   'pasteLast' (shortcuts.pasteLast), 'copyLast' (shortcuts.copyLast), 'rewrite' (shortcuts.rewrite).
@@ -83,7 +83,6 @@ export class PushToTalk extends EventEmitter {
     this.fn.on('up', () => this.emit('up'));
     this.fn.on('cancel', () => this.emit('cancel'));
     this.fn.on('escape', () => this.emit('cancel'));
-    this.fn.on('triple', () => this.emit('triple'));
     this.fn.on('noteStop', () => this.emit('noteStop'));
     this.fn.on('secure', (on: boolean, app: string) => this.emit('secureInput', on, app));
     this.fn.on('lost', () => (this.fnWanted ? void this.startFn() : this.syncMouseHelper()));

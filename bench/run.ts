@@ -16,7 +16,7 @@ interface Case { id: string; cat: string; raw: string; context?: import('../src/
   /** Sortie attendue SANS IA (fallbackClean + passe finale) : vérifiée par --dry. */ offline?: string }
 interface Row {
   id: string; cat: string; raw: string; expected: string; output: string; rawModel: string;
-  ms: number; inTok?: number; rejected?: string; error?: string; skipped?: boolean;
+  ms: number; inTok?: number; outTok?: number; cachedTok?: number; rejected?: string; error?: string; skipped?: boolean;
   mustOk: boolean; missing: string[]; mustNotOk: boolean; leaked: string[]; fillerLeft: string[];
   /** Blocs (séparés par une ligne vide) attendus / obtenus ; paraOk = même structure (1 bloc vs plusieurs). */
   paraExp: number; paraOut: number; paraOk: boolean;
@@ -63,8 +63,10 @@ if (cat) cases = cases.filter((c) => c.cat === cat);
 // ───────────────────────────────────────────── appels modèles (autonomes)
 /** Tokens d'entrée facturés par le dernier appel (usage renvoyé par l'API), pour mesurer le poids du prompt. */
 let lastInTok: number | undefined;
+/** v1.12 : tokens de sortie (réflexion comprise) et tokens d'entrée servis par le cache, si l'API les donne. */
+let lastOutTok: number | undefined, lastCachedTok: number | undefined;
 async function call(target: string, system: string, user: string, maxTokens: number): Promise<string> {
-  lastInTok = undefined;
+  lastInTok = undefined; lastOutTok = undefined; lastCachedTok = undefined;
   const [prov, ...rest] = target.split(':');
   const model = rest.join(':');
   const t = GENERATION.temperature;
@@ -85,7 +87,10 @@ async function call(target: string, system: string, user: string, maxTokens: num
   if (prov === 'gemini') {
     const key = process.env.GEMINI_API_KEY;
     if (!key) throw new Error('GEMINI_API_KEY manquante');
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    // 503 « high demand » (surcharge passagère côté Google) : 3 nouvelles tentatives espacées, sinon le score mesure la météo.
+    let r!: Response;
+    for (let attempt = 0; ; attempt++) {
+    r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
       body: JSON.stringify({
@@ -95,9 +100,15 @@ async function call(target: string, system: string, user: string, maxTokens: num
       }),
       signal: AbortSignal.timeout(30_000),
     });
+    if (r.status !== 503 || attempt >= 3) break;
+    process.stdout.write('    (503 Gemini, attente 20 s)\n');
+    await new Promise((res) => setTimeout(res, 20_000));
+    }
     const j: any = await r.json();
     if (!r.ok) throw new Error(`${r.status} ${JSON.stringify(j).slice(0, 300)}`);
     lastInTok = j.usageMetadata?.promptTokenCount;
+    lastOutTok = (j.usageMetadata?.candidatesTokenCount ?? 0) + (j.usageMetadata?.thoughtsTokenCount ?? 0) || undefined;
+    lastCachedTok = j.usageMetadata?.cachedContentTokenCount;
     return j.candidates?.[0]?.content?.parts?.map((p: any) => p.text).join('') ?? '';
   }
   const base = prov === 'groq' ? 'https://api.groq.com/openai/v1' : prov === 'openrouter' ? 'https://openrouter.ai/api/v1' : '';
@@ -120,6 +131,8 @@ async function call(target: string, system: string, user: string, maxTokens: num
   }
   if (!r.ok) throw new Error(`${r.status} ${String(j?.error?.message ?? JSON.stringify(j)).replace(/org_\w+/g, 'org_…').slice(0, 300)}`);
   lastInTok = j.usage?.prompt_tokens;
+  lastOutTok = j.usage?.completion_tokens;
+  lastCachedTok = j.usage?.prompt_tokens_details?.cached_tokens;
   return j.choices?.[0]?.message?.content ?? '';
 }
 
@@ -265,7 +278,7 @@ for (const target of targets) {
       try { output = finish(c, postProcess(rawModel, c.raw)); } catch (e) { rejected = (e as Error).message; output = rawModel.trim(); }
     } catch (e) { error = (e as Error).message; }
     const ms = Math.round(performance.now() - t0);
-    const row = score(c, output, { rawModel, ms, inTok: lastInTok, rejected, error });
+    const row = score(c, output, { rawModel, ms, inTok: lastInTok, outTok: lastOutTok, cachedTok: lastCachedTok, rejected, error });
     rows.push(row);
     const flagStr = error ? 'ERR' : rejected ? 'REJ' : row.score >= 9 ? ' ok' : row.score >= 7 ? '  ~' : ' KO';
     const tags = `${row.paraOk ? '' : ` ¶${row.paraOut}/${row.paraExp}`}${row.oralLeft.length ? ` oral:${row.oralLeft.join(',')}` : ''}${row.fillerLeft.length ? ` filler:${row.fillerLeft.join(',').trim()}` : ''}`;
@@ -283,6 +296,8 @@ for (const target of targets) {
   console.log('\n' + line);
   const toks = run.map((r) => r.inTok).filter((n): n is number => typeof n === 'number');
   if (toks.length) console.log(`  tokens d'entrée (API) : moyenne ${Math.round(toks.reduce((a, b) => a + b, 0) / toks.length)}, min ${Math.min(...toks)}, max ${Math.max(...toks)}`);
+  const outs = run.map((r) => r.outTok).filter((n): n is number => typeof n === 'number');
+  if (outs.length) console.log(`  tokens de sortie (API) : moyenne ${Math.round(outs.reduce((a, b) => a + b, 0) / outs.length)}, max ${Math.max(...outs)} · en cache : ${run.filter((r) => r.cachedTok).length}/${run.length}`);
   console.log('  par catégorie : ' + [...byCat].map(([k, v]) => `${k} ${avg((r) => r.score, v).toFixed(1)}`).join(' · '));
   const setTag = casesFile === 'cases.jsonl' ? '' : '_' + casesFile.replace(/^.*\//, '').replace(/\.jsonl$/, '');
   const dir = outDir ? (outDir.endsWith('/') ? outDir : outDir + '/') : `${ROOT}results/`;

@@ -126,6 +126,16 @@ console.log('meetingEngineCore.test.ts : OK');
   const d = parseDiarize(JSON.stringify({ segments: [{ speaker: 'S1', s: 0, e: 10 }, { speaker: 'S2', s: 10, e: 20 }, { speaker: 'S3', s: 20, e: 30 }, { speaker: 'S4', s: 30, e: 31 }], speakerCount: 4, embeddings: { S1: e(0), S2: e(1), S3: e(0).map((x, i) => (i === 2 ? 0.3 : x)), S4: e(5) } }));
   const r = refineDiarization(d);
   assert.equal(r.speakerCount, 2); // S3 ≈ S1 fusionnés, S4 (1 s) absorbé
+  // recalibrage du 16 oct. (vraie salle) : deux groupes solides (≥ 30 s) à cos ≈ 0,7 restent distincts, deux groupes courts fusionnent
+  const v = (a) => Array.from({ length: 16 }, (_, i) => (i === 0 ? a : i === 1 ? Math.sqrt(1 - a * a) : 0));
+  const pair = (sec) => parseDiarize(JSON.stringify({ segments: [{ speaker: 'A', s: 0, e: sec }, { speaker: 'B', s: sec, e: 2 * sec }], embeddings: { A: v(1), B: v(0.7) } }));
+  assert.equal(refineDiarization(pair(60)).speakerCount, 2);
+  assert.equal(refineDiarization(pair(10)).speakerCount, 1);
+  // bribe (10 s sur 20 min) : rattachée à la voix la plus ressemblante, pas au tour voisin
+  const w = (k) => Array.from({ length: 16 }, (_, i) => (i === k ? 1 : 0));
+  const br = refineDiarization(parseDiarize(JSON.stringify({ segments: [{ speaker: 'A', s: 0, e: 600 }, { speaker: 'X', s: 600, e: 610 }, { speaker: 'B', s: 610, e: 1200 }], embeddings: { A: w(0), B: w(1), X: w(1).map((x, i) => (i === 0 ? 0.3 : x)) } })));
+  assert.equal(br.speakerCount, 2);
+  assert.equal(br.turns.find((t) => t.start <= 605 && t.end >= 605)?.speaker, 'B');
   const total = 16000 * 1500; // 25 min
   const buf = (a, b) => { const n = b - a; const B = Buffer.alloc(44 + n * 2); for (let i = 0; i < n; i++) B.writeInt16LE(((a + i) % 16000 < 1600) ? 0 : 1000, 44 + i * 2); return B; };
   const cuts = splitLong(total, buf);

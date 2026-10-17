@@ -73,3 +73,13 @@ Appliquer les 15 changements de wispr-structure.md, avec ces réponses :
 - Puis **une seule liste à la fin** : « Prochaines étapes » à cocher (`- [ ] **Prénom** : …`), groupées par personne.
 - Le genre (réunion, brainstorm, cours…) adapte le contenu et les thèmes, pas la forme.
 - **Aucune heure dans la marge du résumé** ; le marquage [[ia mm:ss]] n'est plus affiché dans le résumé (les heures restent seulement dans l'onglet Transcription). Le texte IA en gris reste.
+
+## Décisions de Camille — 16 oct. (après audits)
+1. Dictée : **go v1.11** (chantiers/audit-prompt/rapport.md §7 : paragraphes par le sens, « enfin » = auto-correction y compris « un an » / « en fin », filet en dernier recours + relance d'une longue sortie sans paragraphe).
+2. Notes : **toujours résumer**, même < 5 min (rien à cliquer).
+3. Audio des notes : **conservé 15 jours** (réécoute) ; garder l'audio de la prochaine réunion de test pour régler les voix dessus.
+4. **Pipeline qualité** (audit-notes §Pipeline qualité) : go, dans l'ordre conseillé, **après** les corrections bloquantes.
+5. Corrections bloquantes : go ; **retirer le triple Control** (les notes se lancent depuis l'app ou la carte « Réunion détectée »).
+
+## Réunion Ynov (16 oct.) — vérité terrain
+3 personnes : Personne 1 = l'utilisatrice, Personnes 2 et 3 = deux collaborateurs (l'attribution automatique d'un prénom s'était trompée). Pas de compte rendu Granola disponible.

@@ -10,7 +10,7 @@ import { appProfile, applyReplacements, frenchTypography, joinWithBefore, stripI
 import { isUserAbort } from './providers/common.ts';
 import type { DictaProvider, DictaProviderError } from './providers/common.ts';
 import { createGeminiProvider } from './providers/gemini.ts';
-import { createGroqProvider } from './providers/groq.ts';
+import { GROQ_ROTATION, createGroqProvider } from './providers/groq.ts';
 import { createOllamaProvider, warmupOllama } from './providers/ollama.ts';
 import { createOpenRouterProvider } from './providers/openrouter.ts';
 import { createZaiProvider } from './providers/zai.ts';
@@ -77,15 +77,17 @@ export async function cleanTranscript(raw: string, opts: RouterCleanOptions = {}
  * Dernière passe déterministe sur le texte final (LLM ou repli) : remplacements du dictionnaire (f4),
  * aucun retour inventé en terminal/éditeur (m11), typographie française (m6), raccord avec le texte
  * déjà écrit (m14). Pure : aucun appel réseau.
+ * `lastResort` : aucun LLM n'a répondu (fallbackClean) → paragraphes de secours (autoParagraphs). v1.11 : jamais
+ * sur une sortie de LLM (le filet coupait seulement devant « ensuite », voir chantiers/audit-prompt §5 bis).
  */
-export function finalizeText(text: string, raw: string, opts: RouterCleanOptions = {}): string {
+export function finalizeText(text: string, raw: string, opts: RouterCleanOptions = {}, lastResort = false): string {
   if (!text) return text;
   let t = text;
   const profile = appProfile(opts.context);
   const codeLike = profile === 'terminal' || profile === 'code';
   if (codeLike && opts.promptMode !== 'on') t = stripInventedBreaks(t, raw);
-  // v1.10 : long bloc sans retour (petits modèles) → paragraphes aux changements de sujet nets. Jamais en terminal / code.
-  else if (!codeLike) t = autoParagraphs(t);
+  // Dernier recours seulement (aucun LLM) : long bloc sans retour → paragraphes de secours. Jamais en terminal / code.
+  else if (!codeLike && lastResort) t = autoParagraphs(t);
   t = applyReplacements(t, opts.replacements);
   if (opts.frenchTypography !== false && (opts.language ?? 'fr') === 'fr' && !codeLike) t = frenchTypography(t);
   t = joinWithBefore(t, opts.context?.before);
@@ -119,18 +121,107 @@ export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOpti
     toneByApp: opts.toneByApp,
     context: opts.context,
   });
-  const res = await routeCompletion(
-    {
-      system, user,
-      maxTokens: GENERATION.maxTokens(input),
-      temperature: GENERATION.temperature,
-      post: (text) => postProcess(text, input),
-      fallback: () => fallbackClean(input),
-      label: 'nettoyage',
-    },
-    opts,
-  );
-  return { ...res, text: fin(res.text) };
+  const job: RouteJob = {
+    system, user,
+    maxTokens: GENERATION.maxTokens(input),
+    temperature: GENERATION.temperature,
+    post: (text) => postProcess(text, input),
+    fallback: () => fallbackClean(input),
+    label: 'nettoyage',
+  };
+  let res = await routeCompletion(job, opts);
+  if (res.provider !== 'passthrough' && needsParagraphRetry(res.text, opts)) {
+    res = await retryForParagraphs(res, job, opts, cfg, t0);
+  }
+  return { ...res, text: finalizeText(res.text, input, opts, res.provider === 'passthrough') };
+}
+
+// ───────────────────────────────────────────── relance « pas de paragraphe » (v1.11)
+
+/** Seuil (mots) au-delà duquel une sortie de LLM sans aucun retour à la ligne est jugée incomplète. */
+export const PARAGRAPH_RETRY_MIN_WORDS = 80;
+/** Budget de latence de la relance (elle s'ajoute à la dictée). */
+const PARAGRAPH_RETRY_TIMEOUT_MS = 6000;
+
+/**
+ * Une sortie de LLM de 80 mots ou plus sans aucun retour à la ligne mérite-t-elle une relance ?
+ * Jamais en nettoyage spéculatif (quota), ni en terminal / code hors mode prompt (une seule ligne voulue).
+ */
+export function needsParagraphRetry(text: string, opts: RouterCleanOptions = {}): boolean {
+  if (opts.speculative || !text || /\n/.test(text)) return false;
+  const profile = appProfile(opts.context);
+  if (profile === 'terminal' || profile === 'code') return false;
+  return text.split(/\s+/).filter(Boolean).length >= PARAGRAPH_RETRY_MIN_WORDS;
+}
+
+/**
+ * Modèle de relance : un modèle qui sait découper par le sens (qwen sur Groq, ou Gemini), différent de celui qui
+ * vient de répondre, activé, avec une clé, hors pause et avec assez de quota pour cette requête. Pur côté réseau
+ * (usage.json seulement). Gemini d'abord (ne prend pas le quota Groq des dictées suivantes), sauf s'il vient de répondre.
+ */
+export function paragraphRetryTarget(
+  winner: { provider: CleanResult['provider']; model: string },
+  estTokens: number,
+  cfg: LLMConfig = loadConfig(),
+): { id: ProviderId; model: string } | undefined {
+  const qwen = GROQ_ROTATION.find((m) => /qwen/.test(m)) ?? GROQ_ROTATION[0];
+  const options: { id: ProviderId; model: string }[] = [
+    { id: 'gemini', model: cfg.models.gemini },
+    { id: 'groq', model: qwen },
+  ];
+  if (winner.provider === 'gemini') options.reverse();
+  return options.find(({ id, model }) => {
+    if (!cfg.providers.includes(id)) return false;
+    if (!(cfg.keys as Record<string, string | undefined>)[id]) return false;
+    if (id === winner.provider && (winner.model === model || id === 'gemini')) return false;
+    if (id === 'groq' && /qwen/.test(winner.model)) return false;
+    if (quota.blockedReason(id)) return false;
+    return quota.orderModels(id, [model], estTokens).usable.length > 0;
+  });
+}
+
+/**
+ * Relance UNE fois, sur un autre modèle, une sortie longue rendue sans paragraphe (gpt-oss-20b le fait toujours).
+ * La nouvelle sortie n'est gardée que si elle passe les mêmes garde-fous ET contient un retour à la ligne ;
+ * sinon on garde la première, telle quelle (pas de filet par mot déclencheur).
+ */
+async function retryForParagraphs(
+  first: DetailedCleanResult,
+  job: RouteJob,
+  opts: RouterCleanOptions,
+  cfg: LLMConfig,
+  t0: number,
+): Promise<DetailedCleanResult> {
+  const est = quota.estimateTokens(job);
+  const target = paragraphRetryTarget(first, est, cfg);
+  if (!target) {
+    first.attempts.push({ provider: first.provider as ProviderId, outcome: 'skipped', message: 'relance paragraphes : aucun modèle disponible' });
+    return first;
+  }
+  const p = getProvider(target.id, { ...cfg, models: { ...cfg.models, [target.id]: target.model } });
+  const t1 = now();
+  const signal = opts.signal ? AbortSignal.any([opts.signal, AbortSignal.timeout(PARAGRAPH_RETRY_TIMEOUT_MS)]) : AbortSignal.timeout(PARAGRAPH_RETRY_TIMEOUT_MS);
+  try {
+    if (!(await p.availability()).ok) return first;
+    quota.recordRequest(target.id);
+    const out = await p.complete({ system: job.system, user: job.user, temperature: job.temperature, maxTokens: job.maxTokens, signal });
+    const text = job.post(out.text);
+    quota.recordSuccess(target.id);
+    const ms = Math.round(now() - t1);
+    if (!/\n/.test(text)) {
+      first.attempts.push({ provider: target.id, outcome: 'bad_output', message: `relance paragraphes (${out.model}) : toujours sans retour à la ligne`, latencyMs: ms });
+      return { ...first, latencyMs: Math.round(now() - t0) };
+    }
+    first.attempts.push({ provider: target.id, outcome: 'ok', message: `relance paragraphes (sortie de ${first.model} sans retour à la ligne)`, latencyMs: ms });
+    logger(`router: relance paragraphes — ${first.provider} (${first.model}) sans retour à la ligne → ${target.id} (${out.model})`);
+    return { text, provider: target.id, model: out.model, latencyMs: Math.round(now() - t0), attempts: first.attempts };
+  } catch (e: any) {
+    if (isUserAbort(e, opts.signal)) throw e;
+    const kind: ProviderErrorKind = e instanceof ProviderError ? (e as DictaProviderError).kind : 'bad_output';
+    first.attempts.push({ provider: target.id, outcome: kind, message: `relance paragraphes : ${e?.message ?? e}`, latencyMs: Math.round(now() - t1) });
+    if (kind === 'quota') quota.recordError(target.id, kind, e?.message ?? String(e));
+    return { ...first, latencyMs: Math.round(now() - t0) };
+  }
 }
 
 /** Une requête à router : messages, garde-fous de sortie et repli. */

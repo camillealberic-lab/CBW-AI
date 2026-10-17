@@ -17,6 +17,7 @@ import { addBusyProbe, currentEngine, diarizeWithEngine, initMeetingEngine, tran
 import { dedupeEcho, labelSegments, replaceSpeaker, segmentsFromWords, speakerTranscript, type NoteSegment, type RawSegment, type Source } from './speakers';
 import { decodeWav, MEETING_VAD, Segmenter, uncovered, type Chunk, type Span } from '../shared/vad';
 import { readWavSlice, repairWav, WavWriter } from './wavfile';
+import { decryptBlob, encryptBlob, isEncryptedBlob } from './localcrypto';
 
 /** Étapes après l'arrêt (affichage immédiat de la note) : transcription prête → voix → compte rendu. */
 export type NoteStage = 'transcript' | 'voices' | 'summary' | 'done';
@@ -85,6 +86,142 @@ const wavFiles = (id: string) => ({
 function removeAudio(id: string): void {
   for (const f of Object.values(wavFiles(id))) fs.rmSync(f, { force: true });
 }
+
+/**
+ * Audio des réunions au repos : chiffré (AES-256-GCM, clé locale, même format que l'historique des dictées,
+ * src/main/localcrypto.ts) une fois la note terminée ; gardé `notes.audioDays` jours (défaut 15), puis purgé.
+ * La date de référence est celle du fichier (une reprise la remet à jour), conservée au chiffrement.
+ */
+const keepNoteAudio = (): boolean => settings.get('notes.keepAudio') !== false;
+const noteAudioDays = (): number => Math.max(1, Math.min(60, Math.round(Number(settings.get('notes.audioDays'))) || 15));
+function encryptFileInPlace(p: string): void {
+  try {
+    const b = fs.readFileSync(p);
+    if (isEncryptedBlob(b)) return;
+    const { mtime } = fs.statSync(p);
+    const enc = encryptBlob(b);
+    if (!enc) {
+      fs.rmSync(p, { force: true }); // clé indisponible : pas d'audio en clair au repos (comme l'historique)
+      log('note: audio non conservé (chiffrement indisponible)');
+      return;
+    }
+    const tmp = `${p}.tmp`;
+    fs.writeFileSync(tmp, enc, { mode: 0o600 });
+    fs.renameSync(tmp, p);
+    fs.utimesSync(p, mtime, mtime);
+  } catch (e) {
+    log('note: chiffrement de l’audio impossible', e instanceof Error ? e.message : e);
+  }
+}
+/** Remet un WAV chiffré en clair (reprise d'une note) ; false s'il est illisible. */
+function decryptFileInPlace(p: string): boolean {
+  try {
+    const b = fs.readFileSync(p);
+    if (!isEncryptedBlob(b)) return true;
+    const plain = decryptBlob(b);
+    if (!plain) return false;
+    fs.writeFileSync(`${p}.tmp`, plain, { mode: 0o600 });
+    fs.renameSync(`${p}.tmp`, p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+/** Fin de note : audio chiffré et gardé (réglage), sinon supprimé. */
+function finishAudio(id: string, keep = keepNoteAudio()): void {
+  if (!keep) return removeAudio(id);
+  for (const f of Object.values(wavFiles(id))) if (fs.existsSync(f)) encryptFileInPlace(f);
+}
+/**
+ * Purge (démarrage + toutes les 6 h) : audio de plus de `notes.audioDays` jours ou réglage coupé → supprimé ;
+ * WAV encore en clair d'une note terminée (plantage, ancienne version) → chiffré. `busyId` : note en cours, intouchable.
+ */
+export function purgeNoteAudio(busyId = ''): number {
+  const limit = Date.now() - noteAudioDays() * 86_400_000;
+  const keep = keepNoteAudio();
+  const known = new Set(readIndex().map((m) => m.id));
+  let n = 0;
+  for (const f of fs.readdirSync(notesDataDir())) {
+    const m = f.match(/^(.+?)(\.mic|\.sys)?\.wav$/);
+    if (!m || m[1] === busyId) continue;
+    const p = path.join(notesDataDir(), f);
+    try {
+      if (!keep || !known.has(m[1]) || fs.statSync(p).mtimeMs < limit) {
+        fs.rmSync(p, { force: true });
+        n++;
+      } else encryptFileInPlace(p);
+    } catch (e) {
+      log('note: purge de l’audio', e instanceof Error ? e.message : e);
+    }
+  }
+  if (n) log(`note: ${n} fichier(s) audio supprimé(s) (conservation ${noteAudioDays()} j)`);
+  return n;
+}
+/** PCM16 complet d'une piste (déchiffré en mémoire), avec un petit cache : la réécoute lit plusieurs passages d'affilée. */
+let pcmCache: { p: string; mtime: number; pcm: Buffer; t: NodeJS.Timeout } | null = null;
+function trackPcm(p: string): Buffer | null {
+  try {
+    if (!fs.existsSync(p)) return null;
+    const mtime = fs.statSync(p).mtimeMs;
+    if (pcmCache && pcmCache.p === p && pcmCache.mtime === mtime) return pcmCache.pcm;
+    const b = decryptBlob(fs.readFileSync(p));
+    if (!b || b.length <= 44) return null;
+    if (pcmCache) clearTimeout(pcmCache.t);
+    const pcm = b.subarray(44);
+    pcmCache = { p, mtime, pcm, t: setTimeout(() => (pcmCache = null), 60_000) };
+    return pcm;
+  } catch {
+    return null;
+  }
+}
+/** Passage [a, b[ (ms) de l'audio d'une note, en PCM16 mono 16 kHz : mélange si présent, sinon micro + son du Mac. */
+export function noteAudioSlice(rawId: string, a: number, b: number): Buffer | null {
+  const f = wavFiles(assertNoteId(rawId));
+  const cut = (pcm: Buffer | null): Buffer | null => {
+    if (!pcm) return null;
+    const start = Math.floor((a / 1000) * 16000) * 2;
+    const end = Math.min(pcm.length, start + Math.floor(((b - a) / 1000) * 16000) * 2);
+    return end > start ? Buffer.from(pcm.subarray(start, end)) : null;
+  };
+  const mix = cut(trackPcm(f.mix));
+  if (mix) return mix;
+  const s = cut(trackPcm(f.sys));
+  const m = cut(trackPcm(f.mic));
+  if (!s || !m) return s ?? m;
+  const out = Buffer.alloc(Math.max(s.length, m.length));
+  for (let i = 0; i + 1 < out.length; i += 2) {
+    const v = (i + 1 < s.length ? s.readInt16LE(i) : 0) + (i + 1 < m.length ? m.readInt16LE(i) : 0);
+    out.writeInt16LE(Math.max(-32768, Math.min(32767, v)), i);
+  }
+  return out;
+}
+
+/** WAV de session repris en ajout (même format que WavWriter) : reprise d'une note terminée. */
+class AppendWav {
+  private fd: number | null;
+  private bytes: number;
+  readonly path: string;
+  constructor(file: string) {
+    this.path = file;
+    this.fd = fs.openSync(file, 'r+');
+    this.bytes = Math.max(0, (fs.fstatSync(this.fd).size - 44) & ~1);
+  }
+  get samples(): number {
+    return this.bytes / 2;
+  }
+  append(pcm16: Buffer): void {
+    if (this.fd == null || !pcm16.length) return;
+    fs.writeSync(this.fd, pcm16, 0, pcm16.length, 44 + this.bytes);
+    this.bytes += pcm16.length;
+  }
+  close(): void {
+    if (this.fd == null) return;
+    fs.closeSync(this.fd);
+    this.fd = null;
+    repairWav(this.path); // en-tête recalculé d'après la taille
+  }
+}
+type SessionWav = Pick<WavWriter, 'samples' | 'append' | 'close'>;
 
 /** <id>.json : segments horodatés (locuteur si la diarisation a réussi) + infos de diarisation. */
 interface NoteData {
@@ -171,6 +308,9 @@ function uniquePath(dir: string, name: string, current?: string): string {
   return p;
 }
 
+/** Seuil unique « presque rien capté » (audit M2) : sous 15 mots prononcés, aucun fichier dans Documents ni notification ; l'écran propose Garder / Jeter. */
+export const TINY_WORDS = 15;
+
 function rawNote(transcript: string, createdAt: Date, reason: string): { markdown: string; title: string } {
   const title = `Note du ${createdAt.toLocaleDateString('fr-FR')} ${pad(createdAt.getHours())}h${pad(createdAt.getMinutes())}`;
   return { title, markdown: `# ${title}\n\n> ${reason}\n\n## Transcription\n\n${transcript.trim() || '(vide)'}\n` };
@@ -220,7 +360,15 @@ export class NoteSession extends EventEmitter {
   private engineFails = 0;
   private engineFailed = false;
   private chunksBy = { fluid: 0, whisper: 0 };
-  private wavs: { mix: WavWriter; mic: WavWriter | null; sys: WavWriter | null } | null = null;
+  private wavs: { mix: SessionWav; mic: SessionWav | null; sys: SessionWav | null } | null = null;
+  /**
+   * Reprise d'une note terminée (« Reprendre » = même note, même fichier) : `base` = échantillons déjà présents dans
+   * le WAV de session (la nouvelle capture s'y ajoute) ; `prev` = segments d'avant quand l'audio n'a pas été gardé
+   * (la nouvelle capture est alors traitée seule puis mise à la suite, décalée de `shiftMs`).
+   */
+  private cont: { meta: NoteMeta; txtSize: number; sizes: Record<string, number> } | null = null;
+  private base = 0;
+  private prev: { segs: NoteSegment[]; texts: string[]; shiftMs: number; diarized: boolean } | null = null;
   private queue: Promise<void> = Promise.resolve();
   private ac: AbortController | null = null;
   private activeMs = 0;
@@ -237,7 +385,8 @@ export class NoteSession extends EventEmitter {
     initMeetingEngine(); // téléchargement des modèles en arrière-plan (idempotent)
     addBusyProbe(() => this.busy);
     recorder.on('segment', (wav: Buffer, a: number, b: number, commit: boolean, source: Source = 'mic', from = a, to = b) => {
-      if (commit && (this.state === 'recording' || this.state === 'paused')) this.enqueue(wav, a, b, source, from, to);
+      const o = this.base; // reprise : positions dans le WAV de session complet
+      if (commit && (this.state === 'recording' || this.state === 'paused')) this.enqueue(wav, a + o, b + o, source, from + o, to + o);
     });
     // Le micro disparaît / revient : la note continue ; l'UI est prévenue.
     recorder.on('device', (e: { state: string; label: string }) => {
@@ -250,13 +399,17 @@ export class NoteSession extends EventEmitter {
       w.mix.append(mix);
       if (mic && sys) {
         const f = wavFiles(this.id);
-        // pistes ouvertes au 1er bloc qui en contient (alignées : toujours depuis le début de la session)
-        if (!w.mic && w.mix.samples === mix.length / 2) {
+        // pistes ouvertes au 1er bloc qui en contient (alignées : toujours depuis le début de la session ; jamais en reprise)
+        if (!w.mic && !this.base && w.mix.samples === mix.length / 2) {
           w.mic = new WavWriter(f.mic);
           w.sys = new WavWriter(f.sys);
         }
         w.mic?.append(mic);
         w.sys?.append(sys);
+      } else if (w.mic && w.sys) {
+        // bloc sans pistes séparées alors qu'elles existent (reprise, son du Mac coupé) : alignement conservé
+        w.mic.append(mix);
+        w.sys.append(Buffer.alloc(mix.length));
       }
     });
     recorder.on('level', (v: number) => {
@@ -379,7 +532,8 @@ export class NoteSession extends EventEmitter {
         this.segs.push(seg);
         fs.appendFileSync(this.txt(id), w.text + '\n'); // chaque morceau est sauvegardé dès qu'il est transcrit
         // transcription en direct : texte + piste + horodatage (la voix « Moi » / Personne n vient à l'arrêt)
-        this.emit('live', { noteId: id, source, startMs: seg.speechStartMs, endMs: seg.speechEndMs, text: w.text });
+        const sh = this.prev?.shiftMs ?? 0;
+        this.emit('live', { noteId: id, source, startMs: (seg.speechStartMs ?? startMs) + sh, endMs: (seg.speechEndMs ?? endMs) + sh, text: w.text });
         if (this.active) this.progress({ state: this.state as 'recording' | 'paused' });
       } catch (e) {
         // jamais jeté : le passage reste « non couvert » et sera rejoué depuis le WAV à l'arrêt
@@ -392,8 +546,13 @@ export class NoteSession extends EventEmitter {
    * `numSpeakers` : nombre de personnes présentes, toi compris (imposé au tri des voix). En réunion à deux pistes
    * les autres sont numSpeakers − 1 ; en présentiel (pas de son du Mac utile) toutes sont triées sur le micro.
    */
-  async start(opts: { feed?: boolean; numSpeakers?: number } = {}): Promise<void> {
+  async start(opts: { feed?: boolean; numSpeakers?: number; continueId?: string } = {}): Promise<void> {
     if (this.busy) return;
+    const contMeta = opts.continueId ? readIndex().find((m) => m.id === assertNoteId(opts.continueId)) : undefined;
+    if (opts.continueId && !contMeta) {
+      this.progress({ state: 'error', message: 'Note introuvable : reprise impossible' });
+      return;
+    }
     const tag = this.kind;
     if (!whisperModel(String(settings.get('whisper.model')))) {
       this.status({ state: 'error', message: 'Modèle de transcription en cours de téléchargement' });
@@ -405,8 +564,8 @@ export class NoteSession extends EventEmitter {
       this.progress({ state: 'error', message: 'Micro non autorisé' });
       return;
     }
-    this.createdAt = new Date();
-    this.id = `${this.createdAt.toISOString().replace(/[-:]/g, '').replace(/\..*/, '')}-${Math.random().toString(36).slice(2, 6)}`;
+    this.createdAt = contMeta ? new Date(contMeta.createdAt) : new Date();
+    this.id = contMeta ? contMeta.id : `${this.createdAt.toISOString().replace(/[-:]/g, '').replace(/\..*/, '')}-${Math.random().toString(36).slice(2, 6)}`;
     this.texts = [];
     this.segs = [];
     this.covered = { mic: [], system: [] };
@@ -416,7 +575,11 @@ export class NoteSession extends EventEmitter {
     this.ac = new AbortController();
     this.activeMs = 0;
     this.timings = { stopAt: 0, transcribedAt: 0, diarizedAt: 0, organizedAt: 0, segments: 0, segMs: 0, diarizeMs: 0, diarizeMode: '', speakers: 0 };
-    fs.writeFileSync(this.txt(this.id), '');
+    this.cont = null;
+    this.base = 0;
+    this.prev = null;
+    if (contMeta) this.prepareContinue(contMeta);
+    else fs.writeFileSync(this.txt(this.id), '');
     const isNote = this.kind === 'note';
     // Choix automatique du moteur : macOS ≥ 15 ET modèles présents ET binaire présent → Parakeet/FluidAudio ; sinon Whisper + sherpa.
     this.engineFails = 0;
@@ -426,7 +589,11 @@ export class NoteSession extends EventEmitter {
     this.engine = choice.engine;
     log(`${tag}: moteur ${choice.engine === 'fluid' ? 'Parakeet + FluidAudio' : 'Whisper + sherpa'} (${choice.reason})`);
     if (isNote) {
-      this.wavs = { mix: new WavWriter(wavFiles(this.id).mix), mic: null, sys: null };
+      const f = wavFiles(this.id);
+      this.wavs = this.base
+        ? { mix: new AppendWav(f.mix), mic: fs.existsSync(f.mic) ? new AppendWav(f.mic) : null, sys: fs.existsSync(f.sys) ? new AppendWav(f.sys) : null }
+        : { mix: new WavWriter(f.mix), mic: null, sys: null };
+      if (!!this.wavs.mic !== !!this.wavs.sys) this.wavs.mic = this.wavs.sys = null; // une seule piste séparée : inutilisable
       // modèles de voix (~46 Mo) prêts avant la fin de la note
       // (moteur Parakeet : ni modèle sherpa ni serveur Whisper au départ ; ils démarrent seulement en cas de repli)
       if (settings.get('notes.diarization') !== false && this.engine !== 'fluid') void diaModels.ensure();
@@ -444,7 +611,8 @@ export class NoteSession extends EventEmitter {
       });
     } catch (e) {
       this.closeWavs();
-      removeAudio(this.id);
+      if (this.cont) this.rollbackContinue();
+      else removeAudio(this.id);
       log(`${tag}: micro`, e);
       this.state = 'idle';
       this.status({ state: 'error', message: 'Micro indisponible' });
@@ -454,7 +622,7 @@ export class NoteSession extends EventEmitter {
     this.state = 'recording';
     this.runningSince = Date.now();
     playSound('note-start');
-    log(`${tag}: démarrée`, this.id);
+    log(`${tag}: ${this.cont ? `reprise (${this.base ? 'audio gardé' : 'sans audio'})` : 'démarrée'}`, this.id);
     this.emit('active', true);
     this.tick = setInterval(() => {
       this.emitOverlay();
@@ -462,6 +630,83 @@ export class NoteSession extends EventEmitter {
     }, 1000);
     this.emitOverlay();
     this.progress({ state: 'recording', noteId: this.id });
+  }
+
+  /**
+   * Reprise d'une note terminée : mêmes id, fichier et date. Audio gardé → remis en clair et complété (toute la note
+   * est retranscrite et ses voix recalculées à l'arrêt) ; sinon les segments d'avant sont gardés tels quels et la
+   * nouvelle capture vient à la suite.
+   */
+  private prepareContinue(meta: NoteMeta): void {
+    const id = meta.id;
+    const f = wavFiles(id);
+    const sizeOf = (p: string): number => (fs.existsSync(p) ? fs.statSync(p).size : -1);
+    const d = readData(id);
+    const old = (d?.segments ?? []).slice().sort((a, b) => a.startMs - b.startMs);
+    let txtSize = sizeOf(this.txt(id));
+    if (txtSize < 0) {
+      fs.writeFileSync(this.txt(id), old.map((x) => x.text).join('\n') + (old.length ? '\n' : ''));
+      txtSize = sizeOf(this.txt(id));
+    }
+    const audioOk = fs.existsSync(f.mix) && [f.mix, f.mic, f.sys].every((p) => !fs.existsSync(p) || decryptFileInPlace(p));
+    if (audioOk) for (const p of [f.mix, f.mic, f.sys]) if (fs.existsSync(p)) repairWav(p);
+    const sizes = { mix: sizeOf(f.mix), mic: sizeOf(f.mic), sys: sizeOf(f.sys) };
+    this.cont = { meta, txtSize, sizes };
+    this.activeMs = meta.durationMs || 0;
+    this.numSpeakers = d?.numSpeakers ?? this.numSpeakers;
+    if (audioOk && sizes.mix > 44) {
+      this.base = Math.floor((sizes.mix - 44) / 2);
+      this.activeMs = Math.max(this.activeMs, Math.round(this.base / 16));
+      // l'ancien texte reste l'aperçu (et le repli) ; la passe finale refait tout le fichier
+      this.segs = old.map(({ speaker: _s, ...x }) => ({ ...x }));
+      this.texts = old.map((x) => x.text);
+      this.covered = { mic: [{ from: 0, to: this.base }], system: [{ from: 0, to: this.base }] };
+      this.sawSystem = old.some((x) => x.source === 'system');
+    } else {
+      if (fs.existsSync(f.mix)) removeAudio(id); // audio illisible : la suite repart d'un fichier neuf
+      const texts = old.length ? old.map((x) => x.text) : fs.readFileSync(this.txt(id), 'utf8').split('\n').map((x) => x.trim()).filter(Boolean);
+      this.prev = { segs: old, texts, shiftMs: this.activeMs, diarized: !!d?.diarized };
+    }
+  }
+  /** Annulation d'une reprise : la note d'avant revient telle quelle (texte, audio). */
+  private rollbackContinue(): void {
+    const c = this.cont;
+    if (!c) return;
+    const f = wavFiles(this.id);
+    try {
+      if (c.txtSize >= 0) fs.truncateSync(this.txt(this.id), c.txtSize);
+      if (this.base) {
+        for (const k of ['mix', 'mic', 'sys'] as const) {
+          if (c.sizes[k] > 0 && fs.existsSync(f[k])) {
+            fs.truncateSync(f[k], c.sizes[k]);
+            repairWav(f[k]);
+          } else if (c.sizes[k] < 0) fs.rmSync(f[k], { force: true });
+        }
+        finishAudio(this.id);
+      } else removeAudio(this.id);
+    } catch (e) {
+      log('note: retour à la note d’avant incomplet', e instanceof Error ? e.message : e);
+    }
+    this.cont = null;
+    this.base = 0;
+    this.prev = null;
+  }
+  /** Segments de la note complète : ceux d'avant la reprise (sans audio gardé) puis les nouveaux, décalés. */
+  private withPrev(segs: NoteSegment[]): NoteSegment[] {
+    const p = this.prev;
+    if (!p) return segs;
+    const sh = (v: number | undefined) => (v == null ? v : v + p.shiftMs);
+    // une partie nommée et l'autre non : les passages sans voix prennent « Moi » / « Les autres » (piste)
+    const named = p.diarized || segs.some((x) => x.speaker);
+    const fill = (x: NoteSegment): string => (named ? x.speaker || (x.source === 'system' ? 'Les autres' : 'Moi') : x.speaker);
+    return [
+      ...p.segs.map((x) => ({ ...x, speaker: fill(x) })),
+      ...segs.map((x) => ({ ...x, speaker: fill(x), startMs: x.startMs + p.shiftMs, endMs: x.endMs + p.shiftMs, speechStartMs: sh(x.speechStartMs), speechEndMs: sh(x.speechEndMs) })),
+    ];
+  }
+  /** Texte brut de toute la note (reprise sans audio : ancien texte en tête). */
+  private allText(): string {
+    return [...(this.prev?.texts ?? []), ...this.texts].join(' ').trim();
   }
 
   pause(): void {
@@ -512,8 +757,11 @@ export class NoteSession extends EventEmitter {
     whisperMeetingServer.stop();
     this.state = 'idle';
     this.closeWavs();
-    removeAudio(this.id);
-    fs.rmSync(this.txt(this.id), { force: true });
+    if (this.cont) this.rollbackContinue();
+    else {
+      removeAudio(this.id);
+      fs.rmSync(this.txt(this.id), { force: true });
+    }
     log(`${this.kind}: annulée`, this.id);
     this.status({ state: 'idle' });
     this.progress({ state: 'error', message: 'Note annulée' });
@@ -525,11 +773,16 @@ export class NoteSession extends EventEmitter {
   }
 
   /** Brouillon visible tout de suite (transcription brute) : remplacé par le compte rendu à la fin. */
-  private saveDraft(id: string, transcript: string, existing?: NoteMeta): NoteMeta {
+  private saveDraft(id: string, transcript: string, existing?: NoteMeta, noFile = false): NoteMeta {
     const { markdown, title } = rawNote(transcript, this.createdAt, 'Compte rendu en cours…');
-    const file = uniquePath(notesOutDir(), mdName(this.createdAt, title), existing?.path);
-    fs.writeFileSync(file, markdown);
-    const meta: NoteMeta = { id, title, createdAt: this.createdAt.toISOString(), durationMs: this.elapsed(), words: spokenWords(transcript), path: file, provider: 'pending' };
+    // Reprise : le fichier et le titre d'avant restent en place jusqu'au nouveau résumé (même note, même fichier).
+    const keepPrev = !!this.cont && !!existing;
+    let file = existing?.path ?? '';
+    if (!noFile && !keepPrev) {
+      file = uniquePath(notesOutDir(), mdName(this.createdAt, title), existing?.path);
+      fs.writeFileSync(file, markdown);
+    }
+    const meta: NoteMeta = { id, title: keepPrev ? existing!.title : title, createdAt: this.createdAt.toISOString(), durationMs: this.elapsed(), words: spokenWords(transcript), path: noFile ? '' : file, provider: 'pending' };
     upsert(meta);
     this.emit('draft', meta);
     return meta;
@@ -539,15 +792,17 @@ export class NoteSession extends EventEmitter {
   async stop(opts: { title?: string; markers?: { atMs: number; text: string }[] } = {}): Promise<string | null> {
     if (!this.active) return null;
     const id = this.id;
+    const cont = this.cont;
     this.endRecording();
     playSound('stop');
     this.state = 'transcribing';
     this.timings.stopAt = Date.now();
     this.status({ state: 'transcribing', mode: 'note', message: 'Note · transcription…' });
-    this.progress({ state: 'transcribing' });
+    this.progress({ state: 'transcribing', noteId: id });
     try {
       const rec = await this.recorder.stop();
-      for (const t of rec.tails ?? []) this.enqueue(t.wav, t.start, t.end, t.source, t.from, t.to);
+      const o = this.base;
+      for (const t of rec.tails ?? []) this.enqueue(t.wav, t.start + o, t.end + o, t.source, t.from + o, t.to + o);
     } catch (e) {
       log('note: fin de capture', e);
     }
@@ -564,25 +819,28 @@ export class NoteSession extends EventEmitter {
     }
     this.whenIdleStopServer();
     this.timings.transcribedAt = Date.now();
-    const plain = this.texts.join(' ').trim();
-    log(`note: transcription finie ${this.timings.transcribedAt - this.timings.stopAt} ms après l'arrêt, ${countWords(plain)} mots, ${this.segs.length} morceau(x)`);
-    const enough = countWords(plain) >= 3;
-    let draft: NoteMeta | undefined;
+    const plain = this.allText();
+    log(`note: transcription finie ${this.timings.transcribedAt - this.timings.stopAt} ms après l'arrêt, ${countWords(plain)} mots, ${this.segs.length} morceau(x)${cont ? ' (reprise)' : ''}`);
+    // Reprise : la note existe déjà, elle est toujours refaite (même si la suite n'a rien capté).
+    const enough = !!cont || countWords(plain) >= 3;
+    // Presque rien capté (seuil unique, audit M2) : ni fichier dans Documents, ni résumé « Note vide », ni notification.
+    const tiny = !cont && countWords(plain) < TINY_WORDS && !(opts.markers ?? []).length;
+    let draft: NoteMeta | undefined = cont?.meta;
     if (enough) {
       // Étape 1 : transcription prête → la note existe déjà (brouillon) et ses segments sont lisibles.
       try {
-        writeData(id, { segments: this.sortedSegs().map((x) => this.plainSeg(x)), diarized: false, numSpeakers: this.numSpeakers, engine: this.transcriptionEngine() });
+        writeData(id, { segments: this.withPrev(this.sortedSegs().map((x) => this.plainSeg(x))), diarized: false, numSpeakers: this.numSpeakers, engine: this.transcriptionEngine() });
       } catch (e) {
         log('note: segments non enregistrés', e);
       }
-      draft = this.saveDraft(id, plain);
+      draft = this.saveDraft(id, plain, draft, tiny);
       this.stage(id, 'transcript', { noteId: id, words: countWords(plain) });
       this.progress({ state: 'transcribing', stage: 'transcript', noteId: id, message: 'Transcription prête' });
     } else dia.abort();
     this.stage(id, 'voices');
     const transcript = enough ? await this.speakers(id, dia) : plain;
     if (enough) {
-      draft = this.saveDraft(id, transcript, draft);
+      draft = this.saveDraft(id, transcript, draft, tiny);
       this.stage(id, 'summary');
     }
     this.timings.diarizedAt = Date.now();
@@ -603,13 +861,17 @@ export class NoteSession extends EventEmitter {
       this.progress({ state: 'error', elapsedMs: this.elapsed(), words: 0, message: 'Rien entendu : aucune note enregistrée.' });
       return null;
     }
+    const sansAudio = !!this.prev; // reprise sans audio gardé : le WAV ne couvre que la suite, il ne servirait pas à la réécoute
     try {
-      const done = await this.organizeAndSave(id, forOrganize, this.createdAt, this.elapsed(), draft, opts.title);
+      const done = await this.organizeAndSave(id, forOrganize, this.createdAt, this.elapsed(), draft, opts.title, tiny);
       this.stage(id, 'done');
       return done;
     } finally {
       this.state = 'idle';
-      if (settings.get('notes.keepAudio') !== true) removeAudio(id);
+      this.cont = null;
+      this.base = 0;
+      this.prev = null;
+      finishAudio(id, keepNoteAudio() && !sansAudio && !tiny);
     }
   }
 
@@ -648,7 +910,7 @@ export class NoteSession extends EventEmitter {
       }
       this.segs = segs;
       this.texts = segs.slice().sort((a, b) => a.startMs - b.startMs).map((x) => x.text);
-      fs.writeFileSync(this.txt(id), this.texts.join('\n') + '\n');
+      fs.writeFileSync(this.txt(id), [...(this.prev?.texts ?? []), ...this.texts].join('\n') + '\n');
       log(`note: transcription du fichier entier en ${Date.now() - t0} ms, ${finalWords} mots (aperçu en direct : ${liveWords}), ${segs.length} segment(s)`);
       return true;
     } catch (e) {
@@ -720,10 +982,11 @@ export class NoteSession extends EventEmitter {
    * Désactivée, indisponible ou en échec : transcription simple, sans erreur.
    */
   private async speakers(id: string, dia: { promise: Promise<Awaited<ReturnType<typeof diarize>>> }): Promise<string> {
-    const plain = this.texts.join(' ').trim();
+    const plain = this.allText();
     const sorted = this.sortedSegs();
-    let data: NoteData = { segments: sorted.map((s) => this.plainSeg(s)), diarized: false, numSpeakers: this.numSpeakers, engine: this.transcriptionEngine() };
-    let out = plain;
+    const prevDiarized = !!this.prev?.diarized; // reprise sans audio : les voix d'avant restent nommées
+    let data: NoteData = { segments: this.withPrev(sorted.map((s) => this.plainSeg(s))), diarized: prevDiarized, numSpeakers: this.numSpeakers, engine: this.transcriptionEngine() };
+    let out = prevDiarized ? speakerTranscript(data.segments) : plain;
     this.status({ state: 'transcribing', mode: 'note', message: 'Note · séparation des voix…' });
     this.progress({ state: 'transcribing', stage: 'voices', message: diaModels.downloading ? 'Téléchargement du modèle de voix…' : 'Séparation des voix…' });
     const onDl = (p: { percent: number; state: string }) => {
@@ -740,8 +1003,9 @@ export class NoteSession extends EventEmitter {
         this.timings.diarizeMode = r.mode;
         this.timings.speakers = names.size;
         log(`note: diarisation ${r.engine ?? 'sherpa'} ${r.mode}${r.micTurns ? ` (voix sur le micro : ${new Set(r.micTurns.map((t) => t.speaker)).size})` : ''} en ${r.ms} ms pour ${r.audioSec.toFixed(0)} s d'audio (${((r.ms / 10 / r.audioSec) || 0).toFixed(1)} %), ${names.size} locuteur(s) (groupes ${r.groups ?? '?'} → ${r.merged ?? '?'}, nombre annoncé ${this.numSpeakers ?? 'auto'}), ${r.rssMB ?? '?'} Mo`);
-        data = { segments: labeled, diarized: true, mode: r.mode, diarizationMs: r.ms, numSpeakers: this.numSpeakers, engine: this.transcriptionEngine(), diarizationEngine: r.engine ?? 'sherpa' };
-        out = speakerTranscript(labeled);
+        const all = this.withPrev(labeled);
+        data = { segments: all, diarized: true, mode: r.mode, diarizationMs: r.ms, numSpeakers: this.numSpeakers, engine: this.transcriptionEngine(), diarizationEngine: r.engine ?? 'sherpa' };
+        out = speakerTranscript(all);
       } else log('note: diarisation indisponible → transcription sans locuteurs');
     } finally {
       diaModels.off('progress', onDl);
@@ -755,7 +1019,7 @@ export class NoteSession extends EventEmitter {
     return out;
   }
 
-  private async organizeAndSave(id: string, transcript: string, createdAt: Date, durationMs: number, existing?: NoteMeta, forcedTitle?: string): Promise<string> {
+  private async organizeAndSave(id: string, transcript: string, createdAt: Date, durationMs: number, existing?: NoteMeta, forcedTitle?: string, tiny = false): Promise<string> {
     this.state = 'organizing';
     this.status({ state: 'cleaning', mode: 'note', message: 'Note · organisation…' });
     this.progress({ state: 'organizing', stage: 'summary', elapsedMs: durationMs, words: spokenWords(transcript), noteId: id });
@@ -767,6 +1031,9 @@ export class NoteSession extends EventEmitter {
     const t0 = Date.now();
     if (!countWords(transcript)) {
       ({ markdown, title } = rawNote('', createdAt, 'Rien n’a été entendu pendant cette session.'));
+    } else if (tiny) {
+      // presque rien capté : pas d'appel à l'IA (elle rendrait « Note vide »), l'écran propose Garder / Jeter
+      ({ markdown, title } = rawNote(transcript, createdAt, 'Presque rien n’a été capté.'));
     } else if (!organize) {
       ({ markdown, title } = rawNote(transcript, createdAt, 'Organisation indisponible : transcription brute.'));
       warn = 'Organisation indisponible : transcription brute enregistrée';
@@ -795,18 +1062,22 @@ export class NoteSession extends EventEmitter {
       title = forcedTitle;
       markdown = /^#\s.+$/m.test(markdown) ? markdown.replace(/^#\s.+$/m, `# ${forcedTitle}`) : `# ${forcedTitle}\n\n${markdown}`;
     }
-    const file = uniquePath(notesOutDir(), mdName(createdAt, title), existing?.path);
-    fs.writeFileSync(file, markdown.endsWith('\n') ? markdown : markdown + '\n');
+    markdown = markdown.trimStart(); // m12 : pas de ligne vide en tête du .md
+    let file = '';
+    if (!tiny) {
+      file = uniquePath(notesOutDir(), mdName(createdAt, title), existing?.path);
+      fs.writeFileSync(file, markdown.endsWith('\n') ? markdown : markdown + '\n');
+    }
     if (insideNotesOut(existing?.path) && existing!.path !== file) fs.rmSync(existing!.path, { force: true });
     const meta: NoteMeta = { id, title, createdAt: createdAt.toISOString(), durationMs, words: spokenWords(transcript), path: file, provider };
     upsert(meta);
-    log(`note: enregistrée ${file} (organisation ${Date.now() - t0} ms)`);
+    log(tiny ? 'note: presque rien capté → gardée hors de Documents (Garder / Jeter à l’écran)' : `note: enregistrée ${file} (organisation ${Date.now() - t0} ms)`);
     this.state = 'idle';
-    this.status({ state: warn ? 'error' : 'done', mode: 'note', message: warn || `Note prête : ${title}` });
+    this.status(tiny ? { state: 'idle' } : { state: warn ? 'error' : 'done', mode: 'note', message: warn || `Note prête : ${title}` });
     // Confirmation brève, puis retour au repos (sinon « Note prête » restait affiché sur la pastille).
-    setTimeout(() => { if (this.state === 'idle') this.status({ state: 'idle' }); }, warn ? 3000 : 1500);
+    if (!tiny) setTimeout(() => { if (this.state === 'idle') this.status({ state: 'idle' }); }, warn ? 3000 : 1500);
     this.progress({ state: 'done', elapsedMs: durationMs, words: meta.words, noteId: id, message: warn || undefined });
-    this.emit('saved', meta);
+    this.emit('saved', { ...meta, tiny });
     return id;
   }
 
@@ -823,6 +1094,19 @@ export class NoteSession extends EventEmitter {
     } finally {
       this.state = 'idle';
     }
+  }
+
+  /** « Garder » une note presque vide : son .md (transcription brute) est enfin écrit dans Documents. */
+  keepNote(rawId: string): void {
+    const id = assertNoteId(rawId);
+    const meta = readIndex().find((m) => m.id === id);
+    if (!meta || insideNotesOut(meta.path)) return;
+    const n = getNote(id);
+    const createdAt = new Date(meta.createdAt);
+    const { markdown, title } = rawNote(n.transcript, createdAt, 'Transcription brute (presque rien capté).');
+    const file = uniquePath(notesOutDir(), mdName(createdAt, meta.title || title));
+    fs.writeFileSync(file, markdown);
+    upsert({ ...meta, path: file });
   }
 
   /** Au démarrage : transcriptions orphelines (plantage pendant une note) → note brute récupérée. */

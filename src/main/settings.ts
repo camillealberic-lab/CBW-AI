@@ -26,7 +26,8 @@ export interface Settings {
   'general.sounds': boolean; // sons discrets de début / fin / erreur
   'notes.systemAudio': boolean; // notes : capte aussi le son du Mac (visios)
   'notes.diarization': boolean; // notes : séparation des voix (qui a dit quoi), locale
-  'notes.keepAudio': boolean; // notes : garde ~/.dicta-ai/notes/<id>.wav après l'organisation
+  'notes.keepAudio': boolean; // notes : garde ~/.dicta-ai/notes/<id>.wav (chiffré) après l'organisation, réécoute
+  'notes.audioDays': number; // notes : durée de conservation de l'audio (jours, défaut 15), purge automatique au-delà
   'notes.echoCancel': boolean; // notes : annule l'écho du haut-parleur sur le micro (api-core.md)
   'notes.engine': 'auto' | 'whisper'; // moteur des réunions : auto (Parakeet si possible) ou Whisper forcé (api-engine.md)
   'notes.engineDownloadPaused': boolean; // suspend le téléchargement du moteur de notes
@@ -37,6 +38,7 @@ export interface Settings {
   'notes.autoStop': boolean; // notes : s'arrête seul à la fin de l'appel (« Toujours là ? » + Reprendre)
   'context.enabled': boolean; // lit l'app active (Accessibilité) pour orthographier les noms ; rien n'est enregistré
   'dictionary.autoLearn': boolean; // apprend les termes que la personne corrige après un collage
+  'learning.observe': boolean; // observe les retouches après collage (chiffré, 60 j) → préférences apprises (chantiers/apprentissage/api.md)
   'updates.auto': boolean; // vérifie + télécharge les mises à jour en arrière-plan (src/main/updater.ts)
   [k: string]: unknown;
 }
@@ -57,7 +59,8 @@ export const DEFAULTS: Settings = {
   'general.sounds': true,
   'notes.systemAudio': true,
   'notes.diarization': true,
-  'notes.keepAudio': false,
+  'notes.keepAudio': true, // décision Camille 16 oct. : audio conservé 15 jours (réécoute, réglage des voix)
+  'notes.audioDays': 15,
   'notes.echoCancel': true,
   'notes.engine': 'auto',
   'notes.engineDownloadPaused': false,
@@ -69,6 +72,7 @@ export const DEFAULTS: Settings = {
   'updates.auto': true,
   'context.enabled': true,
   'dictionary.autoLearn': true,
+  'learning.observe': true,
 
   // ── Parité Wispr (chantiers/wispr-parite/api-*.md) ──
   // Micro (api-audio.md)
@@ -157,7 +161,7 @@ function isJsonList(v: unknown, maxItems: number, fields: Record<string, number>
 const BOOL_KEYS = new Set([
   'audio.avoidBluetooth', 'audio.pauseMedia', 'audio.lowVoice', 'cleaning.toneByApp', 'cleaning.frenchTypography',
   'context.readBefore', 'history.keepAudio', 'paste.rawUndoFirst', 'snippets.enabled', 'rewrite.enabled',
-  'overlay.livePreview', 'notepad.enabled', 'context.enabled', 'dictionary.autoLearn',
+  'overlay.livePreview', 'notepad.enabled', 'context.enabled', 'dictionary.autoLearn', 'learning.observe',
   'notes.systemAudio', 'notes.diarization', 'notes.keepAudio', 'notes.echoCancel', 'notes.engineDownloadPaused', 'notes.calendar',
   'notes.detectCalls', 'notes.autoStart', 'notes.autoStop',
 ]);
@@ -170,6 +174,7 @@ const STRICT: Record<string, (v: unknown) => boolean> = {
   'dictionary.priority': (v) => isStrList(v, 200, 80),
   'dictionary.replacements': (v) => isStrList(v, 500, 300, /^.{1,80}=>.{0,200}$/s),
   'history.audioDays': (v) => isInt(v, 1, 60),
+  'notes.audioDays': (v) => isInt(v, 1, 60),
   'paste.restoreDelayMs': (v) => isInt(v, 0, 5000),
   'paste.restoreDelayOverrides': (v) => isStrList(v, 100, 200, /^[A-Za-z0-9.-]{1,150}=\d{1,5}$/),
   'snippets.list': (v) => isJsonList(v, 100, { trigger: 80, text: 5000 }, ['trigger', 'text']),
@@ -279,6 +284,14 @@ class SettingsStore extends EventEmitter {
     }
     this.set('settings.version', 5);
     log(`settings: migration v5 (Mistral et Cloudflare retirés${purged ? `, ${purged} clé(s) effacée(s)` : ''})`);
+  }
+
+  /** v6 : audio des réunions gardé 15 jours par défaut (décision du 16 oct. ; l'ancien défaut « false » était écrit dans le fichier). */
+  migrateV6(): void {
+    if (Number(this.data['settings.version'] ?? 1) >= 6) return;
+    if (this.data['notes.keepAudio'] === false) this.set('notes.keepAudio', true);
+    this.set('settings.version', 6);
+    log('settings: migration v6 (audio des réunions gardé 15 jours)');
   }
 
   get<K extends keyof Settings>(k: K): Settings[K] {

@@ -27,7 +27,12 @@ export type NoteKind = 'reunion' | 'brainstorm' | 'cours' | 'collegues' | 'clien
 export const NOTE_KINDS: NoteKind[] = ['reunion', 'brainstorm', 'cours', 'collegues', 'client', 'recrutement'];
 
 /** Forme commune à tous les genres et gabarits (décision de Camille, 16 oct.). */
-export const DEPTH_RULE = 'FORME : (1) paragraphe(s) général(aux), 1 à 2, sans titre, couvrant TOUTES les décisions et conclusions (quoi, qui, pourquoi) et ce qui reste ouvert ; (2) un « ## thème » nommé d’après le contenu, en paragraphes rédigés (prose, aucune puce) : le quoi, le comment, chiffres, raisons, nuances ; thèmes par sujet, JAMAIS chronologiques ni par phases, aucune expression de temps (« au début », « ensuite », « puis ») ni horodatage ; (3) UNE seule liste à la fin, « ## Prochaines étapes ». Un encadré « > **À retenir** » ou une citation : rares. Le genre adapte les thèmes, pas la forme.';
+export const DEPTH_RULE = `FORME (identique pour tous les genres) :
+(1) Sans titre, 1 à 2 paragraphes généraux : de quoi il s'agit, puis TOUTES les décisions et conclusions (quoi, qui, pourquoi) et ce qui reste ouvert.
+(2) Un « ## Thème » par sujet, nommé d'après le contenu (« Budget du salon », jamais « Point 1 »), en paragraphes rédigés, aucune puce : le quoi, le comment, chiffres, raisons, nuances, positions de chacun. Regroupe par SUJET, JAMAIS chronologiques ni dans l'ordre où on en a parlé.
+(3) En dernier, UNE seule liste « ## Prochaines étapes ».
+TEMPS : garde les dates et échéances DITES (« vendredi », « fin mars », « dans deux semaines »). N'écris jamais la chronologie de la réunion (« au début », « ensuite », « puis on a parlé de », « pour finir ») ni aucune heure.
+Encadré « > **À retenir** » (puis « > - … ») ou citation « > « … » (Prénom) » : 0 à 2 en tout. Le genre change les thèmes, jamais la forme.`;
 
 /** Thèmes de chaque genre (forme commune : DEPTH_RULE). */
 export const KIND_PLANS: Record<NoteKind, { label: string; plan: string }> = {
@@ -48,9 +53,9 @@ export const TEMPLATES: NoteTemplate[] = [
   {
     id: 'equipe', label: 'Point d’équipe', hint: 'Avancement, blocages, décisions',
     sections: [
-      { title: 'Avancement', guide: 'ce qui avance ou est terminé, par personne ou par sujet' },
-      { title: 'Blocages et risques', guide: 'ce qui coince, qui peut débloquer' },
-      { title: 'Décisions', guide: 'décisions prises, intégrées au thème concerné' },
+      { title: 'Avancement', guide: 'couvre : ce qui avance ou est terminé, par sujet ; décisions intégrées au thème concerné' },
+      { title: 'Blocages et risques', guide: 'couvre : ce qui coince, qui peut débloquer' },
+      { title: 'Priorités', guide: 'couvre : ce qui passe en premier et pourquoi, seulement si c’est dit' },
     ],
   },
   {
@@ -79,7 +84,7 @@ export const TEMPLATES: NoteTemplate[] = [
       { title: 'Points forts', guide: 'ce qui ressort de positif, avec les exemples cités' },
       { title: 'Points de vigilance', guide: 'réserves, zones floues, contradictions' },
       { title: 'Adéquation au poste', guide: 'lien avec le poste, la motivation, les attentes (salaire si cité)' },
-      { title: 'Décision et suite', guide: 'avis exprimé' },
+      { title: 'Avis exprimés', guide: 'couvre : avis et réserves tels que dits (la suite va dans Prochaines étapes)' },
     ],
   },
   {
@@ -87,8 +92,8 @@ export const TEMPLATES: NoteTemplate[] = [
     sections: [
       { title: 'Objectif', guide: 'la question ou le défi de l’atelier' },
       { title: 'Idées', guide: 'regroupées par thème, avec qui les a proposées si c’est dit' },
-      { title: 'Idées retenues', guide: 'ce qui a été choisi et pourquoi' },
-      { title: 'Questions ouvertes', guide: 'ce qui reste à explorer' },
+      { title: 'Idées retenues', guide: 'seulement ce qui a été explicitement choisi, et pourquoi ; le reste = pistes' },
+      { title: 'Pistes à explorer', guide: 'idées gardées pour plus tard, questions soulevées' },
     ],
   },
   {
@@ -97,7 +102,7 @@ export const TEMPLATES: NoteTemplate[] = [
       { title: 'Thème', guide: 'sujet et intervenant si cités' },
       { title: 'Notions clés', guide: 'une notion par thème, définitions et exemples donnés' },
       { title: 'Chiffres et références', guide: 'données, noms, livres, outils cités' },
-      { title: 'Questions et réponses', guide: 'questions de la salle et réponses' },
+      { title: 'Exemples', guide: 'couvre : cas et exemples donnés ; questions de la salle dans la notion concernée' },
     ],
   },
 ];
@@ -138,21 +143,24 @@ export function guessTemplate(text: string, title = '', speakers = 0): string {
 export function guessKind(text: string, title = '', speakers = 0): NoteKind {
   const t = `${title} ${text}`.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').slice(0, 6000);
   const lecture = (t.match(/\b(notions?|definitions?|exemples?|a retenir|seance|chapitre|cours|bfr|theoreme)\b/g) ?? []).length;
-  if (lecture >= 3 && speakers <= 3) return 'cours';
+  if (lecture >= 3 && speakers <= 3) return 'cours'; // 0 = inconnu
   let id = guessTemplate(text, title, speakers);
   // Plus de 3 voix : une réunion, pas un entretien en tête à tête.
   if ((id === 'recrutement' || id === 'client' || id === 'un-a-un') && speakers > 3) id = 'auto';
   if (id !== 'auto') return kindOfTemplate(id);
   const casual = (t.match(/\b(franchement|du coup|t.as vu|tu as vu|ouais|grave|genre|bref)\b/g) ?? []).length;
-  return speakers >= 2 && speakers <= 3 && casual >= 3 ? 'collegues' : 'reunion';
+  // speakers = 0 : nombre de voix inconnu (pas encore fiable, audit §4.5) → seulement le ton.
+  return (speakers === 0 || (speakers >= 2 && speakers <= 3)) && casual >= 3 ? 'collegues' : 'reunion';
 }
 
-/** Genre annoncé par le modèle sur la 1re ligne « [[genre:xxx]] » ; renvoie aussi le texte sans cette ligne. */
+/** Genre annoncé par le modèle « [[genre:xxx]] » (cherché dans les 3 premières lignes) ; renvoie le texte sans aucune ligne/balise genre. */
 export function extractKind(raw: string): { kind: NoteKind | null; text: string } {
-  const m = /^\s*\[\[genre\s*:\s*([a-zé]+)\s*\]\][ \t]*\n?/i.exec(raw);
+  const head = raw.split('\n').slice(0, 3).join('\n');
+  const m = /\[\[genre\s*:\s*([a-zé]+)\s*\]\]/i.exec(head);
   if (!m) return { kind: null, text: raw };
   const k = m[1].toLowerCase().replace('é', 'e') as NoteKind;
-  return { kind: NOTE_KINDS.includes(k) ? k : null, text: raw.slice(m[0].length) };
+  const text = raw.replace(/^[ \t]*\[\[genre\s*:\s*[a-zé]*\s*\]\][ \t]*\n?/gim, '').replace(/\[\[genre\s*:\s*[a-zé]*\s*\]\]/gi, '');
+  return { kind: NOTE_KINDS.includes(k) ? k : null, text: text.replace(/^\s*\n/, '') };
 }
 
 /** Bloc de consigne « gabarit » ajouté au prompt système. `kind` fixe les thèmes (sans reconnaissance par le modèle). */

@@ -230,6 +230,49 @@ const wipeUsage = () => rmSync(join(home, 'usage.json'), { force: true });
   check(canSpeculate(RAW).ok, '8c. ≥ 2 × l\'estimation restante → spéculation permise');
 }
 
+// 9. v1.11 : sortie ≥ 80 mots sans retour à la ligne → UNE relance sur un autre modèle (gemini / qwen), jamais en spéculatif.
+{
+  const LONG = "Je fais un point sur le chantier de la cuisine avec toi. Les meubles sont posés depuis lundi et le plombier passe jeudi matin pour l'évier. Il reste juste la crédence à commander chez le fournisseur habituel. Pour la facture du mois dernier, je l'ai envoyée à Julien mais il ne m'a pas répondu. Est-ce que tu peux le relancer cette semaine avant vendredi ? Pour les luminaires du salon, on attend encore le devis de l'électricien, qui doit passer mardi prochain vers dix heures pour mesurer la pièce.";
+  const LONG_PARA = LONG.replace(' Pour la facture', '\n\nPour la facture');
+  const RAW_LONG = 'euh ' + LONG.toLowerCase().replace(/[.?]/g, '');
+  const groqSays = (text: string): Handler => (model) => ({ status: 200, body: { model, choices: [{ message: { content: text }, finish_reason: 'stop' }] } });
+  const geminiSays = (text: string): Handler => (model) => ({ status: 200, body: { modelVersion: model, candidates: [{ content: { parts: [{ text }] }, finishReason: 'STOP' }] } });
+  const fresh = (order: string) => { wipeUsage(); quota.clearCooldowns(); reset(order); };
+
+  fresh('groq,gemini');
+  handlers = { groq: groqSays(LONG), gemini: geminiSays(LONG_PARA) };
+  const a = await cleanTranscriptDetailed(RAW_LONG);
+  check(a.provider === 'gemini' && a.text.includes('\n') && count('groq') === 1 && count('gemini') === 1, `9a. bloc de ${LONG.split(' ').length} mots sans retour → relance gemini, une seule (${a.provider}, groq ${count('groq')}, gemini ${count('gemini')})`);
+
+  fresh('groq,gemini');
+  handlers = { groq: groqSays(LONG), gemini: geminiSays(LONG) };
+  const b = await cleanTranscriptDetailed(RAW_LONG);
+  check(b.provider === 'groq' && !b.text.includes('\n') && count('groq') === 1 && count('gemini') === 1, `9b. relance toujours sans retour → 1re sortie gardée, pas de 2e relance ni de filet (${b.provider}, ${calls.length} appels)`);
+
+  fresh('gemini,groq');
+  handlers = { groq: groqSays(LONG_PARA), gemini: geminiSays(LONG) };
+  const c = await cleanTranscriptDetailed(RAW_LONG);
+  check(c.provider === 'groq' && calls.some((x) => x.host === 'groq' && /qwen/.test(x.model)) && c.text.includes('\n'), `9c. gemini sans retour → relance sur qwen (${c.provider} ${c.model})`);
+
+  fresh('groq,gemini');
+  handlers = { groq: (m) => ok(m), gemini: geminiSays(LONG_PARA) };
+  await cleanTranscriptDetailed(RAW);
+  check(count('gemini') === 0, '9d. sortie courte → jamais de relance');
+
+  fresh('groq,gemini');
+  handlers = { groq: groqSays(LONG), gemini: geminiSays(LONG_PARA) };
+  await cleanTranscriptDetailed(RAW_LONG, { speculative: true } as any);
+  check(count('gemini') === 0, '9e. nettoyage spéculatif → jamais de relance (quota)');
+
+  fresh('groq,gemini');
+  const t = await cleanTranscriptDetailed(RAW_LONG, { context: { app: 'Terminal' } });
+  check(count('gemini') === 0 && !t.text.includes('\n'), '9f. terminal → une seule ligne, pas de relance');
+
+  fresh('groq');
+  const g = await cleanTranscriptDetailed(RAW_LONG);
+  check(count('groq') === 1 && !g.text.includes('\n\n'), `9g. qwen a répondu, gemini désactivé → aucun modèle de relance, pas de filet « ensuite » (${calls.length} appel)`);
+}
+
 const usage = JSON.parse(readFileSync(join(home, 'usage.json'), 'utf8'));
 check(usage.models && typeof usage.models === 'object', 'usage.json contient les quotas par modèle');
 writeFileSync(join(home, 'done'), '');

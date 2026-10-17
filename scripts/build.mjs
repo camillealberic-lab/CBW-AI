@@ -34,7 +34,10 @@ if (existsSync(router)) {
     // du prochain compte rendu (notes tapées, gabarit, titre, invités, flux onDelta, résultat balisé) via setNextOrganize().
     const notesEntry = notes
       ? `
-import { organizeNotes as __organize } from './src/llm/notes.ts';
+import { organizeNotes as __simple } from './src/llm/notes.ts';
+${has('src/llm/notesPipeline.ts') ? "import { organizeNotesQuality as __quality } from './src/llm/notesPipeline.ts';" : 'const __quality = null;'}
+// Pipeline qualité (relecture → analyse → rédaction → vérification), repli interne sur le résumé simple (décision du 16/10).
+const __organize = (t, o) => (__quality ? __quality(t, o) : __simple(t, o));
 export { parseAnnotated, stripMarkers } from './src/llm/notes.ts';
 let __next = null;
 export function setNextOrganize(o) { __next = o && typeof o === 'object' ? o : null; }

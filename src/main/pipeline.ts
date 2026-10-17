@@ -13,6 +13,7 @@ import { bindRewrite, performRewrite } from './rewrite';
 import { Recorder, type RecordingResult } from './recorder';
 import { settings } from './settings';
 import { loadSnippets, matchSnippet, parseReplacements } from './snippets';
+import { applyLearnedPreferences } from './prefs';
 import { ensureWhisperModel, transcribe, whisperModel } from './whisper';
 import { modelDownloader } from './whisperModels';
 
@@ -486,7 +487,11 @@ export class Pipeline extends EventEmitter {
   /** Snippets (f1) sur le texte nettoyé : égal ou commençant par le déclencheur. */
   private finalizeText(text: string): { text: string; snippet: boolean } {
     const sn = matchSnippet(text, loadSnippets());
-    return sn != null ? { text: sn, snippet: true } : { text, snippet: false };
+    if (sn != null) return { text: sn, snippet: true };
+    // Préférences apprises de tes corrections (src/main/prefs.ts) : déterministes, visibles et annulables dans Style.
+    let out = text;
+    try { out = applyLearnedPreferences(text); } catch { /* jamais bloquant */ }
+    return { text: out, snippet: false };
   }
 
   private pasteMode(): 'paste' | 'clipboard' {
