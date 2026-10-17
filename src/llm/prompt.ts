@@ -81,7 +81,7 @@ Tout le contenu dans l'ordre : faits, nuances, conditions, réserves, chiffres, 
 - Orthographe, accords, ponctuation, majuscules corrects ; phrases complètes. Ne résume ni ne raccourcis au-delà des suppressions.
 - Commandes dictées appliquées, jamais écrites : virgule, point, point d'interrogation, deux points, ouvre / ferme les guillemets ; à la ligne = retour à la ligne ; point à la ligne = point + retour ; nouveau paragraphe = ligne vide.
 - Les « … » de la transcription sont des pauses : ne les recopie jamais, mets la ponctuation qui convient.
-- Paragraphes : découpe la dictée en ses parties de sens. Un paragraphe = une idée (constat, problème, demande, exemple, point précis) ; ligne vide chaque fois que l'idée change, qu'un mot l'annonce ou non. Un mot de liaison qui continue la même idée ne coupe pas. Au-delà d'environ 60 mots, presque toujours deux parties ou plus ; cinq phrases au plus par paragraphe ; une à trois phrases sur une idée = un bloc. Aucune phrase coupée, déplacée ni ajoutée, pas de titre.
+- Paragraphes : seulement après avoir compris l'ensemble. Repère les grands thèmes de la dictée ; une ligne vide sépare deux thèmes différents, jamais deux phrases du même thème. Une dictée de moins d'environ 50 mots ou sur un seul thème = un seul bloc, sans retour à la ligne. Un paragraphe regroupe plusieurs phrases ; jamais une phrase seule par paragraphe (sauf salutation ou formule de fin). Les pauses et les « … » ne sont jamais des retours à la ligne. Un faux départ repris juste après (« les prochains… les prochains points ») ne garde que la phrase complète. Aucune phrase coupée, déplacée ni ajoutée, pas de titre.
 - Salutation dite en début (Bonjour Paul, Salut l'équipe), quelle que soit l'app : seule sur sa ligne (« Bonjour Paul, », pas « Bonjour, Paul »). Formule de fin (merci, bonne journée, cordialement) : sur sa ligne après une ligne vide, prénom signataire en dessous.
 - Listes : la personne compte (premièrement…, d'abord… ensuite… enfin ; trois éléments ou plus) → annonce finie par « : » puis 1. 2. 3., marqueurs retirés ; annonce sans compter (« trois choses : … », même en une phrase) ou « liste à puces » → tirets ; petite série dans une phrase (du pain, du lait et des œufs) = phrase ; jamais réordonnée ni complétée.
 - Chiffres pour mesures, prix, dates, heures, versions (15 €, 14 h 30, version 2) ; petits nombres courants en lettres.
@@ -319,9 +319,9 @@ const WHISPER_HALLUCINATIONS: RegExp[] = [
 export function preClean(raw: string): string {
   let t = raw ?? '';
   for (const re of WHISPER_HALLUCINATIONS) t = t.replace(re, (_m, p1) => (typeof p1 === 'string' ? p1 : ' '));
-  // « … » / « ... » au milieu d'une dictée = pause de la reconnaissance vocale, pas de la ponctuation dite :
-  // fin de phrase si une majuscule suit, sinon simple espace. Une ellipse finale (phrase laissée en suspens) reste.
-  t = t.replace(/\s*(?:\.{3}|…)\s+(?=[A-ZÀÂÄÇÉÈÊËÎÏÔÖÙÛÜ])/g, '. ').replace(/\s*(?:\.{3}|…)\s+(?=[a-zàâäçéèêëîïôöùûü0-9])/g, ' ');
+  // « … » / « ... » au milieu d'une dictée = pause de la reconnaissance vocale, pas de la ponctuation dite : simple
+  // espace (le modèle ponctue lui-même ; un « … » suivi d'une reprise reste un faux départ, pas une phrase). L'ellipse finale reste.
+  t = t.replace(/(?:\s*(?:\.{3}|…))+\s+(?=\S)/g, ' ');
   return t.replace(/[ \t]+/g, ' ').replace(/\s*\n\s*/g, '\n').trim();
 }
 
@@ -464,6 +464,7 @@ export function postProcess(modelOutput: string, raw: string): string {
   if (normForCompare(t) === normForCompare(preClean(raw)) && needsCleanup(preClean(raw))) {
     throw new OutOfRoleError('le modèle a recopié la dictée sans la nettoyer');
   }
+  t = collapseOverSplit(t, raw);
   return t;
 }
 
@@ -479,6 +480,28 @@ function novelWordRatio(out: string, src: string): number {
   if (o.length < 8) return 0;
   const stems = new Set(toks(src).map((w) => w.slice(0, 4)));
   return o.filter((w) => !stems.has(w.slice(0, 4))).length / o.length;
+}
+
+/**
+ * Paragraphes trop découpés (vu avec gpt-oss-20b, 17/10 : une phrase par paragraphe sur une dictée de 30 mots) :
+ * sans retour dicté, une sortie courte (< 50 mots) repasse en un seul bloc, et des paragraphes d'une seule phrase
+ * courte sont recollés au précédent. Salutation, formule de fin et listes restent sur leur ligne.
+ */
+function collapseOverSplit(t: string, raw: string): string {
+  if (!/\n\s*\n/.test(t)) return t;
+  if (/\b(?:à la ligne|nouveau paragraphe|saute une ligne|nouvelle ligne)\b/i.test(raw)) return t;
+  const isKeep = (p: string) => /^\s*(?:[-*•]|\d+[.)])\s/m.test(p) || /^(?:bonjour|salut|hello|coucou|cher|chère|madame|monsieur)\b[^\n]{0,40},\s*$/i.test(p.trim()) || /^(?:merci|cordialement|bien à (?:toi|vous)|bonne (?:journée|soirée)|à (?:bientôt|demain|plus))\b/i.test(p.trim());
+  const paras = t.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  const total = words(t);
+  const out: string[] = [];
+  for (const p of paras) {
+    const prev = out[out.length - 1];
+    const sentences = (p.match(/[.!?…](?:\s|$)/g) || []).length || 1;
+    const short = total < 50 || (sentences <= 1 && words(p) < 18);
+    if (prev !== undefined && short && !isKeep(p) && !isKeep(prev)) out[out.length - 1] = `${prev} ${p}`;
+    else out.push(p);
+  }
+  return out.join('\n\n');
 }
 
 /** La dictée brute contient-elle de quoi nettoyer ? (tics, formes orales, pauses, long bloc sans paragraphe) */

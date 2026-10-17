@@ -160,13 +160,13 @@ check(finalizeText(longBlock, longBlock, {}, true).includes('\n\nSinon'), 'final
 
 // ── v1.12 : v1.5 + éléments v1.11
 const s12 = buildSystemPrompt({});
-check(/une idée/.test(s12) && /qu'un mot l'annonce ou non/.test(s12), 'v1.12 : paragraphes par le sens');
+check(/grands thèmes/.test(s12) && /jamais une phrase seule par paragraphe/.test(s12), 'v1.12 : paragraphes par thème, après compréhension');
 check(/1\. 2\. 3\./.test(s12) && /tirets/.test(s12), 'v1.12 : listes numérotées / tirets');
 check(/enfin si/.test(s12) && /= finalement/.test(s12) && /un an/.test(s12), 'v1.12 : règles « enfin »');
 check(/ne les recopie jamais/.test(s12) && /arobase/.test(s12) && /émoji/.test(s12), 'v1.12 : « … », e-mails, emoji');
 check(/trucs → choses/.test(s12) && /corrige activement/.test(s12) && /la dernière ou la plus claire/.test(s12), 'v1.12 : garde la v1.5 (familier, correction active, répétitions)');
 check(!/⟦corrige/.test(s12) && /⟦corrige/.test(buildSystemPrompt({ markCorrections: true })), 'v1.12 : repère ⟦corrige⟧ seulement avec markCorrections');
-check(s12.length < 10000, `v1.12 : prompt système compact (${s12.length} car.)`);
+check(s12.length < 10300, `v1.12 : prompt système compact (${s12.length} car.)`);
 check(!shouldSkipLLM('lundi, enfin mardi'), 'v1.12 : « enfin » court → LLM');
 
 console.log(failed ? `\n${failed} échec(s)` : '\ntous les tests passent');
