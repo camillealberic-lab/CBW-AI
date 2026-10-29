@@ -1,14 +1,15 @@
 // Tests purs : bloc <contexte>, assainissement, validateLearnedTerm (aucun réseau, aucun LLM).
 //   NODE_NO_WARNINGS=1 node --experimental-strip-types src/llm/context.test.ts
-import { buildMessages, buildSystemPrompt, renderContextBlock, sanitizeContext, PROMPT_VERSION } from './prompt.ts';
+import { buildMessages, buildSystemPrompt, renderContextBlock, sanitizeContext, PROMPT_VERSION, USER_ANCHOR } from './prompt.ts';
 import { validateLearnedTerm } from './learn.ts';
 
 let failed = 0;
 const check = (ok: boolean, msg: string) => { console.log(`${ok ? 'ok  ' : 'FAIL'} ${msg}`); if (!ok) failed++; };
 
-check(PROMPT_VERSION === 'v1.12', 'version v1.12 (v1.5 + paragraphes, listes, « enfin » de la v1.11)');
+check(PROMPT_VERSION === 'v1.14', 'version v1.14 (v1.13 compressé)');
 const base = buildMessages('bonjour à tous', {});
-check(base.user === '<dictée>\nbonjour à tous\n</dictée>', 'sans contexte : message user inchangé');
+check(base.user === '<dictée>\nbonjour à tous\n</dictée>', 'sans contexte : message user inchangé (rappel désactivé par défaut)');
+check(buildMessages('bonjour à tous', { anchor: true }).user === '<dictée>\nbonjour à tous\n</dictée>\n' + USER_ANCHOR, 'v1.13 : anchor:true ajoute le rappel du contrat');
 check(buildMessages('x', { context: {} }).user.indexOf('<contexte') < 0, 'contexte vide : pas de bloc');
 
 const m = buildMessages('dis à Karim', { context: { app: 'Slack', url: 'https://Linear.app/team/x?y=1', names: ['Karim', 'karim', 'Supabase'] } });

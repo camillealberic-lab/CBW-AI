@@ -3,7 +3,7 @@
 App macOS (Electron 44 + TS) : dictée nettoyée, notes de réunion (qui a dit quoi). Pages : Accueil, Notes, Dictionnaire, Style, Réglages. Utilisateur francophone, design CBW Studio.
 
 ## Carte
-- `src/llm/` — IA (orchestrateur) : `prompt.ts` (nettoyage dictée, v1.5), `notes.ts` (compte rendu v2), `router.ts` (course hedgée), `providers/*` (groq, gemini, zai, openrouter, ollama — Ollama en ultime recours), `config.ts`, `quota.ts`.
+- `src/llm/` — IA (orchestrateur) : `prompt.ts` (nettoyage dictée, v1.14 ; v1.13 gelée dans bench/prompt.v113.bench.ts), `notes.ts` (compte rendu v2), `router.ts` (course hedgée), `providers/*` (groq, gemini, zai, openrouter, ollama — Ollama en ultime recours), `config.ts`, `quota.ts`.
 - `src/main/` — Electron : `main.ts`, `pipeline.ts` (dictée), `notes.ts` (NoteSession), `overlay.ts` (pastille), `diarization.ts` + `diarize-worker.ts` (sherpa-onnx), `fnkey.ts` + `scripts/fnwatch.swift` (Control gauche), `sounds.ts`, `appWindow.ts` + `preload-app.ts` (pont `window.dictaApp`).
 - `design/app/` — `app.html` (fenêtre), `notes.js`, `charts.js` ; `design/overlay/overlay.html` ; `design/cbw/` tokens + DESIGN.md.
 - Contrats : `docs/APP_API.md`. État / reprise : `docs/PAUSE.md`. Benchmark : `bench/` (`run.ts`, `cases.jsonl`).

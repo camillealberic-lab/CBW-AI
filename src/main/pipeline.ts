@@ -4,7 +4,7 @@ import { clean, routerModule } from './cleaner';
 import { snapshotContext, type DictationContextEx } from './context';
 import { whisperNamesPrompt } from './contextNames';
 import { learner } from './learn';
-import { getById, getRecent, newDictationId, purgeAudio, readAudio, recordPending, saveAudio, updateDictation, type Dictation } from './history';
+import { getById, getRecent, markReverted, newDictationId, purgeAudio, readAudio, recordPending, saveAudio, updateDictation, type Dictation } from './history';
 import { insertText, restoreDelayFor, sendCommandKey, snapshot } from './insert';
 import { notepadIntercept } from './notepad';
 import { log, textForLog } from './paths';
@@ -14,6 +14,7 @@ import { Recorder, type RecordingResult } from './recorder';
 import { settings } from './settings';
 import { loadSnippets, matchSnippet, parseReplacements } from './snippets';
 import { applyLearnedPreferences } from './prefs';
+import { mergeConfidence, roundConfidence, type AsrConfidence } from './asrConfidence';
 import { ensureWhisperModel, transcribe, whisperModel } from './whisper';
 import { modelDownloader } from './whisperModels';
 
@@ -22,6 +23,7 @@ type UiohookModule = typeof import('uiohook-napi');
 /** Exports du router (src/llm/router.ts) utilisés ici, en plus de ceux typés dans cleaner.ts. */
 interface RouterExtras {
   warmup?: () => Promise<void>;
+  warmConnection?: () => Promise<boolean>;
   setRouterLogger?: (fn: ((msg: string, data?: unknown) => void) | null) => void;
   usableCloudProviders?: () => string[];
   canSpeculate?: (raw: string, opts?: { language?: string; priorityVocabulary?: string[]; promptMode?: 'auto' | 'on' | 'off'; toneByApp?: boolean }) => { ok: boolean; reason?: string };
@@ -65,6 +67,10 @@ interface SegJob {
   end: number;
   commit: boolean;
   text: Promise<string>;
+  /** W1 : confiance de la transcription de ce morceau (absente si le serveur ne la donne pas). */
+  conf?: AsrConfidence;
+  /** Morceau transcrit vide (n'entre pas dans la confiance). */
+  empty?: boolean;
   done: boolean;
   failed: boolean;
 }
@@ -232,6 +238,8 @@ export class Pipeline extends EventEmitter {
     if (Date.now() - this.lastWarmup < 10000) return;
     this.lastWarmup = Date.now();
     void r?.warmup?.().catch(() => {});
+    // Connexion HTTPS du fournisseur ouverte pendant que l'on parle (le router limite à 1 fois / 3 s).
+    void r?.warmConnection?.().catch(() => {});
   }
 
   private starting = false;
@@ -314,11 +322,12 @@ export class Pipeline extends EventEmitter {
   }
 
   /** Transcription en file (whisper-server est séquentiel), contexte = texte déjà validé. */
-  private enqueue(t: Take, wav: Buffer, ctxUpTo: number, signal: AbortSignal): Promise<string> {
+  private enqueue(t: Take, wav: Buffer, ctxUpTo: number, signal: AbortSignal, onConf?: (c: AsrConfidence | undefined, empty: boolean) => void): Promise<string> {
     const p = t.queue.then(async () => {
       if (signal.aborted) throw new Error('aborted');
       const ctx = await this.committedText(t, ctxUpTo);
       const w = await transcribe(wav, { model: String(settings.get('whisper.model')), language: this.lang(), prompt: this.prompt(t, ctx), signal });
+      onConf?.(w.conf, !w.text.trim());
       return w.text;
     });
     t.queue = p.catch(() => undefined);
@@ -332,7 +341,7 @@ export class Pipeline extends EventEmitter {
     const idx = t.jobs.findIndex((j) => !j.commit);
     if (idx >= 0) t.jobs.splice(idx, 1);
     const job: SegJob = { start, end, commit, text: Promise.resolve(''), done: false, failed: false };
-    job.text = this.enqueue(t, wav, t.jobs.length, t.recAbort.signal);
+    job.text = this.enqueue(t, wav, t.jobs.length, t.recAbort.signal, (c, empty) => { job.conf = c; job.empty = empty; });
     t.jobs.push(job);
     const signal = t.recAbort.signal;
     job.text.then(
@@ -343,7 +352,7 @@ export class Pipeline extends EventEmitter {
         const raw = join(await Promise.all(t.jobs.map((j) => j.text)));
         t.partial = raw;
         if (this.state === 'recording' && this.t === t) this.emit('status', { state: 'recording', partialText: raw } satisfies DictaStatus);
-        if (!t.rewrite) this.speculateLLM(t, raw);
+        if (!t.rewrite) this.speculateLLM(t, raw, this.jobsConfidence(t.jobs, raw));
       },
       (e) => {
         job.done = true;
@@ -354,7 +363,7 @@ export class Pipeline extends EventEmitter {
   }
 
   /** Nettoyage mémoïsé : la spéculation et le relâchement partagent le même appel pour un même texte. */
-  private cleanOnce(t: Take, raw: string, speculative = false): Promise<CleanResult> {
+  private cleanOnce(t: Take, raw: string, speculative = false, asrConfidence?: AsrConfidence): Promise<CleanResult> {
     if (t.llmSpec?.raw === raw) return t.llmSpec.result;
     t.llmSpec?.ac.abort();
     this.router();
@@ -362,7 +371,7 @@ export class Pipeline extends EventEmitter {
     const lang = this.lang();
     // `speculative` (option du router, transmise telle quelle par cleaner.ts) : pas de course parallèle
     // ni de dernier recours → une pause ne brûle pas le quota dont l'appel final aura besoin.
-    const opts: CleanOptions & { speculative: boolean } = { ...this.dictionaryOpts(), language: lang === 'auto' ? undefined : lang, signal: ac.signal, speculative };
+    const opts: CleanOptions & { speculative: boolean; asrConfidence?: AsrConfidence } = { ...this.dictionaryOpts(), language: lang === 'auto' ? undefined : lang, signal: ac.signal, speculative, ...(asrConfidence ? { asrConfidence } : {}) };
     // `context.before` (≤ 300 car. avant le curseur) : raccord de majuscule / ponctuation (m14, côté LLM).
     const result = t.ctxP.then((context) => (ac.signal.aborted ? ({ text: raw, provider: 'passthrough', model: '', latencyMs: 0 } as CleanResult) : clean(raw, context ? { ...opts, context: settings.get('context.readBefore' as never) === false ? { ...context, before: undefined } : context } : opts)));
     result.catch(() => undefined);
@@ -380,7 +389,7 @@ export class Pipeline extends EventEmitter {
    * final (≥ 2 × l'estimation, router.canSpeculate) : sinon la spéculation ferait basculer l'appel final
    * de Groq (~0,9 s) vers un fournisseur plus lent.
    */
-  private speculateLLM(t: Take, raw: string): void {
+  private speculateLLM(t: Take, raw: string, conf?: AsrConfidence): void {
     if (!raw) return;
     if (t.specTimer) clearTimeout(t.specTimer);
     t.specTimer = null;
@@ -396,7 +405,7 @@ export class Pipeline extends EventEmitter {
       const { priorityVocabulary, promptMode, toneByApp } = this.dictionaryOpts();
       if (this.router()?.canSpeculate?.(raw, { language: lang === 'auto' ? undefined : lang, priorityVocabulary, promptMode, toneByApp })?.ok === false) return;
       t.lastSpecAt = Date.now();
-      void this.cleanOnce(t, raw, true);
+      void this.cleanOnce(t, raw, true, conf);
     };
     if (wait <= 0) run();
     else t.specTimer = setTimeout(run, wait);
@@ -440,8 +449,14 @@ export class Pipeline extends EventEmitter {
     }
   }
 
+  /** W1 : confiance fusionnée des morceaux (un morceau sans texte ne compte pas ; un morceau non mesuré rend le tout inconnu). */
+  private jobsConfidence(jobs: SegJob[], raw: string, extra: Array<AsrConfidence | undefined> = []): AsrConfidence | undefined {
+    if (!raw) return undefined;
+    return mergeConfidence([...jobs.filter((j) => !j.empty).map((j) => j.conf), ...extra]);
+  }
+
   /** Texte brut final : segments déjà transcrits + fin (ou spéculation si rien n'a été dit depuis). */
-  private async finalRaw(t: Take, rec: RecordingResult, signal: AbortSignal): Promise<{ raw: string; specHit: boolean; fallback: boolean }> {
+  private async finalRaw(t: Take, rec: RecordingResult, signal: AbortSignal): Promise<{ raw: string; specHit: boolean; fallback: boolean; conf?: AsrConfidence }> {
     const jobs = t.jobs;
     const committed = jobs.filter((j) => j.commit);
     const spec = jobs.find((j) => !j.commit);
@@ -453,20 +468,22 @@ export class Pipeline extends EventEmitter {
       // spéculation valide : même début, et aucune parole après sa fin
       if (spec && spec.start === rec.tailStart && spec.end + FRAME >= rec.lastSpeechEnd) {
         const specText = (texts[jobs.indexOf(spec)] as PromiseFulfilledResult<string>).value;
-        return { raw: join([committedText, specText]), specHit: true, fallback: false };
+        const raw = join([committedText, specText]);
+        return { raw, specHit: true, fallback: false, conf: this.jobsConfidence([...committed, spec], raw) };
       }
       // fin déjà couverte par le dernier segment validé
-      if (!rec.tail) return { raw: committedText, specHit: !!committed.length, fallback: false };
+      if (!rec.tail) return { raw: committedText, specHit: !!committed.length, fallback: false, conf: this.jobsConfidence(committed, committedText) };
       try {
         const w = await transcribe(rec.tail, { ...opts, prompt: this.prompt(t, committedText) });
-        return { raw: join([committedText, w.text]), specHit: false, fallback: false };
+        const raw = join([committedText, w.text]);
+        return { raw, specHit: false, fallback: false, conf: this.jobsConfidence(committed, raw, w.text.trim() ? [w.conf] : []) };
       } catch (e) {
         if (signal.aborted) throw e;
         log('pipeline: fin non transcrite → repli', e);
       }
     }
     const w = await transcribe(rec.full, { ...opts, prompt: this.prompt(t, '') });
-    return { raw: w.text, specHit: false, fallback: true };
+    return { raw: w.text, specHit: false, fallback: true, conf: w.conf };
   }
 
   /** f4 : mots prioritaires + règles de remplacement, appliquées par le router (src/llm/format.ts), repli réseau compris. */
@@ -518,6 +535,8 @@ export class Pipeline extends EventEmitter {
     }
     if (this.state !== 'recording') return;
     const tRelease = Date.now();
+    // Connexion HTTPS rouverte pendant que Whisper finit (~300 ms) : l'appel LLM la trouve prête.
+    void this.router()?.warmConnection?.().catch(() => {});
     const ac = new AbortController();
     const prior = this.tail;
     let release: () => void = () => undefined;
@@ -570,7 +589,7 @@ export class Pipeline extends EventEmitter {
         this.setBg({ state: 'idle' });
         return;
       }
-      const { raw, specHit, fallback } = await this.finalRaw(t, rec, ac.signal);
+      const { raw, specHit, fallback, conf: asrConf } = await this.finalRaw(t, rec, ac.signal);
       proc.raw = raw;
       const tWhisper = Date.now();
       if (aborted()) return keep('cancelled');
@@ -607,14 +626,14 @@ export class Pipeline extends EventEmitter {
       } else {
         this.setBg({ state: 'cleaning', partialText: raw });
         llmHit = t.llmSpec?.raw === raw; // déjà lancé pendant la pause
-        c = await this.cleanOnce(t, raw);
+        c = await this.cleanOnce(t, raw, false, asrConf);
         if (aborted()) return keep('cancelled');
         if (llmHit && c.provider === 'passthrough' && (c.model === '' || c.model === 'fallbackClean')) {
           // Spéculation interrompue OU tombée en texte brut (quotas épuisés au moment de la pause) :
           // vrai appel, avec course parallèle et dernier recours sur tous les fournisseurs.
           log(`pipeline: nettoyage spéculatif sans résultat (${c.model || 'interrompu'}) → nouvel essai complet`);
           t.llmSpec = null;
-          c = await this.cleanOnce(t, raw);
+          c = await this.cleanOnce(t, raw, false, asrConf);
         }
         if (c.provider === 'passthrough' && (c.model === '' || c.model === 'fallbackClean')) {
           log(`pipeline: ⚠ TEXTE BRUT collé — aucun fournisseur n'a pu nettoyer (${c.model || 'router indisponible / délai'}) ; détail : lignes « router: » ci-dessus`);
@@ -677,7 +696,9 @@ export class Pipeline extends EventEmitter {
         interrupted: rec.interrupted,
       });
       // Pas le texte dicté (données personnelles) : longueurs seulement, sauf DICTA_LOG_TEXT=1.
-      log('pipeline: résultat', { ...res, raw: textForLog(res.raw), text: textForLog(res.text) });
+      // tries / choice (router) : nombre d'appels fournisseur envoyés et raison du choix final (absents : snippet).
+      const cx = c as CleanResult & { tries?: number; choice?: string };
+      log('pipeline: résultat', { ...res, raw: textForLog(res.raw), text: textForLog(res.text), asrConfidence: roundConfidence(asrConf), tries: cx.tries ?? 0, choice: cx.choice ?? (exact != null ? 'snippet' : 'inconnu') });
       this.emit('result', res);
     } catch (e) {
       if (aborted()) return keep('cancelled');
@@ -737,6 +758,7 @@ export class Pipeline extends EventEmitter {
     }
     const ctx = await snapshotContext().catch(() => undefined);
     await this.pasteText(d.raw, ctx?.bundleId);
+    if (d.id) markReverted(d.id); // W2 : retour au brut, compté dans la qualité
     return true;
   }
 

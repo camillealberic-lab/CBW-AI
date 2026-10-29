@@ -5,8 +5,9 @@ import type { CleanOptions, CleanResult, ProviderErrorKind, ProviderId } from '.
 import { ProviderError } from '../shared/types.ts';
 import { ALL_PROVIDERS, loadConfig } from './config.ts';
 import type { LLMConfig } from './config.ts';
-import { GENERATION, autoParagraphs, buildMessages, fallbackClean, isEmptyDictation, postProcess, shouldSkipLLM } from './prompt.ts';
-import { appProfile, applyReplacements, frenchTypography, joinWithBefore, stripInventedBreaks } from './format.ts';
+import { GENERATION, autoParagraphs, buildMessages, fallbackClean, isEmptyDictation, postProcess, shouldSkipLLMWithConfidence } from './prompt.ts';
+import type { AsrConfidenceLike } from './prompt.ts';
+import { appProfile, applyReplacements, applySpokenAddresses, frenchTypography, joinWithBefore, splitLeadingCommands, stripInventedBreaks } from './format.ts';
 import { isUserAbort } from './providers/common.ts';
 import type { DictaProvider, DictaProviderError } from './providers/common.ts';
 import { createGeminiProvider } from './providers/gemini.ts';
@@ -49,6 +50,8 @@ export interface RouterCleanOptions extends CleanOptions {
    * dernier recours sur les fournisseurs en pause — on garde le quota pour l'appel final.
    */
   speculative?: boolean;
+  /** W1 : confiance de la transcription (whisper-server) ; haute → saut du LLM jusqu'à 20 mots, basse → jamais de saut. */
+  asrConfidence?: AsrConfidenceLike;
 }
 
 type RouterLogger = (msg: string, data?: unknown) => void;
@@ -68,9 +71,16 @@ const now = () => performance.now();
  * - sinon essaie les fournisseurs ; si tous échouent → fallbackClean(raw) en passthrough.
  * Si opts.signal est annulé par l'appelant, la promesse est rejetée (AbortError).
  */
-export async function cleanTranscript(raw: string, opts: RouterCleanOptions = {}): Promise<CleanResult> {
-  const { attempts: _a, ...res } = await cleanTranscriptDetailed(raw, opts);
-  return res;
+export async function cleanTranscript(raw: string, opts: RouterCleanOptions = {}): Promise<CleanResult & { tries: number; choice: string }> {
+  const { attempts, ...res } = await cleanTranscriptDetailed(raw, opts);
+  // Pour pipeline.ts (ligne `pipeline: résultat`) : nombre d'appels réellement envoyés + raison du choix final.
+  const tries = attempts.filter((a) => a.latencyMs !== undefined).length;
+  const choice = res.provider !== 'passthrough'
+    ? (attempts.some((a) => a.message?.startsWith('relance paragraphes') && a.outcome === 'ok') ? 'relance-paragraphes' : tries > 1 ? 'bascule' : 'premier-ok')
+    : res.model === 'fallbackClean-rejet' ? 'repli-direct-rejet'
+    : res.model === 'fallbackClean' ? 'repli-echec-fournisseurs'
+    : res.model === 'skip-short' ? 'saut-llm' : res.model || 'passthrough';
+  return { ...res, tries, choice };
 }
 
 /**
@@ -88,6 +98,7 @@ export function finalizeText(text: string, raw: string, opts: RouterCleanOptions
   if (codeLike && opts.promptMode !== 'on') t = stripInventedBreaks(t, raw);
   // Dernier recours seulement (aucun LLM) : long bloc sans retour → paragraphes de secours. Jamais en terminal / code.
   else if (!codeLike && lastResort) t = autoParagraphs(t);
+  t = applySpokenAddresses(t); // v1.13 : adresse laissée en toutes lettres par le modèle
   t = applyReplacements(t, opts.replacements);
   if (opts.frenchTypography !== false && (opts.language ?? 'fr') === 'fr' && !codeLike) t = frenchTypography(t);
   t = joinWithBefore(t, opts.context?.before);
@@ -108,10 +119,23 @@ export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOpti
     text: fin(text), provider: 'passthrough', model, latencyMs: Math.round(now() - t0), attempts: [],
   });
   if (isEmptyDictation(input)) return quick('', 'empty');
+  // v1.13 : commandes dictées en tout début (« virgule à la ligne nouveau paragraphe … ») : appliquées ici, le reste
+  // est nettoyé comme une dictée qui suit ce préfixe (le LLM les prenait pour du contenu).
+  const lead = splitLeadingCommands(input);
+  if (lead.prefix) {
+    const before = (opts.context?.before ?? '') + lead.prefix;
+    const sub = lead.rest.trim()
+      ? await cleanTranscriptDetailed(lead.rest, { ...opts, context: { ...opts.context, before } })
+      : { ...quick('', 'leading-commands'), text: '' };
+    const text = joinWithBefore(lead.prefix + sub.text.replace(/^[ \t]+/, /\n$/.test(lead.prefix) ? '' : ' '), opts.context?.before);
+    return { ...sub, text: text.replace(/^([,;]) +/, '$1 '), latencyMs: Math.round(now() - t0) };
+  }
   // b1 : une dictée courte qui contient une commande (« virgule », « à la ligne »…) ne saute plus le LLM.
-  if (shouldSkipLLM(input)) return quick(fallbackClean(input), 'skip-short');
-
   const cfg = loadConfig();
+  // v1.14 : le dictionnaire sert au saut (une marque dictée en minuscules passe par le LLM).
+  const skipVocab = [...(opts.priorityVocabulary ?? []), ...(opts.vocabulary ?? cfg.cleanup.vocabulary ?? [])];
+  if (shouldSkipLLMWithConfidence(input, { vocabulary: skipVocab, asrConfidence: opts.asrConfidence })) return quick(fallbackClean(input), 'skip-short');
+
   const { system, user } = buildMessages(input, {
     language: opts.language ?? 'fr',
     level: opts.level ?? cfg.cleanup.level,
@@ -120,6 +144,7 @@ export async function cleanTranscriptDetailed(raw: string, opts: RouterCleanOpti
     promptMode: opts.promptMode,
     toneByApp: opts.toneByApp,
     context: opts.context,
+    misheard: opts.replacements,
   });
   const job: RouteJob = {
     system, user,
@@ -278,31 +303,64 @@ export async function routeCompletion(job: RouteJob, opts: RouterCleanOptions = 
   const running = new Map<ProviderId, AbortController>();
   const abortAll = () => { for (const c of running.values()) c.abort(); running.clear(); };
 
+  // Mesure (C2) : une ligne JSON `router: mesure {...}` par tentative. Aucun texte dicté : seulement des
+  // comptes et des millisecondes. Les providers n'exposent pas encore `usage` (tokens réels) : on journalise
+  // l'estimation d'entrée (estIn) et le plafond de sortie (maxOut) ; tokIn/tokOut valent null.
+  const measure = (id: ProviderId, model: string, status: string, tStart: number, tNet: number | null, extra: Record<string, unknown> = {}) => {
+    const tEnd = now();
+    logger('router: mesure', {
+      provider: id, model, status, speculative,
+      waitMs: Math.round(tStart - t0), // file / quota / vérif. de dispo / délai de hedge avant l'envoi
+      netMs: tNet === null ? null : Math.round(tNet - tStart), // complete() : réseau + génération (premier octet non exposé)
+      callMs: Math.round(tEnd - tStart), // total de la tentative, post-traitement compris
+      tokIn: null, tokOut: null, estIn: Math.round(estTokens - maxTokens), maxOut: maxTokens,
+      ...extra,
+    });
+  };
+  /** Catégorie courte (sans texte dicté) d'un rejet OutOfRoleError. */
+  const rejectCode = (msg: string): string =>
+    /r[ée]pond/.test(msg) ? 'repond' : /trop longue/.test(msg) ? 'trop-longue' : /trop courte/.test(msg) ? 'trop-courte'
+    : /éloignée/.test(msg) ? 'reecriture' : /phrase absente/.test(msg) ? 'phrase-inventee' : /exemple/.test(msg) ? 'exemple'
+    : /recopi/.test(msg) ? 'recopie' : 'autre';
+  // C1 : raison du rejet « hors rôle » ayant mis fin à la course (undefined = pas de rejet de ce type).
+  let roleRejected: string | undefined;
+
   const attempt = async (id: ProviderId, ctrl: AbortController): Promise<DetailedCleanResult> => {
     const p = providerFor(id);
     const t1 = now();
+    let tNet: number | null = null;
     try {
       if (id !== 'ollama') quota.recordRequest(id);
       const signal = opts.signal ? AbortSignal.any([opts.signal, ctrl.signal]) : ctrl.signal;
       const out = await p.complete({ system, user, temperature: job.temperature, maxTokens, signal });
+      tNet = now();
       let text: string;
       try {
         text = job.post(out.text);
       } catch (e: any) {
         // OutOfRoleError (réponse hors rôle) ou autre rejet du post-traitement.
-        throw new ProviderError(id, 'bad_output', `${e?.name ?? 'Error'} : ${e?.message ?? e}`);
+        const pe = new ProviderError(id, 'bad_output', `${e?.name ?? 'Error'} : ${e?.message ?? e}`);
+        // C1 : le modèle a mal compris SON rôle sur cette dictée (répond, obéit, recopie, invente) : un second
+        // modèle ferait un aller-retour de ~700 ms pour rien → pas de relance, repli direct (voir la course).
+        if (e?.name === 'OutOfRoleError' && job.fallback) Object.assign(pe, { roleReject: rejectCode(String(e?.message ?? '')) });
+        throw pe;
       }
       // Entrée non vide (vérifiée plus haut) mais sortie vide → suspect.
       if (!text.trim()) throw new ProviderError(id, 'bad_output', 'sortie vide après post-traitement');
       quota.recordSuccess(id);
       attempts.push({ provider: id, outcome: 'ok', latencyMs: Math.round(now() - t1) });
+      measure(id, out.model, 'ok', t1, tNet);
       return done(text, id, out.model);
     } catch (e: any) {
-      if (isUserAbort(e, opts.signal)) throw e;
-      if (ctrl.signal.aborted) throw e; // perdant de la course : rien à enregistrer
+      if (isUserAbort(e, opts.signal)) { measure(id, p.model, 'annulé', t1, tNet, { cause: 'utilisateur' }); throw e; }
+      if (ctrl.signal.aborted) { measure(id, p.model, 'annulé', t1, tNet, { cause: 'course' }); throw e; } // perdant de la course : rien à enregistrer
       const err = e as DictaProviderError;
       const kind: ProviderErrorKind = e instanceof ProviderError ? err.kind : 'unknown';
       const message = e?.message ?? String(e);
+      const roleReject: string | undefined = (e as any)?.roleReject;
+      const status = roleReject ? `rejet:${roleReject}` : kind === 'bad_output' && /tronqu/.test(message) ? 'tronqué'
+        : kind === 'bad_output' ? 'rejet:sortie-invalide' : `erreur:${kind}`;
+      measure(id, p.model, status, t1, tNet);
       attempts.push({ provider: id, outcome: kind, message, latencyMs: Math.round(now() - t1) });
       if (kind === 'quota') {
         // Le 429 est déjà mémorisé PAR MODÈLE (providers/common.ts → quota.observe). Pause du fournisseur
@@ -379,8 +437,10 @@ export async function routeCompletion(job: RouteJob, opts: RouterCleanOptions = 
     const launchNext = async (): Promise<void> => {
       clearTimeout(hedgeTimer);
       if (settled) return;
+      if (roleRejected) { if (running.size === 0) finish(undefined); return; } // C1 : plus aucune relance
       const id = await nextAvailable();
       if (settled) return;
+      if (roleRejected) { if (running.size === 0) finish(undefined); return; }
       if (!id) { if (running.size === 0) finish(undefined); return; }
       const ctrl = new AbortController();
       running.set(id, ctrl);
@@ -390,14 +450,23 @@ export async function routeCompletion(job: RouteJob, opts: RouterCleanOptions = 
         running.delete(id);
         if (settled) return;
         if (isUserAbort(e, opts.signal)) { settled = true; abortAll(); reject(e); return; }
+        if (e?.roleReject) {
+          // C1 : rejet « hors rôle » → pas de fournisseur suivant. Une requête hedgée déjà en vol peut encore
+          // gagner (première sortie valide) ; sinon, repli direct dès qu'elle échoue aussi.
+          roleRejected = e.roleReject;
+          clearTimeout(hedgeTimer);
+          if (running.size === 0) finish(undefined);
+          return;
+        }
         void launchNext(); // échec → on n'attend pas le délai de hedge
       });
     };
     void launchNext();
   });
 
+  // Les « … » d'un rejet citent un extrait de la dictée : retirés du journal (vie privée).
   const summary = () =>
-    attempts.map((a) => `${a.provider}: ${a.outcome}${a.latencyMs !== undefined ? ` ${a.latencyMs} ms` : ''}${a.message ? ` — ${redact(a.message).slice(0, 160)}` : ''}`);
+    attempts.map((a) => `${a.provider}: ${a.outcome}${a.latencyMs !== undefined ? ` ${a.latencyMs} ms` : ''}${a.message ? ` — ${redact(a.message).replace(/«[^»]*»/g, '«…»').slice(0, 160)}` : ''}`);
   if (winner) {
     if (attempts.some((a) => a.outcome !== 'ok' && a.outcome !== 'skipped')) {
       logger(`router: nettoyé par ${winner.provider} (${winner.model}) après bascule${speculative ? ' [spéculatif]' : ''}`, summary());
@@ -405,6 +474,10 @@ export async function routeCompletion(job: RouteJob, opts: RouterCleanOptions = 
     return winner;
   }
 
+  if (roleRejected && job.fallback) {
+    logger(`router: repli direct (${roleRejected}) — rejet hors rôle, sans relance${speculative ? ' [spéculatif]' : ''}`, summary());
+    return done(job.fallback(), 'passthrough', 'fallbackClean-rejet');
+  }
   logger(
     `router: ÉCHEC du ${job.label ?? 'traitement'}${speculative ? ' [spéculatif]' : ''} — AUCUN fournisseur n'a répondu${job.fallback ? ' → texte brut (fallbackClean)' : ''}`,
     summary(),
@@ -491,6 +564,40 @@ export async function warmup(): Promise<void> {
   const jobs: Promise<unknown>[] = [refreshQuotas(cfg)];
   if (cfg.providers[0] === 'ollama') jobs.push(warmupOllama(cfg));
   await Promise.allSettled(jobs);
+}
+
+/** Adresse GET légère (liste des modèles) par fournisseur : ouvre la connexion TLS sans consommer de tokens. */
+const WARM_URL: Partial<Record<ProviderId, string>> = {
+  groq: 'https://api.groq.com/openai/v1/models',
+  zai: 'https://api.z.ai/api/paas/v4/models',
+  openrouter: 'https://openrouter.ai/api/v1/models',
+};
+/** Au plus un préchauffage réseau par fenêtre. */
+// 3 s : undici ferme une connexion inactive après ~4 s ; on réchauffe au début ET au relâchement.
+export const WARM_CONNECTION_MIN_INTERVAL_MS = 3_000;
+let lastWarmConn = 0;
+
+/**
+ * Préchauffe la connexion HTTPS du premier fournisseur cloud configuré (clé présente, pas en pause) : un GET sans
+ * en-tête d'autorisation ni corps (réponse 401 courte, aucun token ni quota consommé) via le `fetch` global, le
+ * même que celui des fournisseurs (requestJson / requestSSE : un seul pool de connexions par origine). Le corps
+ * est lu en entier pour que la connexion retourne au pool (l'annuler la détruirait). Au plus 1 fois / 30 s ;
+ * erreurs ignorées. Renvoie true si une requête est partie.
+ */
+export async function warmConnection(cfg: LLMConfig = loadConfig(), nowMs: number = Date.now()): Promise<boolean> {
+  if (nowMs - lastWarmConn < WARM_CONNECTION_MIN_INTERVAL_MS) return false;
+  const id = cfg.providers.find((p) => WARM_URL[p] && !!(cfg.keys as Record<string, string | undefined>)[p] && !quota.blockedReason(p));
+  if (!id) return false;
+  lastWarmConn = nowMs;
+  const t0 = now();
+  try {
+    const res = await fetch(WARM_URL[id]!, { method: 'GET', signal: AbortSignal.timeout(3000) });
+    await res.arrayBuffer();
+    logger(`router: préchauffage réseau ${id}`, { status: res.status, ms: Math.round(now() - t0) });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

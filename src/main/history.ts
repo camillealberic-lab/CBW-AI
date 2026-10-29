@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { decryptBlob, encryptBlob, isEncryptedBlob } from './localcrypto';
 import { dataDir, log } from './paths';
 import type { DictationResult } from './pipeline';
+import { bump, editRatio as calcEditRatio, mergeBuckets, pathOf, round3, wordDistance, type QualityBucket, type QualityPath, type QualitySummary } from './quality';
 import { settings } from './settings';
 
 /** Historique local (~/.dicta-ai/history.json) : 20 dernières dictées + compteurs cumulés. */
@@ -22,12 +23,25 @@ export interface Dictation {
   model: string;
   at: string;
   ms: number;
+  // Qualité en usage réel (facultatifs : absents des anciennes entrées). Nombres seulement.
+  /** Distance d'édition normalisée (0-1) entre le texte collé et le texte final relu dans le champ. */
+  editRatio?: number;
+  /** Nombre de mots corrigés par l'utilisateur (distance d'édition en mots). */
+  wordsCorrected?: number;
+  /** L'utilisateur est revenu au texte brut (« coller le brut ») ou l'a restauré. */
+  reverted?: boolean;
+  /** Écart brut → nettoyé (0-1). */
+  rawToCleanRatio?: number;
+  /** Chemin du nettoyage : llm, saut (LLM sauté) ou repli (nettoyage déterministe). */
+  path?: QualityPath;
 }
 export interface DailyStat {
   date: string; // YYYY-MM-DD (heure locale)
   words: number;
   dictations: number;
   avgMs: number; // latence moyenne relâchement → collage
+  /** Qualité par chemin (absent si aucune dictée ce jour-là). */
+  quality?: Partial<Record<QualityPath, QualitySummary>>;
 }
 export interface Stats {
   words: number;
@@ -39,12 +53,15 @@ export interface Stats {
   daily: DailyStat[];
   /** Nombre de dictées par moteur sur 30 jours. */
   byProvider: Record<string, number>;
+  /** Qualité sur 30 jours, par chemin. */
+  quality: Record<QualityPath, QualitySummary>;
 }
 interface DayBucket {
   words: number;
   dictations: number;
   totalMs: number;
   providers: Record<string, number>;
+  quality?: QualityBucket;
 }
 interface HistoryFile {
   recent: Dictation[];
@@ -237,6 +254,11 @@ export function recordDictation(r: DictationResult, extra: { id?: string; audio?
     at: now.toISOString(),
     ms: r.timings.totalAfterReleaseMs,
   };
+  const qp = pathOf(r.provider, r.model);
+  if (qp) {
+    d.path = qp;
+    d.rawToCleanRatio = round3(calcEditRatio(r.raw, r.text));
+  }
   pushRecent(d);
   h.counters.words += countWords(r.text);
   h.counters.dictations += 1;
@@ -248,10 +270,45 @@ export function recordDictation(r: DictationResult, extra: { id?: string; audio?
   b.dictations += 1;
   b.totalMs += r.timings.totalAfterReleaseMs;
   b.providers[r.provider] = (b.providers[r.provider] ?? 0) + 1;
+  if (qp) bump((b.quality ??= {}), qp, { n: 1 });
   const keys = Object.keys(h.perDay).sort();
   for (const old of keys.slice(0, Math.max(0, keys.length - 400))) delete h.perDay[old];
   save();
   return d;
+}
+
+/** Compteurs du jour de la dictée `d` (là où elle a été comptée). */
+function dayQuality(d: Dictation): QualityBucket | null {
+  const b = load().perDay[dayKey(new Date(d.at))];
+  return b ? (b.quality ??= {}) : null;
+}
+
+/**
+ * Texte final relu dans le champ après collage (appelé par learn.ts, un seul observateur). Une seule fois par dictée.
+ * Reçoit le texte collé et le texte final pour ne calculer que des nombres ; rien n'est stocké.
+ */
+export function recordObservation(id: string, rendered: string, final: string): Dictation | undefined {
+  const d = getById(id);
+  if (!d || d.editRatio !== undefined) return d;
+  const ratio = round3(calcEditRatio(rendered, final));
+  const dist = wordDistance(rendered, final);
+  d.editRatio = ratio;
+  d.wordsCorrected = dist;
+  const q = d.path ? dayQuality(d) : null;
+  if (q && d.path) bump(q, d.path, { observed: 1, editSum: ratio, wordsCorrected: dist });
+  save();
+  return d;
+}
+
+/** L'utilisateur est revenu au texte brut (pasteRaw) ou l'a restauré. Une seule fois par dictée. */
+export function markReverted(id?: string): boolean {
+  const d = id ? getById(id) : getRecent().find((x) => (x.status ?? 'ok') === 'ok' && x.raw);
+  if (!d || d.reverted) return false;
+  d.reverted = true;
+  const q = d.path ? dayQuality(d) : null;
+  if (q && d.path) bump(q, d.path, { reverted: 1 });
+  save();
+  return true;
 }
 
 export function getRecent(): Dictation[] {
@@ -282,6 +339,7 @@ export function getStats(): Stats {
   const perDay = load().perDay;
   const daily: DailyStat[] = [];
   const byProvider: Record<string, number> = {};
+  const qBuckets: (QualityBucket | undefined)[] = [];
   const d = new Date();
   d.setDate(d.getDate() - 29);
   for (let i = 0; i < 30; i++, d.setDate(d.getDate() + 1)) {
@@ -292,8 +350,10 @@ export function getStats(): Stats {
       words: b?.words ?? 0,
       dictations: b?.dictations ?? 0,
       avgMs: b && b.dictations ? Math.round(b.totalMs / b.dictations) : 0,
+      ...(b?.quality ? { quality: Object.fromEntries(Object.entries(mergeBuckets([b.quality])).filter(([, v]) => v.n)) } : {}),
     });
+    qBuckets.push(b?.quality);
     for (const [p, n] of Object.entries(b?.providers ?? {})) byProvider[p] = (byProvider[p] ?? 0) + n;
   }
-  return { words: c.words, dictations: c.dictations, wpm, streakDays, timeSavedMin, daily, byProvider };
+  return { words: c.words, dictations: c.dictations, wpm, streakDays, timeSavedMin, daily, byProvider, quality: mergeBuckets(qBuckets) };
 }

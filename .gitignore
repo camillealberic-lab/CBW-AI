@@ -80,3 +80,9 @@ chantiers/audit-notes/
 chantiers/parakeet-dictee/
 chantiers/compte-rendu-global/
 bench/cases-v111.jsonl
+
+# Veilles et tests sur données réelles (dictées, réunions) : jamais publiés
+chantiers/veille-modificateurs/
+chantiers/latence-wispr/
+chantiers/modele-local/
+screenshot.png

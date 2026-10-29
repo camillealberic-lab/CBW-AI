@@ -2,11 +2,11 @@
 //   NODE_NO_WARNINGS=1 node --experimental-strip-types src/llm/format.test.ts
 import {
   applyDictationCommands, hasDictationCommand, appProfile, isPromptMode, joinWithBefore, stripInventedDashes,
-  frenchTypography, stripInventedBreaks, applyReplacements, sanitizeReplacementRules,
+  frenchTypography, stripInventedBreaks, applyReplacements, sanitizeReplacementRules, applySpokenAddresses, splitLeadingCommands,
 } from './format.ts';
-import { fallbackClean, shouldSkipLLM, postProcess, buildMessages, buildSystemPrompt, renderContextBlock, PROMPT_VERSION, autoParagraphs } from './prompt.ts';
+import { fallbackClean, shouldSkipLLM, postProcess, buildMessages, buildSystemPrompt, renderContextBlock, PROMPT_VERSION, autoParagraphs, isEmptyDictation, preClean } from './prompt.ts';
 import { postProcessRewrite, UNCHANGED, findPreset, resolveInstruction, sanitizePresets, buildRewriteMessages, DEFAULT_PRESETS } from './rewrite.ts';
-import { finalizeText } from './router.ts';
+import { finalizeText, cleanTranscriptDetailed } from './router.ts';
 
 let failed = 0;
 const eq = (got: unknown, want: unknown, msg: string) => {
@@ -16,7 +16,7 @@ const eq = (got: unknown, want: unknown, msg: string) => {
 };
 const check = (ok: boolean, msg: string) => eq(ok, true, msg);
 
-check(PROMPT_VERSION === 'v1.12', 'version v1.12 (v1.5 + paragraphes, listes, « enfin » de la v1.11)');
+check(PROMPT_VERSION === 'v1.14', 'version v1.14 (v1.13 compressé)');
 
 // ── b1 / b2 : commandes
 eq(applyDictationCommands('Salut Karim virgule à la ligne'), 'Salut Karim,\n', 'Salut Karim virgule à la ligne');
@@ -160,14 +160,63 @@ check(finalizeText(longBlock, longBlock, {}, true).includes('\n\nSinon'), 'final
 
 // ── v1.12 : v1.5 + éléments v1.11
 const s12 = buildSystemPrompt({});
-check(/grands thèmes/.test(s12) && /jamais une phrase seule par paragraphe/.test(s12), 'v1.12 : paragraphes par thème, après compréhension');
+check(/deux thèmes différents/.test(s12) && /2-3 phrases/.test(s12), 'v1.12 : paragraphes par thème, après compréhension');
 check(/1\. 2\. 3\./.test(s12) && /tirets/.test(s12), 'v1.12 : listes numérotées / tirets');
 check(/enfin si/.test(s12) && /= finalement/.test(s12) && /un an/.test(s12), 'v1.12 : règles « enfin »');
-check(/ne les recopie jamais/.test(s12) && /arobase/.test(s12) && /émoji/.test(s12), 'v1.12 : « … », e-mails, emoji');
-check(/trucs → choses/.test(s12) && /corrige activement/.test(s12) && /la dernière ou la plus claire/.test(s12), 'v1.12 : garde la v1.5 (familier, correction active, répétitions)');
+check(/jamais recopiées/.test(s12) && /arobase/.test(s12) && /émoji/.test(s12), 'v1.12 : « … », e-mails, emoji');
+check(/trucs → choses/.test(s12) && /corrige activement/.test(s12) && /la plus claire/.test(s12), 'v1.12 : garde la v1.5 (familier, correction active, répétitions)');
 check(!/⟦corrige/.test(s12) && /⟦corrige/.test(buildSystemPrompt({ markCorrections: true })), 'v1.12 : repère ⟦corrige⟧ seulement avec markCorrections');
-check(s12.length < 10300, `v1.12 : prompt système compact (${s12.length} car.)`);
+check(s12.length < 8000, `v1.14 : prompt système compact (${s12.length} car., ≈ 2 100 tokens)`);
 check(!shouldSkipLLM('lundi, enfin mardi'), 'v1.12 : « enfin » court → LLM');
+
+// ── v1.13 : correctifs des 15 phrases (chantiers/veille-modificateurs/correctifs.md)
+// (1) e-mails / adresses web dictés
+eq(applySpokenAddresses("Mon adresse c'est jean point martin arobase exemple point fr."), "Mon adresse c'est jean.martin@exemple.fr.", 'v1.13 : e-mail dicté (arobase)');
+eq(applySpokenAddresses('écris à paul at gmail point com'), 'écris à paul@gmail.com', 'v1.13 : e-mail dicté (at)');
+eq(applySpokenAddresses('jean tiret pierre a commercial orange point fr'), 'jean-pierre@orange.fr', 'v1.13 : e-mail dicté (a commercial, tiret)');
+eq(applySpokenAddresses('marie tiret bas durand arobase exemple point org'), 'marie_durand@exemple.org', 'v1.13 : tiret bas');
+eq(applySpokenAddresses('va sur www point cbw point fr slash contact'), 'va sur www.cbw.fr/contact', 'v1.13 : adresse web');
+eq(applySpokenAddresses('jean.martin arobase exemple point fr'), 'jean.martin@exemple.fr', 'v1.13 : adresse à moitié écrite');
+eq(applySpokenAddresses('je suis at home ce soir'), 'je suis at home ce soir', 'v1.13 : « at » sans domaine = contenu');
+eq(applySpokenAddresses('on fait le point com tout le monde'), 'on fait le point com tout le monde', 'v1.13 : « le point com » = contenu');
+eq(applySpokenAddresses("c'est un point commun"), "c'est un point commun", 'v1.13 : « point commun » = contenu');
+eq(applySpokenAddresses('le chat at moi'), 'le chat at moi', 'v1.13 : « chat » jamais coupé en ch@');
+eq(applySpokenAddresses('ouvre le fichier router point ts'), 'ouvre le fichier router point ts', 'v1.13 : fichier laissé au LLM');
+eq(fallbackClean('jean point martin arobase exemple point fr'), 'jean.martin@exemple.fr.', 'v1.13 : sans LLM, adresse en minuscules');
+check(shouldSkipLLM("mon adresse c'est jean point martin arobase exemple point fr"), 'v1.13 : e-mail court déjà reconstruit → sans LLM');
+eq(applyDictationCommands('écris à jean.martin@exemple.fr point merci'), 'écris à jean.martin@exemple.fr. Merci', 'v1.13 : commandes sans casser une adresse');
+eq(finalizeText('Écris à paul arobase gmail point com.', 'x', { frenchTypography: false }), 'Écris à paul@gmail.com.', 'v1.13 : adresse rattrapée après le LLM');
+// (2) commandes en tête de dictée
+eq(JSON.stringify(splitLeadingCommands('Virgule à la ligne nouveau paragraphe test des commandes point')), JSON.stringify({ prefix: ',\n\n', rest: 'test des commandes point' }), 'v1.13 : commandes en tête retirées et appliquées');
+eq(splitLeadingCommands('A la ligne nouveau paragraphe test des commandes.').prefix, '\n\n', 'v1.13 : « A la ligne » (Whisper, sans accent) = commande');
+eq(splitLeadingCommands("à la ligne d'arrivée il y avait du monde").prefix, '', 'v1.13 : « à la ligne d’arrivée » en tête = contenu');
+eq(splitLeadingCommands('Deux points à voir demain').prefix, '', 'v1.13 : « deux points » en tête = contenu');
+eq(splitLeadingCommands('Point final pour moi').prefix, '', 'v1.13 : « point » en tête = contenu');
+eq(applyDictationCommands('regarde à la ligne 3'), 'regarde à la ligne 3', 'v1.13 : « à la ligne 3 » = contenu');
+const lead = await cleanTranscriptDetailed('virgule à la ligne merci beaucoup', { frenchTypography: false });
+eq(lead.text, ',\nMerci beaucoup.', 'v1.13 : router applique les commandes de tête (reste sans LLM)');
+const lead2 = await cleanTranscriptDetailed('virgule merci beaucoup', { frenchTypography: false, context: { before: 'Salut Paul' } });
+eq(lead2.text, ', merci beaucoup', 'v1.13 : « virgule » en tête raccordée au texte avant');
+eq(postProcess('Bonjour à tous. Nouveau paragraphe on commence la réunion.', 'bonjour à tous nouveau paragraphe on commence la réunion'), 'Bonjour à tous.\n\nOn commence la réunion.', 'v1.13 : retour dicté laissé par le modèle → appliqué');
+// (3) mot cherché, (4) noms, (5) jamais d'invention : règles du prompt
+const s13 = buildSystemPrompt({});
+check(/Mot cherché/.test(s13) && /seul le mot trouvé reste/.test(s13), 'v1.13 : mot cherché (règle bornée)');
+check(/berry ≠ Barry/.test(s13) && /incongru/.test(s13), 'v1.13 : nom proche seulement si incongru (piège Barry/berry)');
+check(/aucun mot non dit/.test(s13) && /jamais complétés/.test(s13), 'v1.13 : jamais de mot ni de trou comblé');
+check(/même en tête/.test(s13) && /\bat\b/.test(s13), 'v1.13 : commandes en tête + « at »');
+let threw = '';
+try { postProcess("J'ai fini le rapport sur les ventes du trimestre, je l'ai relu deux fois et je l'ai mis dans le dossier partagé de l'équipe hier soir. N'hésite surtout pas en cas de souci.", "euh j'ai fini le rapport sur les ventes du trimestre je l'ai relu deux fois et je l'ai mis dans le dossier partagé de l'équipe hier soir"); } catch (e) { threw = (e as Error).message; }
+check(/phrase absente/.test(threw), `v1.13 : phrase inventée rejetée (${threw})`);
+eq(postProcess("J'ai fini le rapport. Il n'y a plus que deux pages à relire.", "j'ai fini le rapport y a plus que deux pages à relire"), "J'ai fini le rapport. Il n'y a plus que deux pages à relire.", 'v1.13 : oral → écrit jamais pris pour une invention');
+// (6) « ok » seul = vraie dictée
+for (const w of ['ok', 'OK.', 'Ok', 'oui', 'non', "d'accord", 'merci']) check(!isEmptyDictation(w), `v1.13 : « ${w} » seul n'est pas vide`);
+check(isEmptyDictation('euh… hum'), 'v1.13 : fillers seuls restent vides');
+eq(fallbackClean('OK'), 'OK.', 'v1.13 : « OK » collé');
+// (8) vocabulaire avec déformations connues
+const sv = buildSystemPrompt({ vocabulary: ['Claude', 'Ynov'], misheard: [{ from: 'cloud', to: 'Claude' }, { from: 'clode', to: 'claude' }, { from: 'in-off', to: 'Ynov' }] });
+check(sv.includes('Claude (entendu : cloud, clode)') && sv.includes('Ynov (entendu : in-off)'), 'v1.13 : vocabulaire avec ses déformations');
+check(buildSystemPrompt({ vocabulary: ['Claude'] }).includes('Termes : Claude.'), 'v1.13 : sans règle, vocabulaire inchangé');
+check(preClean('a arobase b point com') === 'a@b.com', 'v1.13 : preClean reconstruit les adresses');
 
 console.log(failed ? `\n${failed} échec(s)` : '\ntous les tests passent');
 process.exitCode = failed ? 1 : 0;

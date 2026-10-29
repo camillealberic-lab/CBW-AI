@@ -4,6 +4,8 @@
 //   - raccord avec le texte déjà écrit                              → joinWithBefore (m14)
 //   - tiret cadratin inventé, espaces fines françaises              → stripInventedDashes, frenchTypography (m5/m6)
 //   - règles de remplacement du dictionnaire                        → applyReplacements (f4)
+//   - e-mails / adresses web dictés (arobase, point com)            → applySpokenAddresses (v1.13)
+//   - commandes dictées en tête de dictée                           → splitLeadingCommands (v1.13)
 //
 // Compatible `node --experimental-strip-types`.
 
@@ -27,8 +29,10 @@ const lw = (s: string) => s.toLowerCase().replace(/’/g, "'");
 
 /** Commande de retour à la ligne détectée à la position i (tokens) ; renvoie [nb de tokens, '\n' | '\n\n' | '.\n']. */
 function lineCommandAt(toks: Tok[], i: number): [number, string] | null {
-  const w = (k: number) => toks[i + k]?.lower ?? '';
-  const nextIsContent = (k: number) => /^(?:d'|de|du|des|d)$/.test(w(k)) || w(k).startsWith("d'");
+  // Whisper écrit souvent « A la ligne » (capitale sans accent) : « A » majuscule = « à ».
+  const w = (k: number) => (toks[i + k]?.text.replace(/^[,.;:!?…]+/, '').startsWith('A') && toks[i + k]?.lower === 'a' ? 'à' : toks[i + k]?.lower ?? '');
+  // « la ligne d'arrivée », « à la ligne 3 » : contenu, pas une commande.
+  const nextIsContent = (k: number) => /^(?:d'|de|du|des|d)$/.test(w(k)) || w(k).startsWith("d'") || NUM_WORD_RE.test(w(k));
   // point à la ligne
   if (w(0) === 'point' && w(1) === 'à' && w(2) === 'la' && w(3) === 'ligne') return [4, '.\n'];
   if (w(0) === 'point' && w(1) === 'et' && w(2) === 'à' && w(3) === 'la' && w(4) === 'ligne') return [5, '.\n'];
@@ -104,8 +108,11 @@ function tokenize(text: string): Tok[] {
  * Ne touche pas au reste. Sert de filet quand aucun moteur IA n'a répondu (b2) et à la dictée courte (b1).
  * « il est allé à la ligne d'arrivée » reste intact ; « le point important » aussi.
  */
-export function applyDictationCommands(text: string): string {
+export function applyDictationCommands(text: string, only?: 'line'): string {
   if (!text) return text;
+  // Adresses (jean.martin@exemple.fr, cbw.fr/contact, router.ts) protégées : aucune espace insérée après leurs points.
+  const kept: string[] = [];
+  text = text.replace(ADDRESS_TOKEN_RE, (m) => `\u0000${kept.push(m) - 1}\u0000`);
   const toks = tokenize(text);
   let out = '';
   let capNext = false; // une majuscule est due au prochain mot
@@ -124,7 +131,7 @@ export function applyDictationCommands(text: string): string {
       capNext = true;
       continue;
     }
-    const pc = punctCommandAt(toks, i);
+    const pc = only === 'line' ? null : punctCommandAt(toks, i);
     if (pc) {
       const [n, sign, kind] = pc;
       if (kind === 'close') {
@@ -155,7 +162,83 @@ export function applyDictationCommands(text: string): string {
     .replace(/([.!?…])(?=\p{L})/gu, '$1 ')
     .replace(/,\s*\./g, '.')
     .replace(/\.{2,}(?!\.)/g, '.')
-    .trim() + trail;
+    .trim()
+    .replace(/\u0000(\d+)\u0000/g, (_m, k: string) => kept[Number(k)]) + trail;
+}
+
+/** Mot avec un point interne (adresse, domaine, fichier) ou un @ : jamais retouché par la ponctuation. */
+const ADDRESS_TOKEN_RE = /[\p{L}\p{N}_+-]+(?:[.@][\p{L}\p{N}_+-]+)*@[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)+|(?:https?:\/\/)?[\p{L}\p{N}_-]+(?:\.[\p{L}\p{N}_-]+)+(?:\/[\p{L}\p{N}_./-]*)?/gu;
+
+/**
+ * v1.13 : commandes dictées au TOUT DÉBUT de la dictée (« virgule à la ligne nouveau paragraphe test… »).
+ * Le LLM les prend pour du contenu ; on les retire avant lui et on les applique de façon sûre.
+ * Seules « virgule », « point-virgule » et les retours (à la ligne, nouveau paragraphe…) comptent ; « point » seul
+ * en tête, « deux points » (« deux points à voir ») et « à la ligne d'arrivée » restent du contenu.
+ * Renvoie le préfixe déjà appliqué (« ,\n\n ») et le reste de la dictée.
+ */
+export function splitLeadingCommands(text: string): { prefix: string; rest: string } {
+  const toks = tokenize(text ?? '');
+  let i = 0;
+  let prefix = '';
+  while (i < toks.length) {
+    const line = lineCommandAt(toks, i);
+    if (line) {
+      const [n, seq] = line;
+      prefix += (seq === '.\n' ? '\n' : seq);
+      i += n;
+      continue;
+    }
+    const w = toks[i].lower;
+    if (w === 'virgule' || w === 'point-virgule') { prefix += w === 'virgule' ? ',' : ';'; i += 1; continue; }
+    if (w === 'point' && toks[i + 1]?.lower === 'virgule') { prefix += ';'; i += 2; continue; }
+    break;
+  }
+  if (!i) return { prefix: '', rest: text };
+  return { prefix: prefix.replace(/\n{3,}/g, '\n\n'), rest: toks.slice(i).map((t) => t.text).join(' ').replace(/^[,.;:\s]+/, '') };
+}
+
+// ─────────────────────────────────────────────── e-mails et adresses web dictés
+
+/** Domaines de premier niveau reconnus après « point » (adresse web sans arobase). */
+const TLD = '(?:com|fr|org|net|io|ai|app|dev|eu|be|ch|ca|info|biz|xyz|tech|studio|shop|gouv\\s+point\\s+fr)';
+const SEG = '[\\p{L}\\p{N}_]+(?:[.\\-][\\p{L}\\p{N}_]+)*';
+const SEP = '\\s+(?:point|tiret\\s+bas|tiret\\s+du\\s+bas|underscore|tiret|\\.|-|_)\\s+';
+const AT = '(?:\\s+(?:arobase|arrobase|at|a\\s+commercial|à\\s+commercial)\\s+|\\s*@\\s*)';
+const EMAIL_RE = new RegExp(`(?<![\\p{L}\\p{N}_@.])(${SEG}(?:${SEP}${SEG})*)${AT}(${SEG}(?:${SEP}${SEG})*)(?![\\p{L}\\p{N}_@])`, 'giu');
+const URL_RE = new RegExp(`(?<![\\p{L}\\p{N}_@.])(${SEG}(?:${SEP}${SEG})*\\s+point\\s+${TLD}(?:\\s+(?:slash|barre\\s+oblique)\\s+${SEG})*)(?![\\p{L}\\p{N}_])`, 'giu');
+/** Mots qui ne commencent jamais un nom de domaine (« le point com », « faire un point fr… »). */
+const NOT_DOMAIN_START = /^(?:le|la|les|un|une|du|de|des|au|aux|ce|ces|mon|ton|son|notre|votre|leur|faire|fait|on|et|ou|à|a|en|point|deux|premier|dernier|bon|même|sur)$/i;
+
+const joinAddress = (s: string) =>
+  s
+    .replace(/\s+(?:tiret\s+bas|tiret\s+du\s+bas|underscore|_)\s+/gi, '_')
+    .replace(/\s+(?:tiret|-)\s+/gi, '-')
+    .replace(/\s+(?:point|\.)\s+/gi, '.')
+    .replace(/\s+(?:slash|barre\s+oblique)\s+/gi, '/')
+    .toLowerCase();
+
+/**
+ * v1.13 : e-mail ou adresse web dictés → forme écrite, attachée, en minuscules.
+ * « jean point martin arobase exemple point fr » → « jean.martin@exemple.fr » (aussi « at », « a commercial »).
+ * « www point cbw point fr slash contact » → « www.cbw.fr/contact ». Avec « at » (ambigu), le domaine doit finir par
+ * un TLD connu. Le texte sans adresse est rendu tel quel. Idempotent.
+ */
+export function applySpokenAddresses(text: string): string {
+  if (!text || !/(?:arobase|arrobase|\bat\b|commercial|@|\bpoint\s+\p{L})/iu.test(text)) return text;
+  let t = text.replace(EMAIL_RE, (m, local: string, domain: string) => {
+    const at = m.slice(local.length, m.length - domain.length);
+    const d = joinAddress(domain);
+    if (!/\./.test(d)) return m; // pas de domaine (« Paul at home ») : contenu
+    if (/^\s*at\s*$/i.test(at) && !new RegExp(`\\.${TLD}$`, 'i').test(d)) return m;
+    // Local : seulement la fin du segment qui est dictée comme adresse (« c'est jean point martin »).
+    return `${joinAddress(local)}@${d}`;
+  });
+  t = t.replace(URL_RE, (m, addr: string) => {
+    const first = addr.split(/\s+/)[0];
+    if (NOT_DOMAIN_START.test(first)) return m;
+    return joinAddress(addr);
+  });
+  return t;
 }
 
 // ─────────────────────────────────────────────────────── profil d'application

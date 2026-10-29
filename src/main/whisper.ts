@@ -6,6 +6,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { MAX_CHUNK_MS, MEETING_MAX_CHUNK_MS } from '../shared/vad';
 import { cleanWhisperOutput, collapseLoops, looksLooping } from '../shared/whisperText';
+import { confidenceFromVerbose, type AsrConfidence } from './asrConfidence';
 import { wrongLanguage } from './langGuard';
 import { appRoot, dataDir, firstExisting, log, modelsDir, textForLog } from './paths';
 import { CATALOG, DEFAULT_DOWNLOAD, modelDownloader } from './whisperModels';
@@ -184,6 +185,9 @@ class WhisperServer {
     // Réunion : pas de -ac (contexte complet) ; le repli de température est décidé requête par requête.
     const args = ['-m', model, '--host', '127.0.0.1', '--port', String(this.port), '-l', 'fr', '-nt', '-t', String(perfCores()), '-bo', '1', '-bs', '1', '-fa'];
     if (this.audioCtx > 0) args.push('-nf', '-ac', String(this.audioCtx));
+    // W1 : verbose_json sans probabilités de langue (-nlp) ; sans ce drapeau, chaque requête verbose_json coûte ~+190 ms
+    // (détection de langue superflue, mesuré). Dictée seulement : les notes restent en texte brut.
+    if (this.audioCtx > 0) args.push('-nlp');
     log(`whisper-server${this.tag}: démarrage`, path.basename(model), 'port', this.port);
     killStale(bin, this.pidFile());
     // Chien de garde : un petit shell lance whisper-server et le tue dès que notre stdin se ferme
@@ -233,7 +237,7 @@ class WhisperServer {
     return this.readyP ? this.readyP : false;
   }
 
-  async infer(wav: Buffer, opts: TranscribeOpts, p: InferParams): Promise<string> {
+  async infer(wav: Buffer, opts: TranscribeOpts, p: InferParams): Promise<{ text: string; conf?: AsrConfidence }> {
     const fd = new FormData();
     // Les paramètres de requête persistent côté serveur : on les envoie toujours tous (prompt compris,
     // même vide, sinon le prompt d'une requête précédente resterait actif).
@@ -243,7 +247,9 @@ class WhisperServer {
     fd.append('temperature_inc', String(p.tempInc));
     fd.append('max_context', String(p.maxContext));
     fd.append('file', new Blob([new Uint8Array(wav)], { type: 'audio/wav' }), 'audio.wav');
-    fd.append('response_format', 'text');
+    // Dictée : verbose_json (confiance par segment, W1) ; notes : texte brut, inchangé.
+    const verbose = !opts.meeting;
+    fd.append('response_format', verbose ? 'verbose_json' : 'text');
     fd.append('no_timestamps', 'true');
     fd.append('language', opts.language || 'fr');
     fd.append('temperature', '0.0');
@@ -252,7 +258,16 @@ class WhisperServer {
     const guard = AbortSignal.timeout(Math.max(8_000, Math.round(wavMs(wav) * 2) + 4_000));
     const r = await fetch(`http://127.0.0.1:${this.port}/inference`, { method: 'POST', body: fd, signal: opts.signal ? AbortSignal.any([opts.signal, guard]) : guard });
     if (!r.ok) throw new Error(`whisper-server HTTP ${r.status}`);
-    return r.text();
+    const body = await r.text();
+    if (!verbose) return { text: body };
+    // Réponse inattendue (serveur ancien, texte brut) : on garde le texte, sans confiance.
+    if (!body.startsWith('{')) return { text: body };
+    try {
+      const j = JSON.parse(body) as { text?: unknown };
+      return { text: typeof j.text === 'string' ? j.text : '', conf: confidenceFromVerbose(j) };
+    } catch {
+      return { text: body };
+    }
   }
 
   stop(): void {
@@ -326,7 +341,7 @@ const MEETING_PARAMS: InferParams = { audioCtx: 0, beam: 1, bestOf: 3, tempInc: 
 /** Nouvel essai après une boucle : sans prompt, sans texte précédent réinjecté, beam 3, repli plus ample. */
 const anti = (p: InferParams): InferParams => ({ ...p, beam: 3, bestOf: 3, tempInc: 0.4, maxContext: 0, prompt: undefined });
 
-export async function transcribe(wav: Buffer | string, opts: TranscribeOpts): Promise<{ text: string; ms: number }> {
+export async function transcribe(wav: Buffer | string, opts: TranscribeOpts): Promise<{ text: string; ms: number; conf?: AsrConfidence }> {
   const meeting = !!opts.meeting;
   const srv = meeting ? whisperMeetingServer : whisperServer;
   const maxMs = (meeting ? MEETING_MAX_CHUNK_MS : MAX_CHUNK_MS) + 300;
@@ -343,30 +358,37 @@ export async function transcribe(wav: Buffer | string, opts: TranscribeOpts): Pr
       // (reproduit : audio français + prompt anglais + language=fr → sortie anglaise) : il est alors écarté d'emblée.
       const prompt = opts.prompt && wrongLanguage(opts.prompt, opts.language) ? undefined : opts.prompt;
       if (opts.prompt && !prompt) log(`whisper-server: prompt dans une autre langue que ${opts.language} → ignoré`);
-      let text = cleanWhisperOutput(await srv.infer(wav, opts, { ...base, prompt }));
+      const first1 = await srv.infer(wav, opts, { ...base, prompt });
+      let text = cleanWhisperOutput(first1.text);
+      let conf = first1.conf;
       if (looksLooping(text, sec)) {
         // Un nouvel essai sur le MÊME serveur (contexte inchangé) avec réglages anti-boucle : jamais de
         // rechargement du modèle (whisper-cli ≈ 2,6 s par morceau).
         const first = text.length;
-        text = cleanWhisperOutput(await srv.infer(wav, opts, anti(base)));
+        const again1 = await srv.infer(wav, opts, anti(base));
+        text = cleanWhisperOutput(again1.text);
+        conf = again1.conf;
         if (looksLooping(text, sec)) {
           log(`whisper-server${meeting ? ' (réunion)' : ''}: boucle persistante (${first} puis ${text.length} car.) → répétitions réduites`);
           text = cleanWhisperOutput(collapseLoops(text));
           if (text.length > 30 + sec * 40) text = '';
+          conf = undefined; // texte réécrit à la main : la mesure ne le décrit plus
         }
       }
       // Garde-fou de langue : sortie manifestement dans une autre langue que celle demandée (ex. anglais alors que
       // general.language = fr, poussé par un prompt plein de noms / de texte anglais) → nouvel essai sans prompt ni
       // texte précédent ; on garde la version dans la bonne langue (sinon la 1re).
       if (text && wrongLanguage(text, opts.language)) {
-        const again = cleanWhisperOutput(await srv.infer(wav, opts, { ...base, maxContext: 0, prompt: undefined }));
+        const r2 = await srv.infer(wav, opts, { ...base, maxContext: 0, prompt: undefined });
+        const again = cleanWhisperOutput(r2.text);
         const fixed = !!again && !wrongLanguage(again, opts.language);
         log(`whisper-server${meeting ? ' (réunion)' : ''}: langue ≠ ${opts.language} → nouvel essai sans prompt (${fixed ? 'corrigé' : 'inchangé'})`);
-        if (fixed) text = again;
+        if (fixed) { text = again; conf = r2.conf; }
+        else conf = undefined; // texte jugé hors langue : jamais « confiant »
       }
       const ms = Date.now() - t0;
       log(`whisper(server${meeting ? ', réunion' : ''}): ${ms} ms → ${textForLog(text)}`);
-      return { text, ms };
+      return { text, ms, ...(conf && text ? { conf } : {}) };
     } catch (e) {
       if (opts.signal?.aborted) throw e;
       log('whisper-server: échec, repli whisper-cli', e);

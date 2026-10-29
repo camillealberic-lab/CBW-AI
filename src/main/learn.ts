@@ -5,7 +5,8 @@ import { Notification, shell } from 'electron';
 import { validateLearnedTerm } from '../llm/learn';
 import { routerModule } from './cleaner';
 import { focusedField } from './context';
-import { getRecent } from './history';
+import { getRecent, markReverted, recordObservation } from './history';
+import { editRatio as calcEditRatio } from './quality';
 import { analyzeCorrection, findReplacements } from './learnDiff';
 import { buildReport, dateKey } from './learnReport';
 import { decryptBlob, encryptBlob } from './localcrypto';
@@ -208,8 +209,15 @@ export function initLearning(): void {
 
 /** Relecture d'un collage : enregistre l'observation, met à jour les préférences. Rien de journalisé hors comptes. */
 function observe(rendered: string, fieldValue: string, bundleId: string | undefined, at: number): void {
-  const raw = getRecent().find((d) => d.status !== 'cancelled' && d.text === rendered && Date.parse(d.at) >= at - 120_000)?.raw ?? '';
+  const entry = getRecent().find((d) => d.status !== 'cancelled' && d.text === rendered && Date.parse(d.at) >= at - 120_000);
+  const raw = entry?.raw ?? '';
   const a = analyzeCorrection(rendered, fieldValue, raw);
+  if (entry?.id && a) recordObservation(entry.id, rendered, a.final); // qualité : nombres seulement (editRatio, mots corrigés)
+  if (!a && entry?.id && raw && raw !== rendered) {
+    // Texte rendu introuvable mais brut présent et peu modifié : l'utilisateur est revenu au brut.
+    const b = analyzeCorrection(raw, fieldValue);
+    if (b && calcEditRatio(raw, b.final) <= 0.2 && markReverted(entry.id)) log('learn: retour au brut détecté');
+  }
   if (!a) {
     log('learn: observation ignorée (texte collé introuvable ou trop modifié)');
     return;

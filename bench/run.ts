@@ -9,7 +9,7 @@ import type { CleanLevel } from '../src/llm/prompt.ts';
 import { thinkingConfigFor } from '../src/llm/providers/gemini.ts';
 import { groqExtraBody } from '../src/llm/providers/groq.ts';
 import { autoParagraphs } from '../src/llm/prompt.ts';
-import { appProfile } from '../src/llm/format.ts';
+import { appProfile, applySpokenAddresses, splitLeadingCommands } from '../src/llm/format.ts';
 
 interface Case { id: string; cat: string; raw: string; context?: import('../src/shared/types.ts').DictationContext; expected: string; must: string[]; mustNot: string[];
   /** Début attendu, casse comprise (raccord). */ starts?: string;
@@ -39,6 +39,8 @@ const vocabulary = flag('--vocab')?.split(',') ?? [];
 const delayMs = Number(flag('--delay') ?? 0);
 const casesFile = flag('--cases') ?? 'cases.jsonl';
 const outDir = flag('--out'); // dossier des résultats JSON (défaut bench/results)
+// --anchor : avec le rappel du contrat après la dictée (v1.13, désactivé dans l'app), pour comparer.
+const withAnchor = args.includes('--anchor') ? (args.splice(args.indexOf('--anchor'), 1), true) : false;
 const mark = args.includes('--mark') ? (args.splice(args.indexOf('--mark'), 1), true) : false;
 // --autopara : applique la passe de paragraphes de finalizeText (v1.10) à la sortie, comme l'app.
 const autopara = args.includes('--autopara') ? (args.splice(args.indexOf('--autopara'), 1), true) : false;
@@ -268,14 +270,18 @@ for (const target of targets) {
   }
   for (const c of cases) {
     if (isEmptyDictation(c.raw)) { rows.push(score(c, '', { skipped: true })); continue; }
-    if (shouldSkipLLM(c.raw)) { rows.push(score(c, fallbackClean(c.raw), { skipped: true })); continue; }
-    const { system, user } = buildMessages(c.raw, { level, vocabulary, markCorrections: mark, context: c.context });
+    // v1.13 : comme le router, commandes de tête appliquées hors LLM, adresses rattrapées après.
+    const lead = splitLeadingCommands(c.raw);
+    const raw = lead.rest;
+    const wrap = (o: string) => (lead.prefix ? lead.prefix + o.replace(/^\s+/, '') : o);
+    if (shouldSkipLLM(raw)) { rows.push(score(c, wrap(fallbackClean(raw)), { skipped: true })); continue; }
+    const { system, user } = buildMessages(raw, { level, vocabulary, markCorrections: mark, context: c.context, anchor: withAnchor });
     if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
     const t0 = performance.now();
     let rawModel = '', output = '', rejected: string | undefined, error: string | undefined;
     try {
-      rawModel = await call(target, system, user, GENERATION.maxTokens(c.raw));
-      try { output = finish(c, postProcess(rawModel, c.raw)); } catch (e) { rejected = (e as Error).message; output = rawModel.trim(); }
+      rawModel = await call(target, system, user, GENERATION.maxTokens(raw));
+      try { output = wrap(applySpokenAddresses(finish(c, postProcess(rawModel, raw)))); } catch (e) { rejected = (e as Error).message; output = rawModel.trim(); }
     } catch (e) { error = (e as Error).message; }
     const ms = Math.round(performance.now() - t0);
     const row = score(c, output, { rawModel, ms, inTok: lastInTok, outTok: lastOutTok, cachedTok: lastCachedTok, rejected, error });
@@ -291,7 +297,7 @@ for (const target of targets) {
   const mem = target.startsWith('ollama:') ? await ollamaMem(target.slice(7)) : '—';
   const byCat = new Map<string, Row[]>();
   for (const r of rows) byCat.set(r.cat, [...(byCat.get(r.cat) ?? []), r]);
-  const line = `| ${target} | ${PROMPT_VERSION}/${level}${mark ? '+mark' : ''} | **${avg((r) => r.score).toFixed(2)}** | ${rows.filter((r) => r.mustOk).length}/${rows.length} | ${rows.filter((r) => r.mustNotOk).length}/${rows.length} | ${rows.filter((r) => !r.fillerLeft.length).length}/${rows.length} | ${rows.filter((r) => r.paraOk).length}/${rows.length} | ${rows.filter((r) => !r.oralLeft.length).length}/${rows.length} | ${avg((r) => r.f1).toFixed(2)} | ${rows.filter((r) => r.rejected).length} | ${rows.filter((r) => r.error).length} | ${p50} / ${p90} | ${mem} |`;
+  const line = `| ${target} | ${PROMPT_VERSION}/${level}${mark ? '+mark' : ''}${withAnchor ? "+ancre" : ""} | **${avg((r) => r.score).toFixed(2)}** | ${rows.filter((r) => r.mustOk).length}/${rows.length} | ${rows.filter((r) => r.mustNotOk).length}/${rows.length} | ${rows.filter((r) => !r.fillerLeft.length).length}/${rows.length} | ${rows.filter((r) => r.paraOk).length}/${rows.length} | ${rows.filter((r) => !r.oralLeft.length).length}/${rows.length} | ${avg((r) => r.f1).toFixed(2)} | ${rows.filter((r) => r.rejected).length} | ${rows.filter((r) => r.error).length} | ${p50} / ${p90} | ${mem} |`;
   summary.push(line);
   console.log('\n' + line);
   const toks = run.map((r) => r.inTok).filter((n): n is number => typeof n === 'number');
@@ -302,7 +308,7 @@ for (const target of targets) {
   const setTag = casesFile === 'cases.jsonl' ? '' : '_' + casesFile.replace(/^.*\//, '').replace(/\.jsonl$/, '');
   const dir = outDir ? (outDir.endsWith('/') ? outDir : outDir + '/') : `${ROOT}results/`;
   mkdirSync(dir, { recursive: true });
-  const file = `${dir}${target.replace(/[:/]/g, '_')}__${PROMPT_VERSION}_${level}${mark ? '_mark' : ''}${setTag}.json`;
+  const file = `${dir}${target.replace(/[:/]/g, '_')}__${PROMPT_VERSION}_${level}${mark ? '_mark' : ''}${withAnchor ? "_ancre" : ""}${setTag}.json`;
   writeFileSync(file, JSON.stringify({ target, prompt: PROMPT_VERSION, level, date: new Date().toISOString(), p50, p90, mem, rows }, null, 2));
 }
 const head = '| cible | prompt | score /10 | contenu ✔ | abandonné ✘ | sans filler | paragraphes ✔ | oral→écrit ✔ | F1 | rejets | erreurs | latence p50/p90 ms | RAM |\n|---|---|---|---|---|---|---|---|---|---|---|---|---|';
