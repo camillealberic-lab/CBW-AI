@@ -18,7 +18,7 @@ export type CleanLevel = 'light' | 'standard';
 export const ALL_PROVIDERS: readonly ProviderId[] = ['gemini', 'groq', 'zai', 'openrouter', 'ollama'];
 // Ordre « vitesse sans saturer la RAM » : Groq ≈ 0,4–0,7 s, Gemini ≈ 1 s, puis le local (gemma4 ≈ 10 Go
 // de mémoire unifiée : trop lourd à garder chargé sur un Mac 16 Go), OpenRouter en dernier recours.
-export const DEFAULT_ORDER: ProviderId[] = ['groq', 'gemini', 'zai', 'ollama', 'openrouter'] // Z.ai gratuit : souvent surchargé (3–40 s), en secours;
+export const DEFAULT_ORDER: ProviderId[] = ['gemini', 'groq', 'zai', 'ollama', 'openrouter'] // Z.ai gratuit : souvent surchargé (3–40 s), en secours;
 
 /** Modèles par défaut (ids vérifiés dans les docs officielles, oct. 2026). */
 export const DEFAULT_MODELS: Record<ProviderId, string> = {

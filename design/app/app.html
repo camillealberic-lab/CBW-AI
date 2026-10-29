@@ -1316,6 +1316,8 @@ body:not([data-view="hub"]) .side-resize { display: none; }
 .mic-meter i.on { background: var(--etat-enregistre); }
 .mic-test .note b { color: var(--texte); }
 .mic-acts { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.mic-test-row { padding: 0 0 4px; display: flex; flex-direction: column; gap: 8px; }
+.mic-test-row .note:empty { display: none; }
 .heat-card { margin-top: var(--s5); }
 .heat-wrap { overflow-x: auto; padding: 14px 0 4px; border-top: 1px solid var(--fil); }
 .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); grid-auto-columns: 11px; gap: 3px; width: max-content; }
@@ -1631,14 +1633,6 @@ body:not([data-view="hub"]) .side-resize { display: none; }
             <li><b>05</b><span>Échap annule sans rien perdre : <span id="guidePaste"></span> recolle la dictée.</span></li>
           </ol>
         </div>
-        <div class="card mic-card">
-          <div class="card-h"><h2>Micro</h2></div>
-          <div class="mic-test">
-            <div class="mic-meter" id="homeMicMeter" aria-hidden="true"></div>
-            <p class="note" id="micNote" aria-live="polite">Parle quelques secondes : les barres doivent monter au moins jusqu'au milieu.</p>
-            <div class="mic-acts"><button class="btn" id="micTestBtn">Tester mon micro</button><button class="link" data-goto="settings:audio">Choisir le micro</button></div>
-          </div>
-        </div>
       </div>
       <div class="home-grid">
         <div class="kpis" id="stats"></div>
@@ -1896,6 +1890,10 @@ body:not([data-view="hub"]) .side-resize { display: none; }
 
       <p class="group-title" id="settings-audio">Micro</p>
       <div class="group">
+        <div class="row"><div class="label">Tester mon micro<span class="hint">Parle quelques secondes : les barres doivent monter au moins jusqu'au milieu</span></div>
+          <button class="btn" id="micTestBtn">Tester mon micro</button></div>
+        <div class="mic-test-row"><div class="mic-meter" id="homeMicMeter" aria-hidden="true"></div>
+          <p class="note" id="micNote" aria-live="polite"></p></div>
         <div class="row"><div class="label">Micro utilisé<span class="hint">S'il est débranché, CBW reprend le micro par défaut</span></div>
           <span class="row-ctl"><select id="micSelect" aria-label="Micro utilisé"><option value="">Défaut du système</option></select><button class="btn ghost" id="micRefresh">Actualiser</button></span></div>
         <div class="row"><div class="label">Éviter les AirPods et écouteurs Bluetooth<span class="hint">Préférer le micro du Mac : les premiers mots ne sont plus perdus</span></div>
